@@ -11,6 +11,8 @@ import {
   getLocalSearchHistory,
   formatCheckDate,
   getLastScannedBatch,
+  getPendingDomainsToScan,
+  setLastScannedBatch,
 } from '../../../lib/searchHistory';
 import {
   FileText,
@@ -104,14 +106,8 @@ function ResultsContent() {
   useEffect(() => {
     if (hasLoadedRef.current) return;
 
-    let domainInput = '';
-    try {
-      domainInput = sessionStorage.getItem('pending_domains') || '';
-      if (domainInput) {
-        // Clear pending_domains so future clicks on Results won't re-run the file scan
-        sessionStorage.removeItem('pending_domains');
-      }
-    } catch (e) {}
+    const pendingList = getPendingDomainsToScan();
+    let domainInput = pendingList.length > 0 ? pendingList.join('\n') : '';
 
     if (!domainInput) {
       domainInput = searchParams.get('domains') || '';
@@ -280,6 +276,7 @@ function ResultsContent() {
                   });
                   setResults([...allFormatted]);
                   // Progressively save after each batch
+                  setLastScannedBatch(allFormatted as any);
                   saveLocalSearchHistory(allFormatted as any);
                   syncToSupabase(allFormatted.slice(i, i + CHUNK_SIZE) as any);
                 }
@@ -309,9 +306,7 @@ function ResultsContent() {
           setIsPaused(false);
 
           // Final save of all completed results
-          try {
-            sessionStorage.setItem('last_scanned_results', JSON.stringify(allFormatted));
-          } catch (e) {}
+          setLastScannedBatch(allFormatted as any);
           saveLocalSearchHistory(allFormatted as any);
           syncToSupabase(allFormatted as any);
         };

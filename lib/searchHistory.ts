@@ -234,13 +234,62 @@ export function deleteSearchSession(sessionId: string): void {
   } catch (e) {}
 }
 
+let latestBatchMemory: StoredSearchItem[] | null = null;
+let pendingDomainsMemory: string[] | null = null;
+
+export function setPendingDomainsToScan(domains: string[]): void {
+  if (!domains || !domains.length) return;
+  pendingDomainsMemory = domains;
+  if (typeof window !== 'undefined') {
+    try {
+      sessionStorage.setItem('pending_domains', domains.join('\n'));
+    } catch (e) {
+      try {
+        sessionStorage.setItem('pending_domains', domains.slice(0, 3000).join('\n'));
+      } catch (err) {}
+    }
+  }
+}
+
+export function getPendingDomainsToScan(): string[] {
+  if (pendingDomainsMemory && pendingDomainsMemory.length > 0) {
+    const list = [...pendingDomainsMemory];
+    pendingDomainsMemory = null;
+    return list;
+  }
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = sessionStorage.getItem('pending_domains');
+    if (raw) {
+      sessionStorage.removeItem('pending_domains');
+      const list = raw.split(/[\r\n,]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
+      if (list.length > 0) return list;
+    }
+  } catch (e) {}
+  return [];
+}
+
+export function setLastScannedBatch(items: StoredSearchItem[]): void {
+  if (!items || !items.length) return;
+  latestBatchMemory = items;
+  if (typeof window !== 'undefined') {
+    try {
+      sessionStorage.setItem('last_scanned_results', JSON.stringify(items.slice(0, 2000)));
+    } catch (e) {}
+  }
+}
+
 export function getLastScannedBatch(): StoredSearchItem[] {
+  if (latestBatchMemory && latestBatchMemory.length > 0) {
+    return latestBatchMemory;
+  }
   if (typeof window === 'undefined') return [];
   try {
     const raw = sessionStorage.getItem('last_scanned_results') || localStorage.getItem('oldurl_latest_search_batch');
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        latestBatchMemory = parsed;
         return parsed.map((item: any, idx: number) => ({
           ...item,
           id: String(idx + 1).padStart(2, '0'),

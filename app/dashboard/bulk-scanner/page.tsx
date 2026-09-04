@@ -15,6 +15,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { parseDomainsFromFile } from '../../../lib/fileParser';
+import { setPendingDomainsToScan } from '../../../lib/searchHistory';
 
 interface BatchScanJob {
   id: string;
@@ -50,7 +51,7 @@ export default function BulkScannerPage() {
       const domainList = await parseDomainsFromFile(file);
       setUploadProgress(100);
       if (domainList.length > 0) {
-        sessionStorage.setItem('pending_domains', domainList.join('\n'));
+        setPendingDomainsToScan(domainList);
         router.push('/dashboard/results');
       } else {
         alert('No valid domain names found in the uploaded file.');

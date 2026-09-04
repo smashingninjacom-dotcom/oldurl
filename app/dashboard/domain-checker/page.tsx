@@ -11,6 +11,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { parseDomainsFromFile, extractDomainsFromText } from '../../../lib/fileParser';
+import { setPendingDomainsToScan } from '../../../lib/searchHistory';
 
 export default function DomainCheckerPage() {
   const router = useRouter();
@@ -29,13 +30,7 @@ export default function DomainCheckerPage() {
       return;
     }
 
-    try {
-      sessionStorage.setItem('pending_domains', domainList.join('\n'));
-    } catch (e) {
-      console.error(e);
-    }
-
-    // Always navigate cleanly without query strings to prevent URI_TOO_LONG (414)
+    setPendingDomainsToScan(domainList);
     router.push('/dashboard/results');
   };
 
@@ -44,7 +39,7 @@ export default function DomainCheckerPage() {
     try {
       const domainList = await parseDomainsFromFile(file);
       if (domainList.length > 0) {
-        sessionStorage.setItem('pending_domains', domainList.join('\n'));
+        setPendingDomainsToScan(domainList);
         router.push('/dashboard/results');
       } else {
         alert('No valid domain names found in the uploaded file. Please make sure the file contains domain names or URLs.');
