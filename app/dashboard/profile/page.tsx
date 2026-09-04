@@ -19,24 +19,78 @@ import {
   LogOut,
 } from 'lucide-react';
 
+const getInitialProfileData = () => {
+  if (typeof window !== 'undefined') {
+    try {
+      const cachedProfile = localStorage.getItem('oldurl_cached_profile');
+      const parsedProfile = cachedProfile ? JSON.parse(cachedProfile) : null;
+
+      let foundUser: any = null;
+      const directCached = localStorage.getItem('oldurl_cached_user');
+      if (directCached) {
+        foundUser = JSON.parse(directCached);
+      } else {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.includes('auth-token') || key.includes('supabase.auth') || key.startsWith('sb-'))) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed?.user) { foundUser = parsed.user; break; }
+              if (parsed?.currentSession?.user) { foundUser = parsed.currentSession.user; break; }
+              if (parsed?.session?.user) { foundUser = parsed.session.user; break; }
+            }
+          }
+        }
+      }
+
+      if (foundUser) {
+        const fn =
+          parsedProfile?.full_name ||
+          foundUser.user_metadata?.full_name ||
+          foundUser.user_metadata?.name ||
+          (foundUser.email ? foundUser.email.split('@')[0] : '');
+        const em = foundUser.email || '';
+        const accId = `USR-${foundUser.id ? foundUser.id.slice(0, 6).toUpperCase() : 'MEMBER'}`;
+        let ms = '';
+        if (foundUser.created_at) {
+          const d = new Date(foundUser.created_at);
+          ms = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        }
+        return { user: foundUser, fullName: fn, email: em, accountId: accId, memberSince: ms };
+      }
+    } catch (e) {}
+  }
+  return { user: null, fullName: '', email: '', accountId: '', memberSince: '' };
+};
+
 export default function ProfilePage() {
   const [copiedKey, setCopiedKey] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  const [fullName, setFullName] = useState('Sanjay Kumar');
-  const [email, setEmail] = useState('sanjay@authoritydomains.io');
-  const [accountId, setAccountId] = useState('USR-49021');
-  const [memberSince, setMemberSince] = useState('July 2026');
+
+  const [user, setUser] = useState<any>(() => getInitialProfileData().user);
+  const [fullName, setFullName] = useState<string>(() => getInitialProfileData().fullName);
+  const [email, setEmail] = useState<string>(() => getInitialProfileData().email);
+  const [accountId, setAccountId] = useState<string>(() => getInitialProfileData().accountId);
+  const [memberSince, setMemberSince] = useState<string>(() => getInitialProfileData().memberSince);
   const [apiKey, setApiKey] = useState('oldurl_live_sk_948f102a84e66b89012cd');
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
         setUser(user);
-        setEmail(user.email || 'sanjay@authoritydomains.io');
-        const name = user.user_metadata?.full_name || (user.email ? user.email.split('@')[0] : 'Sanjay Kumar');
-        setFullName(name);
+        try {
+          localStorage.setItem('oldurl_cached_user', JSON.stringify(user));
+        } catch (e) {}
+
+        const userEmail = user.email || '';
+        setEmail(userEmail);
+        const name =
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name ||
+          (userEmail ? userEmail.split('@')[0] : '');
+        setFullName((prev) => prev || name);
         setAccountId(`USR-${user.id.slice(0, 6).toUpperCase()}`);
         if (user.created_at) {
           const d = new Date(user.created_at);
@@ -50,8 +104,13 @@ export default function ProfilePage() {
           .eq('id', user.id)
           .single()
           .then(({ data }) => {
-            if (data?.full_name) {
-              setFullName(data.full_name);
+            if (data) {
+              try {
+                localStorage.setItem('oldurl_cached_profile', JSON.stringify(data));
+              } catch (e) {}
+              if (data.full_name) {
+                setFullName(data.full_name);
+              }
             }
           });
       }
@@ -75,12 +134,27 @@ export default function ProfilePage() {
         });
 
         // Upsert to profiles table
-        await supabase.from('profiles').upsert({
-          id: user.id,
-          full_name: fullName,
-          email: user.email,
-          updated_at: new Date().toISOString(),
-        });
+        const { data: updatedProfile } = await supabase
+          .from('profiles')
+          .upsert({
+            id: user.id,
+            full_name: fullName,
+            email: user.email,
+            updated_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
+
+        try {
+          if (updatedProfile) {
+            localStorage.setItem('oldurl_cached_profile', JSON.stringify(updatedProfile));
+          } else {
+            localStorage.setItem(
+              'oldurl_cached_profile',
+              JSON.stringify({ id: user.id, full_name: fullName, email: user.email })
+            );
+          }
+        } catch (e) {}
       }
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3000);
@@ -115,9 +189,9 @@ export default function ProfilePage() {
           {/* User Card */}
           <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs text-center">
             <div className="w-20 h-20 rounded-full bg-[#a3381a] text-white flex items-center justify-center font-bold text-2xl mx-auto shadow-md">
-              {fullName ? fullName.charAt(0).toUpperCase() : 'S'}
+              {fullName ? fullName.charAt(0).toUpperCase() : (email ? email.charAt(0).toUpperCase() : 'U')}
             </div>
-            <h2 className="text-lg font-bold text-gray-900 mt-4">{fullName}</h2>
+            <h2 className="text-lg font-bold text-gray-900 mt-4">{fullName || 'Account Member'}</h2>
             <p className="text-xs text-gray-500">{email}</p>
             <div className="mt-3 inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold border border-emerald-100">
               <CheckCircle2 className="w-3.5 h-3.5" /> Active Member

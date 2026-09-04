@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../../lib/supabaseClient';
 import {
   Settings,
   User,
@@ -11,16 +12,109 @@ import {
   Shield,
 } from 'lucide-react';
 
+const getInitialSettingsUser = () => {
+  if (typeof window !== 'undefined') {
+    try {
+      const cachedProfile = localStorage.getItem('oldurl_cached_profile');
+      const parsedProfile = cachedProfile ? JSON.parse(cachedProfile) : null;
+
+      let foundUser: any = null;
+      const directCached = localStorage.getItem('oldurl_cached_user');
+      if (directCached) {
+        foundUser = JSON.parse(directCached);
+      } else {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.includes('auth-token') || key.includes('supabase.auth') || key.startsWith('sb-'))) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed?.user) { foundUser = parsed.user; break; }
+              if (parsed?.currentSession?.user) { foundUser = parsed.currentSession.user; break; }
+              if (parsed?.session?.user) { foundUser = parsed.session.user; break; }
+            }
+          }
+        }
+      }
+
+      if (foundUser) {
+        const fn =
+          parsedProfile?.full_name ||
+          foundUser.user_metadata?.full_name ||
+          foundUser.user_metadata?.name ||
+          (foundUser.email ? foundUser.email.split('@')[0] : '');
+        const em = foundUser.email || '';
+        return { user: foundUser, fullName: fn, email: em };
+      }
+    } catch (e) {}
+  }
+  return { user: null, fullName: '', email: '' };
+};
+
 export default function SettingsPage() {
-  const [fullName, setFullName] = useState('Jay Domain');
-  const [email, setEmail] = useState('jay@example.com');
+  const [user, setUser] = useState<any>(() => getInitialSettingsUser().user);
+  const [fullName, setFullName] = useState(() => getInitialSettingsUser().fullName);
+  const [email, setEmail] = useState(() => getInitialSettingsUser().email);
   const [defaultRegistrar, setDefaultRegistrar] = useState('namecheap');
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [highDrAlerts, setHighDrAlerts] = useState(true);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUser(user);
+        setEmail(user.email || '');
+        const name =
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name ||
+          (user.email ? user.email.split('@')[0] : '');
+        setFullName((prev: string) => prev || name);
+
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single()
+          .then(({ data }) => {
+            if (data?.full_name) {
+              setFullName(data.full_name);
+            }
+          });
+      }
+    });
+  }, []);
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    try {
+      if (user) {
+        await supabase.auth.updateUser({
+          data: { full_name: fullName },
+        });
+        const { data: updatedProfile } = await supabase
+          .from('profiles')
+          .upsert({
+            id: user.id,
+            full_name: fullName,
+            email: user.email,
+            updated_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
+
+        try {
+          if (updatedProfile) {
+            localStorage.setItem('oldurl_cached_profile', JSON.stringify(updatedProfile));
+          } else {
+            localStorage.setItem(
+              'oldurl_cached_profile',
+              JSON.stringify({ id: user.id, full_name: fullName, email: user.email })
+            );
+          }
+        } catch (e) {}
+      }
+    } catch (err) {}
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 2500);
   };
