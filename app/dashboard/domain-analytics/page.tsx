@@ -11,6 +11,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { parseDomainsFromFile, extractDomainsFromText } from '../../../lib/fileParser';
+import { setPendingAnalyticsDomains } from '../../../lib/searchHistory';
 
 export default function DomainAnalyticsPage() {
   const router = useRouter();
@@ -28,10 +29,7 @@ export default function DomainAnalyticsPage() {
       alert('No valid domains found.');
       return;
     }
-    try {
-      sessionStorage.setItem('pending_analytics_domains', domainList.slice(0, 2500).join('\n'));
-    } catch (e) {}
-    // Navigate cleanly without query string to avoid URI_TOO_LONG (414)
+    setPendingAnalyticsDomains(domainList);
     router.push('/dashboard/domain-analytics-result');
   };
 
@@ -40,7 +38,7 @@ export default function DomainAnalyticsPage() {
     try {
       const domainList = await parseDomainsFromFile(file);
       if (domainList.length > 0) {
-        sessionStorage.setItem('pending_analytics_domains', domainList.slice(0, 2500).join('\n'));
+        setPendingAnalyticsDomains(domainList);
         router.push('/dashboard/domain-analytics-result');
       } else {
         alert('No valid domain names found in the uploaded file (supports XML, CSV, and XLSX).');

@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabaseClient';
 
-import { getLocalSearchHistory, saveLocalSearchHistory } from '../../../lib/searchHistory';
+import { getLocalSearchHistory, saveLocalSearchHistory, getPendingAnalyticsDomains } from '../../../lib/searchHistory';
 
 interface AnalyzedDomain {
   domain: string;
@@ -60,12 +60,19 @@ function DomainAnalyticsResultContent() {
   const hasLoadedRef = useRef(false);
 
   useEffect(() => {
+    const pendingList = getPendingAnalyticsDomains();
+    if (pendingList.length > 0) {
+      hasLoadedRef.current = false;
+    }
+
     if (hasLoadedRef.current) return;
 
-    let domainInput = '';
-    try {
-      domainInput = sessionStorage.getItem('pending_analytics_domains') || '';
-    } catch (e) {}
+    let domainInput = pendingList.length > 0 ? pendingList.join('\n') : '';
+    if (!domainInput) {
+      try {
+        domainInput = sessionStorage.getItem('pending_analytics_domains') || '';
+      } catch (e) {}
+    }
 
     if (!domainInput) {
       domainInput = searchParams.get('domains') || '';

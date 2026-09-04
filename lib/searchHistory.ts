@@ -236,6 +236,7 @@ export function deleteSearchSession(sessionId: string): void {
 
 let latestBatchMemory: StoredSearchItem[] | null = null;
 let pendingDomainsMemory: string[] | null = null;
+let pendingAnalyticsMemory: string[] | null = null;
 
 export function setPendingDomainsToScan(domains: string[]): void {
   if (!domains || !domains.length) return;
@@ -262,6 +263,38 @@ export function getPendingDomainsToScan(): string[] {
     const raw = sessionStorage.getItem('pending_domains');
     if (raw) {
       sessionStorage.removeItem('pending_domains');
+      const list = raw.split(/[\r\n,]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
+      if (list.length > 0) return list;
+    }
+  } catch (e) {}
+  return [];
+}
+
+export function setPendingAnalyticsDomains(domains: string[]): void {
+  if (!domains || !domains.length) return;
+  pendingAnalyticsMemory = domains;
+  if (typeof window !== 'undefined') {
+    try {
+      sessionStorage.setItem('pending_analytics_domains', domains.join('\n'));
+    } catch (e) {
+      try {
+        sessionStorage.setItem('pending_analytics_domains', domains.slice(0, 3000).join('\n'));
+      } catch (err) {}
+    }
+  }
+}
+
+export function getPendingAnalyticsDomains(): string[] {
+  if (pendingAnalyticsMemory && pendingAnalyticsMemory.length > 0) {
+    const list = [...pendingAnalyticsMemory];
+    pendingAnalyticsMemory = null;
+    return list;
+  }
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = sessionStorage.getItem('pending_analytics_domains');
+    if (raw) {
+      sessionStorage.removeItem('pending_analytics_domains');
       const list = raw.split(/[\r\n,]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
       if (list.length > 0) return list;
     }
