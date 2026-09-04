@@ -34,12 +34,16 @@ export default function DashboardLayout({
   const [user, setUser] = useState<any>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const key = Object.keys(localStorage).find((k) => k.startsWith('sb-') && k.endsWith('-auth-token'));
-        if (key) {
-          const raw = localStorage.getItem(key);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (parsed?.user) return parsed.user;
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.includes('auth-token') || key.includes('supabase.auth') || key.startsWith('sb-'))) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed?.user) return parsed.user;
+              if (parsed?.currentSession?.user) return parsed.currentSession.user;
+              if (parsed?.session?.user) return parsed.session.user;
+            }
           }
         }
       } catch (e) {}
@@ -47,13 +51,14 @@ export default function DashboardLayout({
     return null;
   });
   const [userProfile, setUserProfile] = useState<any>(null);
-  const [authLoading, setAuthLoading] = useState(false);
+  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isGuestMode, setIsGuestMode] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     async function initAuth() {
       try {
         if (typeof window !== 'undefined') {
@@ -71,8 +76,11 @@ export default function DashboardLayout({
           if (code) {
             const { data, error } = await supabase.auth.exchangeCodeForSession(code);
             if (!error && data?.session?.user) {
-              setUser(data.session.user);
-              fetchProfile(data.session.user.id);
+              if (isMounted) {
+                setUser(data.session.user);
+                fetchProfile(data.session.user.id);
+                setIsAuthChecking(false);
+              }
               window.history.replaceState({}, document.title, window.location.pathname);
               return;
             }
@@ -82,12 +90,16 @@ export default function DashboardLayout({
         const {
           data: { session },
         } = await supabase.auth.getSession();
-        if (session?.user) {
-          setUser(session.user);
-          fetchProfile(session.user.id);
+        if (isMounted) {
+          if (session?.user) {
+            setUser(session.user);
+            fetchProfile(session.user.id);
+          }
+          setIsAuthChecking(false);
         }
       } catch (e) {
         console.warn('Auth init note:', e);
+        if (isMounted) setIsAuthChecking(false);
       }
     }
 
@@ -97,16 +109,22 @@ export default function DashboardLayout({
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-        setAuthError(null);
-      } else {
-        setUserProfile(null);
+      if (isMounted) {
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          fetchProfile(session.user.id);
+          setAuthError(null);
+        } else {
+          setUserProfile(null);
+        }
+        setIsAuthChecking(false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchProfile = async (userId: string) => {
@@ -137,6 +155,20 @@ export default function DashboardLayout({
   const displayEmail = user?.email || (isGuestMode ? 'guest@oldurl.domains' : '');
   const planName = userProfile?.plan || (isGuestMode ? 'Guest Preview' : 'Free Plan');
   const initial = displayName ? displayName.charAt(0).toUpperCase() : 'M';
+
+  // Prevent flash of login screen while validating session
+  if (isAuthChecking && !user) {
+    return (
+      <div className="min-h-screen bg-[#faf9f8] flex items-center justify-center p-4 font-sans">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-orange-50 text-[#FC6B17] flex items-center justify-center animate-pulse">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <span className="text-xs font-semibold text-gray-400">Loading your workspace...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (!user && !isGuestMode) {
     return (
