@@ -9,6 +9,9 @@ import {
   Trash2,
   Plus,
   ExternalLink,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 
 interface WatchlistItem {
@@ -29,6 +32,17 @@ export default function WatchlistPage() {
   const [newDomain, setNewDomain] = useState('');
   const [newNotes, setNewNotes] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [sortField, setSortField] = useState<'domain' | 'dr' | 'refDomains' | 'status'>('dr');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (field: 'domain' | 'dr' | 'refDomains' | 'status') => {
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortOrder('desc');
+    }
+  };
 
   useEffect(() => {
     async function loadWatchlist() {
@@ -194,17 +208,77 @@ export default function WatchlistPage() {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-[#f8f9fa] border-b border-gray-200 text-gray-500 font-bold uppercase tracking-wider text-[11px]">
-                  <th className="py-3 px-4">Domain Name</th>
-                  <th className="py-3 px-3">DR Score</th>
-                  <th className="py-3 px-3">Ref. Domains</th>
-                  <th className="py-3 px-3">Drop Status</th>
+                  <th
+                    onClick={() => handleSort('domain')}
+                    className="py-3 px-4 cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={sortField === 'domain' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>Domain Name</span>
+                      {sortField === 'domain' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('dr')}
+                    className="py-3 px-3 cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={sortField === 'dr' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>DR Score</span>
+                      {sortField === 'dr' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('refDomains')}
+                    className="py-3 px-3 cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={sortField === 'refDomains' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>Ref. Domains</span>
+                      {sortField === 'refDomains' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('status')}
+                    className="py-3 px-3 cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={sortField === 'status' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>Drop Status</span>
+                      {sortField === 'status' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
+                      )}
+                    </div>
+                  </th>
                   <th className="py-3 px-3">Email Drop Alert</th>
                   <th className="py-3 px-3">Notes &amp; Target Niche</th>
                   <th className="py-3 pr-4 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 font-medium text-gray-800">
-                {items.map((item) => (
+                {[...items].sort((a, b) => {
+                  const aVal = (a as any)[sortField];
+                  const bVal = (b as any)[sortField];
+
+                  if (sortField === 'dr' || sortField === 'refDomains') {
+                    const aNum = Number(aVal) || 0;
+                    const bNum = Number(bVal) || 0;
+                    return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
+                  }
+                  const aStr = String(aVal || '').toLowerCase();
+                  const bStr = String(bVal || '').toLowerCase();
+                  return sortOrder === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
+                }).map((item) => (
                   <tr key={item.id} className="hover:bg-orange-50/20 transition-colors">
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-2">

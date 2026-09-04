@@ -29,6 +29,9 @@ import {
   RefreshCw,
   ExternalLink,
   Lock,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 
 interface ResultItem {
@@ -66,6 +69,17 @@ function ResultsContent() {
   const [maxDr, setMaxDr] = useState<string>('');
   const [daysFilter, setDaysFilter] = useState<'Any' | '< 30d' | '30-90d' | '> 90d'>('Any');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortField, setSortField] = useState<'id' | 'domain' | 'status' | 'daysLeft' | 'dr' | 'registrar' | 'createdAt'>('id');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  const handleSort = (field: 'id' | 'domain' | 'status' | 'daysLeft' | 'dr' | 'registrar' | 'createdAt') => {
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
 
   const hasLoadedRef = useRef(false);
 
@@ -278,7 +292,7 @@ function ResultsContent() {
   const registeredCount = results.filter((r) => r.status !== 'Available').length;
 
   const filtered = useMemo(() => {
-    return results.filter((item) => {
+    const list = results.filter((item) => {
       if (statusFilter === 'Available' && item.status !== 'Available') return false;
       if (statusFilter === 'Registered' && item.status === 'Available') return false;
       if (searchQuery && !item.domain.toLowerCase().includes(searchQuery.toLowerCase())) return false;
@@ -298,7 +312,41 @@ function ResultsContent() {
       }
       return true;
     });
-  }, [results, statusFilter, extensionFilter, minDr, maxDr, daysFilter, searchQuery]);
+
+    return list.sort((a, b) => {
+      const aVal = (a as any)[sortField];
+      const bVal = (b as any)[sortField];
+
+      if (sortField === 'id') {
+        const aNum = parseInt(aVal, 10) || 0;
+        const bNum = parseInt(bVal, 10) || 0;
+        return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
+      }
+      if (sortField === 'dr') {
+        const aNum = Number(aVal) || 0;
+        const bNum = Number(bVal) || 0;
+        return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
+      }
+      if (sortField === 'daysLeft') {
+        const aNum = parseInt(aVal, 10);
+        const bNum = parseInt(bVal, 10);
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
+        }
+        return sortOrder === 'asc'
+          ? String(aVal || '').localeCompare(String(bVal || ''))
+          : String(bVal || '').localeCompare(String(aVal || ''));
+      }
+      if (sortField === 'createdAt') {
+        const aTime = aVal ? new Date(aVal).getTime() : 0;
+        const bTime = bVal ? new Date(bVal).getTime() : 0;
+        return sortOrder === 'asc' ? aTime - bTime : bTime - aTime;
+      }
+      const aStr = String(aVal || '').toLowerCase();
+      const bStr = String(bVal || '').toLowerCase();
+      return sortOrder === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
+    });
+  }, [results, statusFilter, extensionFilter, minDr, maxDr, daysFilter, searchQuery, sortField, sortOrder]);
 
   const handleExportCSV = () => {
     const headers = ['#', 'Domain', 'Status', 'Days Left', 'Domain Rating (DR)', 'Registrar', 'Date Checked'];
@@ -613,13 +661,97 @@ function ResultsContent() {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-[#f8fafc] border-b border-gray-100 text-gray-400 font-bold uppercase tracking-wider text-[11px]">
-                  <th className="py-3 px-4 w-12 text-center">#</th>
-                  <th className="py-3 px-4 min-w-[200px]">Domain</th>
-                  <th className="py-3 px-4 w-32">Status</th>
-                  <th className="py-3 px-4 w-28">Days Left</th>
-                  <th className="py-3 px-4 w-24">DR</th>
-                  <th className="py-3 px-4 min-w-[150px]">Registrar</th>
-                  <th className="py-3 px-4 w-36">Date Checked</th>
+                  <th
+                    onClick={() => handleSort('id')}
+                    className="py-3 px-4 w-14 text-center cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span className={sortField === 'id' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-700'}>#</span>
+                      {sortField === 'id' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('domain')}
+                    className="py-3 px-4 min-w-[200px] cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={sortField === 'domain' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-700'}>Domain</span>
+                      {sortField === 'domain' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('status')}
+                    className="py-3 px-4 w-32 cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={sortField === 'status' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-700'}>Status</span>
+                      {sortField === 'status' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('daysLeft')}
+                    className="py-3 px-4 w-28 cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={sortField === 'daysLeft' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-700'}>Days Left</span>
+                      {sortField === 'daysLeft' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('dr')}
+                    className="py-3 px-4 w-24 cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={sortField === 'dr' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-700'}>DR</span>
+                      {sortField === 'dr' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('registrar')}
+                    className="py-3 px-4 min-w-[150px] cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={sortField === 'registrar' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-700'}>Registrar</span>
+                      {sortField === 'registrar' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('createdAt')}
+                    className="py-3 px-4 w-36 cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={sortField === 'createdAt' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-700'}>Date Checked</span>
+                      {sortField === 'createdAt' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
+                      )}
+                    </div>
+                  </th>
                   <th className="py-3 px-4 w-28 text-right">Action</th>
                 </tr>
               </thead>

@@ -14,6 +14,9 @@ import {
   CheckCircle2,
   Bookmark,
   Plus,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabaseClient';
 
@@ -39,6 +42,18 @@ function DomainAnalyticsResultContent() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
   const [copiedDomain, setCopiedDomain] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<'domain' | 'status' | 'dr' | 'da' | 'traffic' | 'refDomains' | 'spamScore'>('dr');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const handleSort = (field: 'domain' | 'status' | 'dr' | 'da' | 'traffic' | 'refDomains' | 'spamScore') => {
+    if (sortField === field) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortField(field);
+      setSortOrder('desc');
+    }
+  };
+
   const hasLoadedRef = useRef(false);
 
   useEffect(() => {
@@ -231,11 +246,25 @@ function DomainAnalyticsResultContent() {
     loadData();
   }, [searchParams]);
 
-  const filteredResults = domains.filter((item) => {
-    const matchesSearch = item.domain.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredResults = domains
+    .filter((item) => {
+      const matchesSearch = item.domain.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      const aVal = (a as any)[sortField];
+      const bVal = (b as any)[sortField];
+
+      if (sortField === 'dr' || sortField === 'da' || sortField === 'refDomains' || sortField === 'spamScore') {
+        const aNum = Number(aVal) || 0;
+        const bNum = Number(bVal) || 0;
+        return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
+      }
+      const aStr = String(aVal || '').toLowerCase();
+      const bStr = String(bVal || '').toLowerCase();
+      return sortOrder === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
+    });
 
   const toggleSelectAll = () => {
     if (selectedDomains.length === filteredResults.length) {
@@ -424,13 +453,85 @@ function DomainAnalyticsResultContent() {
                       className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                     />
                   </th>
-                  <th className="py-3.5 px-4">Domain</th>
-                  <th className="py-3.5 px-3">Status</th>
-                  <th className="py-3.5 px-3 text-center">DR / DA</th>
-                  <th className="py-3.5 px-3">Est. Traffic</th>
-                  <th className="py-3.5 px-3">Ref. Domains</th>
+                  <th
+                    onClick={() => handleSort('domain')}
+                    className="py-3.5 px-4 cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={sortField === 'domain' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>Domain</span>
+                      {sortField === 'domain' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('status')}
+                    className="py-3.5 px-3 cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={sortField === 'status' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>Status</span>
+                      {sortField === 'status' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('dr')}
+                    className="py-3.5 px-3 text-center cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                  >
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span className={sortField === 'dr' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>DR / DA</span>
+                      {sortField === 'dr' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('traffic')}
+                    className="py-3.5 px-3 cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={sortField === 'traffic' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>Est. Traffic</span>
+                      {sortField === 'traffic' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('refDomains')}
+                    className="py-3.5 px-3 cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={sortField === 'refDomains' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>Ref. Domains</span>
+                      {sortField === 'refDomains' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
+                      )}
+                    </div>
+                  </th>
                   <th className="py-3.5 px-3">Tier-1 Authority Links</th>
-                  <th className="py-3.5 px-3 text-center">Spam Score</th>
+                  <th
+                    onClick={() => handleSort('spamScore')}
+                    className="py-3.5 px-3 text-center cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                  >
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span className={sortField === 'spamScore' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>Spam Score</span>
+                      {sortField === 'spamScore' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
+                      )}
+                    </div>
+                  </th>
                   <th className="py-3.5 px-4 text-right">Action</th>
                 </tr>
               </thead>
