@@ -14,24 +14,13 @@ import {
   Lock,
 } from 'lucide-react';
 
-const previousSearchesData = [
-  { id: '01', domain: 'nhri.org.tw', status: 'Registered', daysLeft: '—', dr: 73, registrar: '—' },
-  { id: '02', domain: 'nct.org.uk', status: 'Registered', daysLeft: '155d', dr: 77, registrar: '123-Reg Limited t/a 123-reg' },
-  { id: '03', domain: 'michiganmedicine.org', status: 'Registered', daysLeft: '280d', dr: 78, registrar: 'GoDaddy.com, LLC' },
-  { id: '04', domain: 'merckvetmanual.com', status: 'Registered', daysLeft: '674d', dr: 81, registrar: 'MarkMonitor Inc.' },
-  { id: '05', domain: 'medcraveonline.com', status: 'Registered', daysLeft: '183d', dr: 77, registrar: 'Dreamscape Networks Intern...' },
-  { id: '06', domain: 'malucoffee.com', status: 'Registered', daysLeft: '679d', dr: 1.2, registrar: 'GoDaddy.com, LLC' },
-  { id: '07', domain: 'kardia.com', status: 'Registered', daysLeft: '87d', dr: 57, registrar: 'GoDaddy.com, LLC' },
-  { id: '08', domain: 'international-journal-of-gynecological-cancer.com', status: 'Registered', daysLeft: '0d', dr: 66, registrar: 'SafeNames Ltd.' },
-  { id: '09', domain: 'girlshealth.gov', status: 'Registered', daysLeft: '11d', dr: 72, registrar: 'dot.gov' },
-  { id: '10', domain: 'geologie.com', status: 'Registered', daysLeft: '28d', dr: 41, registrar: 'GoDaddy.com, LLC' },
-];
-
 export default function PreviousSearchesPage() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<'All' | 'Available' | 'Registered'>('All');
   const [daysFilter, setDaysFilter] = useState<'Any' | '< 30d' | '30-90d' | '> 90d'>('Any');
+  const [minDrInput, setMinDrInput] = useState('');
+  const [maxDrInput, setMaxDrInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -52,7 +41,7 @@ export default function PreviousSearchesPage() {
               domain: item.domain,
               status: item.status || 'Available',
               daysLeft: item.days_left || (item.status === 'Available' ? 'Dropped' : '30d'),
-              dr: item.dr || 0,
+              dr: Number(item.dr) || 0,
               registrar: item.registrar || (item.status === 'Available' ? '—' : 'Namecheap, Inc.'),
             }));
             setData(mapped);
@@ -74,6 +63,8 @@ export default function PreviousSearchesPage() {
   const filtered = data.filter((item) => {
     if (statusFilter !== 'All' && item.status !== statusFilter) return false;
     if (searchQuery && !item.domain.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (minDrInput && item.dr < Number(minDrInput)) return false;
+    if (maxDrInput && item.dr > Number(maxDrInput)) return false;
     return true;
   });
 
@@ -140,15 +131,19 @@ export default function PreviousSearchesPage() {
           <div className="flex items-center gap-1.5">
             <span className="font-bold text-gray-500">DR</span>
             <input
-              type="text"
+              type="number"
               placeholder="Min"
-              className="w-12 p-1 bg-gray-50 border border-gray-200 rounded-lg text-center text-xs font-bold"
+              value={minDrInput}
+              onChange={(e) => setMinDrInput(e.target.value)}
+              className="w-14 p-1 bg-gray-50 border border-gray-200 rounded-lg text-center text-xs font-bold"
             />
             <span className="text-gray-400">-</span>
             <input
-              type="text"
+              type="number"
               placeholder="Max"
-              className="w-12 p-1 bg-gray-50 border border-gray-200 rounded-lg text-center text-xs font-bold"
+              value={maxDrInput}
+              onChange={(e) => setMaxDrInput(e.target.value)}
+              className="w-14 p-1 bg-gray-50 border border-gray-200 rounded-lg text-center text-xs font-bold"
             />
           </div>
 
@@ -185,8 +180,8 @@ export default function PreviousSearchesPage() {
               className="pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none focus:border-[#FC6B17]"
             />
           </div>
-          <span className="text-gray-400 font-medium text-[11px] whitespace-nowrap">
-            14439 results
+          <span className="text-gray-500 font-semibold text-[11px] whitespace-nowrap">
+            {filtered.length} {filtered.length === 1 ? 'result' : 'results'}
           </span>
         </div>
       </div>

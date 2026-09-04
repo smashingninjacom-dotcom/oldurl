@@ -35,27 +35,12 @@ interface ResultItem {
   backlinks?: number;
 }
 
-const defaultMockList: ResultItem[] = [
-  { id: '01', domain: 'malucoffee.com', status: 'Registered', daysLeft: '679d', dr: 1.2, registrar: 'GoDaddy.com, LLC' },
-  { id: '02', domain: 'madcraveonline.com', status: 'Registered', daysLeft: '183d', dr: 77, registrar: 'Dreamscape Networks Intern...' },
-  { id: '03', domain: 'merckvetmanual.com', status: 'Registered', daysLeft: '674d', dr: 81, registrar: 'MarkMonitor Inc.' },
-  { id: '04', domain: 'cantena.com', status: 'Registered', daysLeft: '223d', dr: 72, registrar: 'CSC Corporate Domains, Inc.' },
-  { id: '05', domain: 'geologie.com', status: 'Registered', daysLeft: '28d', dr: 41, registrar: 'GoDaddy.com, LLC' },
-  { id: '06', domain: 'girlshealth.gov', status: 'Registered', daysLeft: '11d', dr: 72, registrar: 'dot.gov' },
-  { id: '07', domain: 'international-journal-of-gynecological-cancer.com', status: 'Registered', daysLeft: '0d', dr: 66, registrar: 'SafeNames Ltd.' },
-  { id: '08', domain: 'techradar-archive.org', status: 'Available', daysLeft: 'Dropped', dr: 58, registrar: '—' },
-  { id: '09', domain: 'greenhealthjournal.com', status: 'Available', daysLeft: 'Dropped', dr: 46, registrar: '—' },
-  { id: '10', domain: 'futuremobility-tech.io', status: 'Available', daysLeft: 'Dropped', dr: 63, registrar: '—' },
-  { id: '11', domain: 'nordicfinancenews.net', status: 'Available', daysLeft: 'Dropped', dr: 54, registrar: '—' },
-  { id: '12', domain: 'urbancreativelabs.co', status: 'Available', daysLeft: 'Dropped', dr: 48, registrar: '—' },
-];
-
 function ResultsContent() {
   const searchParams = useSearchParams();
-  const [results, setResults] = useState<ResultItem[]>(defaultMockList);
-  const [isScanning, setIsScanning] = useState(true);
+  const [results, setResults] = useState<ResultItem[]>([]);
+  const [isScanning, setIsScanning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [progress, setProgress] = useState(40);
+  const [progress, setProgress] = useState(0);
   const [statusFilter, setStatusFilter] = useState<'All' | 'Available' | 'Registered'>('All');
   const [extensionFilter, setExtensionFilter] = useState<string>('All');
   const [minDr, setMinDr] = useState<string>('');
@@ -115,6 +100,7 @@ function ResultsContent() {
         .filter((d) => d.length > 2 && d.includes('.'));
 
       if (rawDomains.length > 0) {
+        setIsScanning(true);
         const initialCalculated = rawDomains.map((d, i) => evaluateDomain(d, i));
         setResults(initialCalculated);
         setProgress(20);
@@ -138,22 +124,8 @@ function ResultsContent() {
                 backlinks: r.backlinks,
               }));
               setResults(formatted);
-
-              // Persist to local search history
-              try {
-                const existing = JSON.parse(localStorage.getItem('oldurl_search_history') || '[]');
-                const newItems = formatted.map((f) => ({
-                  id: String(existing.length + 1).padStart(2, '0'),
-                  domain: f.domain,
-                  status: f.status,
-                  daysLeft: f.daysLeft,
-                  dr: f.dr,
-                  registrar: f.registrar,
-                }));
-                // Merge unique by domain
-                const merged = [...newItems, ...existing.filter((e: any) => !newItems.some((n) => n.domain === e.domain))].slice(0, 100);
-                localStorage.setItem('oldurl_search_history', JSON.stringify(merged));
-              } catch (e) {}
+              setProgress(100);
+              setIsScanning(false);
 
               // Persist to Supabase if logged in
               supabase.auth.getUser().then(({ data: { user } }) => {
@@ -165,6 +137,7 @@ function ResultsContent() {
                     dr: f.dr,
                     days_left: f.daysLeft,
                     registrar: f.registrar,
+                    ref_domains: f.refDomains || 0,
                   }));
                   supabase.from('search_history').insert(toInsert).then(() => {});
                 }
@@ -173,8 +146,40 @@ function ResultsContent() {
           })
           .catch((err) => {
             console.warn('API note:', err);
+            setIsScanning(false);
           });
       }
+    } else {
+      setIsScanning(false);
+      setProgress(100);
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+          supabase
+            .from('search_history')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(50)
+            .then(({ data: cloudHistory, error }) => {
+              if (!error && cloudHistory && cloudHistory.length > 0) {
+                const formatted: ResultItem[] = cloudHistory.map((r: any, idx: number) => ({
+                  id: String(idx + 1).padStart(2, '0'),
+                  domain: r.domain,
+                  status: r.status === 'Expiring Soon' ? 'Expiring Soon' : (r.status || 'Available'),
+                  daysLeft: r.days_left || (r.status === 'Available' ? 'Dropped' : '30d'),
+                  dr: r.dr || 0,
+                  registrar: r.registrar || (r.status === 'Available' ? '—' : 'Namecheap, Inc.'),
+                  refDomains: r.ref_domains || 0,
+                }));
+                setResults(formatted);
+                return;
+              }
+              setResults([]);
+            });
+        } else {
+          setResults([]);
+        }
+      }).catch(() => setResults([]));
     }
   }, [searchParams]);
 
@@ -514,80 +519,100 @@ function ResultsContent() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-[#f8fafc] border-b border-gray-100 text-gray-400 font-bold uppercase tracking-wider text-[11px]">
-                <th className="py-3 px-4 w-12 text-center">#</th>
-                <th className="py-3 px-4 min-w-[220px]">Domain</th>
-                <th className="py-3 px-4 w-36">Status</th>
-                <th className="py-3 px-4 w-32">Days Left</th>
-                <th className="py-3 px-4 w-28">DR</th>
-                <th className="py-3 px-4 min-w-[180px]">Registrar</th>
-                <th className="py-3 px-4 w-28 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filtered.map((row) => (
-                <tr key={row.id + '-' + row.domain} className="hover:bg-orange-50/20 transition-colors">
-                  <td className="py-3.5 px-4 text-center text-gray-400 text-xs font-mono">{row.id}</td>
-                  <td className="py-3.5 px-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-md bg-gray-100 text-gray-500 flex items-center justify-center flex-shrink-0">
-                        <Globe className="w-3.5 h-3.5" />
-                      </div>
-                      <span className="text-[#0d1b3e] font-semibold text-xs sm:text-sm">{row.domain}</span>
-                    </div>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    {row.status === 'Available' ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                        Available
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-orange-50 text-orange-700 border border-orange-200/60">
-                        <Lock className="w-3 h-3 text-[#FC6B17]" />
-                        <span>Registered</span>
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="text-emerald-700 font-semibold text-xs">
-                      ⚑ {row.daysLeft}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="inline-flex items-center gap-1 font-bold text-xs text-[#FC6B17] bg-orange-50 px-2.5 py-1 rounded-md border border-orange-100">
-                      {row.dr} <BarChart2 className="w-3.5 h-3.5 text-emerald-500 inline" />
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-gray-500 font-medium text-xs">{row.registrar}</td>
-                  <td className="py-3.5 px-4 text-right">
-                    {row.status === 'Available' ? (
-                      <a
-                        href={`https://www.namecheap.com/domains/registration/results/?domain=${row.domain}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 bg-[#FC6B17] hover:bg-[#e05b10] text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-[0_2px_6px_rgba(252,107,23,0.25)] hover:-translate-y-0.5"
-                      >
-                        Register
-                      </a>
-                    ) : (
-                      <button
-                        onClick={() => alert(`Added ${row.domain} to watchlist!`)}
-                        className="text-gray-400 hover:text-gray-700 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-                        title="Add to Watchlist"
-                      >
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                    )}
-                  </td>
+        {filtered.length === 0 ? (
+          <div className="p-12 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-orange-50 text-[#FC6B17] flex items-center justify-center mx-auto">
+              <Search className="w-6 h-6" />
+            </div>
+            <h4 className="text-sm font-bold text-gray-800">No domain results found</h4>
+            <p className="text-xs text-gray-400 max-w-sm mx-auto">
+              Use Domain Checker or Bulk Scanner to scan domains and see live WHOIS &amp; DR metrics here.
+            </p>
+            <div className="pt-2">
+              <Link
+                href="/dashboard/domain-checker"
+                className="inline-flex items-center gap-1.5 bg-[#FC6B17] hover:bg-[#e05607] text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5" /> Start New Domain Check
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-[#f8fafc] border-b border-gray-100 text-gray-400 font-bold uppercase tracking-wider text-[11px]">
+                  <th className="py-3 px-4 w-12 text-center">#</th>
+                  <th className="py-3 px-4 min-w-[220px]">Domain</th>
+                  <th className="py-3 px-4 w-36">Status</th>
+                  <th className="py-3 px-4 w-32">Days Left</th>
+                  <th className="py-3 px-4 w-28">DR</th>
+                  <th className="py-3 px-4 min-w-[180px]">Registrar</th>
+                  <th className="py-3 px-4 w-28 text-right">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filtered.map((row) => (
+                  <tr key={row.id + '-' + row.domain} className="hover:bg-orange-50/20 transition-colors">
+                    <td className="py-3.5 px-4 text-center text-gray-400 text-xs font-mono">{row.id}</td>
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-md bg-gray-100 text-gray-500 flex items-center justify-center flex-shrink-0">
+                          <Globe className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="text-[#0d1b3e] font-semibold text-xs sm:text-sm">{row.domain}</span>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      {row.status === 'Available' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                          Available
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-orange-50 text-orange-700 border border-orange-200/60">
+                          <Lock className="w-3 h-3 text-[#FC6B17]" />
+                          <span>Registered</span>
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="text-emerald-700 font-semibold text-xs">
+                        ⚑ {row.daysLeft}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="inline-flex items-center gap-1 font-bold text-xs text-[#FC6B17] bg-orange-50 px-2.5 py-1 rounded-md border border-orange-100">
+                        {row.dr} <BarChart2 className="w-3.5 h-3.5 text-emerald-500 inline" />
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-gray-500 font-medium text-xs">{row.registrar}</td>
+                    <td className="py-3.5 px-4 text-right">
+                      {row.status === 'Available' ? (
+                        <a
+                          href={`https://www.namecheap.com/domains/registration/results/?domain=${row.domain}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 bg-[#FC6B17] hover:bg-[#e05b10] text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-[0_2px_6px_rgba(252,107,23,0.25)] hover:-translate-y-0.5"
+                        >
+                          Register
+                        </a>
+                      ) : (
+                        <button
+                          onClick={() => alert(`Added ${row.domain} to watchlist!`)}
+                          className="text-gray-400 hover:text-gray-700 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                          title="Add to Watchlist"
+                        >
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

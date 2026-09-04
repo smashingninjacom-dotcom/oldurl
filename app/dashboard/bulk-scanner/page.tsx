@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import Link from 'next/link';
 import {
   UploadCloud,
   FileSpreadsheet,
@@ -8,13 +9,9 @@ import {
   Clock,
   Download,
   Trash2,
-  Play,
-  Pause,
   RefreshCw,
-  SlidersHorizontal,
   FileText,
-  AlertCircle,
-  ExternalLink,
+  Plus,
 } from 'lucide-react';
 
 interface BatchScanJob {
@@ -34,44 +31,13 @@ export default function BulkScannerPage() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [selectedFormat, setSelectedFormat] = useState<'csv' | 'xlsx' | 'xml'>('csv');
   const [domainColumnName, setDomainColumnName] = useState('domain');
+  const [jobs, setJobs] = useState<BatchScanJob[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [jobs, setJobs] = useState<BatchScanJob[]>([
-    {
-      id: 'job-101',
-      filename: 'forbes_outbound_crawl_2026.csv',
-      fileSize: '4.2 MB',
-      totalRows: 14200,
-      completedRows: 14200,
-      availableFound: 618,
-      highDrFound: 142,
-      status: 'Completed',
-      date: 'Sep 03, 2026',
-    },
-    {
-      id: 'job-102',
-      filename: 'wikipedia_science_sources.xlsx',
-      fileSize: '1.8 MB',
-      totalRows: 5800,
-      completedRows: 3200,
-      availableFound: 184,
-      highDrFound: 53,
-      status: 'Scanning',
-      date: 'Sep 04, 2026',
-    },
-    {
-      id: 'job-103',
-      filename: 'techcrunch_startup_archive.xml',
-      fileSize: '850 KB',
-      totalRows: 2400,
-      completedRows: 0,
-      availableFound: 0,
-      highDrFound: 0,
-      status: 'Queued',
-      date: 'Sep 04, 2026',
-    },
-  ]);
+  const handleFileUpload = (file?: File) => {
+    const filename = file ? file.name : `bulk_domains_${Date.now().toString().slice(-4)}.${selectedFormat}`;
+    const fileSize = file ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : '1.4 MB';
 
-  const handleSimulateUpload = () => {
     setUploadProgress(10);
     const interval = setInterval(() => {
       setUploadProgress((prev) => {
@@ -81,22 +47,22 @@ export default function BulkScannerPage() {
             setUploadProgress(null);
             const newJob: BatchScanJob = {
               id: `job-${Date.now().toString().slice(-4)}`,
-              filename: `new_scraped_links_${selectedFormat.toUpperCase()}.${selectedFormat}`,
-              fileSize: '2.4 MB',
-              totalRows: 8500,
-              completedRows: 120,
-              availableFound: 14,
-              highDrFound: 5,
-              status: 'Scanning',
+              filename,
+              fileSize,
+              totalRows: 250,
+              completedRows: 250,
+              availableFound: 18,
+              highDrFound: 6,
+              status: 'Completed',
               date: 'Just now',
             };
-            setJobs([newJob, ...jobs]);
+            setJobs((current) => [newJob, ...current]);
           }, 400);
           return 100;
         }
-        return prev + 25;
+        return prev + 30;
       });
-    }, 250);
+    }, 200);
   };
 
   const deleteJob = (id: string) => {
@@ -105,6 +71,15 @@ export default function BulkScannerPage() {
 
   return (
     <div className="space-y-6">
+      {/* -------------------- BREADCRUMB -------------------- */}
+      <div className="flex items-center gap-1.5 text-xs text-gray-500">
+        <Link href="/dashboard" className="text-gray-400 hover:text-gray-600">
+          🏠 Home
+        </Link>
+        <span>›</span>
+        <span className="text-[#FC6B17] font-semibold">Bulk Scanner</span>
+      </div>
+
       {/* -------------------- HEADER -------------------- */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -134,20 +109,32 @@ export default function BulkScannerPage() {
           onDrop={(e) => {
             e.preventDefault();
             setIsDragging(false);
-            handleSimulateUpload();
+            const droppedFile = e.dataTransfer.files?.[0];
+            handleFileUpload(droppedFile);
           }}
-          onClick={handleSimulateUpload}
+          onClick={() => fileInputRef.current?.click()}
           className={`border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center transition-all cursor-pointer ${
             isDragging
               ? 'border-[#FC6B17] bg-orange-50/50'
               : 'border-gray-200 bg-gray-50/50 hover:bg-orange-50/30 hover:border-[#FC6B17]/60'
           }`}
         >
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept=".csv,.xlsx,.xml,.txt"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFileUpload(file);
+            }}
+            className="hidden"
+          />
+
           <div className="w-14 h-14 rounded-2xl bg-[#fff0e8] text-[#FC6B17] flex items-center justify-center mx-auto mb-4 shadow-xs">
             <UploadCloud className="w-7 h-7" />
           </div>
           <h3 className="text-base font-bold text-gray-800 mb-1">
-            Drag & Drop your CSV, XLSX, or XML domain file here
+            Drag &amp; Drop your CSV, XLSX, or XML domain file here
           </h3>
           <p className="text-xs text-gray-500 max-w-md mx-auto mb-4">
             Supports exports from Screaming Frog, Ahrefs, Semrush, or raw lists with multiple columns.
@@ -164,7 +151,7 @@ export default function BulkScannerPage() {
         {uploadProgress !== null && (
           <div className="mt-4 p-4 bg-orange-50 rounded-xl border border-orange-200">
             <div className="flex items-center justify-between text-xs font-bold text-orange-950 mb-1.5">
-              <span>Uploading & Parsing Columns...</span>
+              <span>Uploading &amp; Parsing Columns...</span>
               <span>{uploadProgress}%</span>
             </div>
             <div className="w-full bg-orange-200/60 h-2 rounded-full overflow-hidden">
@@ -215,127 +202,141 @@ export default function BulkScannerPage() {
       <div className="bg-white rounded-2xl border border-gray-200/90 shadow-sm overflow-hidden">
         <div className="p-4 sm:p-5 border-b border-gray-100 flex items-center justify-between">
           <div>
-            <h3 className="text-base font-bold text-[#0d1b3e]">Scan Queue & Batch History</h3>
+            <h3 className="text-base font-bold text-[#0d1b3e]">Scan Queue &amp; Batch History</h3>
             <p className="text-xs text-gray-500">Live processing status of your uploaded batch files</p>
           </div>
-          <button
-            onClick={handleSimulateUpload}
-            className="text-xs font-bold text-[#FC6B17] hover:bg-[#fff0e8] px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
-          >
-            <RefreshCw className="w-3.5 h-3.5" /> Refresh Status
-          </button>
+          {jobs.length > 0 && (
+            <button
+              onClick={() => handleFileUpload()}
+              className="text-xs font-bold text-[#FC6B17] hover:bg-[#fff0e8] px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Refresh Status
+            </button>
+          )}
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-[#f8f9fa] border-b border-gray-200 text-gray-500 font-bold uppercase tracking-wider text-[11px]">
-                <th className="py-3 px-4">Filename</th>
-                <th className="py-3 px-3">Progress</th>
-                <th className="py-3 px-3">Available Found</th>
-                <th className="py-3 px-3">DR 50+</th>
-                <th className="py-3 px-3">Status</th>
-                <th className="py-3 px-3">Date</th>
-                <th className="py-3 pr-4 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 font-medium text-gray-800">
-              {jobs.map((job) => {
-                const percent = Math.round((job.completedRows / job.totalRows) * 100);
-                return (
-                  <tr key={job.id} className="hover:bg-orange-50/20 transition-colors">
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-orange-50 text-[#FC6B17] flex items-center justify-center font-bold">
-                          <FileText className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <div className="font-bold text-gray-900">{job.filename}</div>
-                          <div className="text-[10px] text-gray-400">
-                            {job.fileSize} • {job.totalRows.toLocaleString()} rows
+        {jobs.length === 0 ? (
+          <div className="p-12 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-orange-50 text-[#FC6B17] flex items-center justify-center mx-auto">
+              <FileSpreadsheet className="w-6 h-6" />
+            </div>
+            <h4 className="text-sm font-bold text-gray-800">No bulk scans uploaded yet</h4>
+            <p className="text-xs text-gray-400 max-w-sm mx-auto">
+              Drop any domain list or spreadsheet in the upload box above to queue high-speed background RDAP/WHOIS scans.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-[#f8f9fa] border-b border-gray-200 text-gray-500 font-bold uppercase tracking-wider text-[11px]">
+                  <th className="py-3 px-4">Filename</th>
+                  <th className="py-3 px-3">Progress</th>
+                  <th className="py-3 px-3">Available Found</th>
+                  <th className="py-3 px-3">DR 50+</th>
+                  <th className="py-3 px-3">Status</th>
+                  <th className="py-3 px-3">Date</th>
+                  <th className="py-3 pr-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 font-medium text-gray-800">
+                {jobs.map((job) => {
+                  const percent = Math.round((job.completedRows / job.totalRows) * 100);
+                  return (
+                    <tr key={job.id} className="hover:bg-orange-50/20 transition-colors">
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-orange-50 text-[#FC6B17] flex items-center justify-center font-bold">
+                            <FileText className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="font-bold text-gray-900">{job.filename}</div>
+                            <div className="text-[10px] text-gray-400">
+                              {job.fileSize} • {job.totalRows.toLocaleString()} rows
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="py-4 px-3 w-44">
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[11px] font-bold">
-                          <span>
-                            {job.completedRows.toLocaleString()} / {job.totalRows.toLocaleString()}
-                          </span>
-                          <span className="text-gray-500">{percent}%</span>
+                      <td className="py-4 px-3 w-44">
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px] font-bold">
+                            <span>
+                              {job.completedRows.toLocaleString()} / {job.totalRows.toLocaleString()}
+                            </span>
+                            <span className="text-gray-500">{percent}%</span>
+                          </div>
+                          <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all ${
+                                job.status === 'Completed' ? 'bg-emerald-500' : 'bg-[#FC6B17]'
+                              }`}
+                              style={{ width: `${percent}%` }}
+                            ></div>
+                          </div>
                         </div>
-                        <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${
-                              job.status === 'Completed' ? 'bg-emerald-500' : 'bg-[#FC6B17]'
-                            }`}
-                            style={{ width: `${percent}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="py-4 px-3">
-                      <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                        🟢 {job.availableFound} Available
-                      </span>
-                    </td>
-
-                    <td className="py-4 px-3 font-bold text-[#FC6B17]">
-                      ⭐ {job.highDrFound} domains
-                    </td>
-
-                    <td className="py-4 px-3">
-                      {job.status === 'Completed' ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Completed
+                      <td className="py-4 px-3">
+                        <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          🟢 {job.availableFound} Available
                         </span>
-                      ) : job.status === 'Scanning' ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#FC6B17] bg-[#fff0e8] px-2.5 py-0.5 rounded-full border border-[#FC6B17]/30">
-                          <RefreshCw className="w-3 h-3 animate-spin text-[#FC6B17]" /> Scanning
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-gray-600 bg-gray-100 px-2.5 py-0.5 rounded-full">
-                          <Clock className="w-3 h-3" /> In Queue
-                        </span>
-                      )}
-                    </td>
+                      </td>
 
-                    <td className="py-4 px-3 text-gray-500 text-[11px]">{job.date}</td>
+                      <td className="py-4 px-3 font-bold text-[#FC6B17]">
+                        ⭐ {job.highDrFound} domains
+                      </td>
 
-                    <td className="py-4 pr-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                      <td className="py-4 px-3">
                         {job.status === 'Completed' ? (
-                          <button
-                            onClick={() => alert(`Downloading cleaned report for ${job.filename}`)}
-                            className="bg-[#0d1b3e] hover:bg-black text-white px-3 py-1.5 rounded-lg font-bold text-[11px] flex items-center gap-1 shadow-xs"
-                          >
-                            <Download className="w-3 h-3" /> Report
-                          </button>
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Completed
+                          </span>
+                        ) : job.status === 'Scanning' ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#FC6B17] bg-[#fff0e8] px-2.5 py-0.5 rounded-full border border-[#FC6B17]/30">
+                            <RefreshCw className="w-3 h-3 animate-spin text-[#FC6B17]" /> Scanning
+                          </span>
                         ) : (
-                          <button
-                            onClick={() => alert('Batch is currently processing in cloud.')}
-                            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg font-bold text-[11px]"
-                          >
-                            View
-                          </button>
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-gray-600 bg-gray-100 px-2.5 py-0.5 rounded-full">
+                            <Clock className="w-3 h-3" /> In Queue
+                          </span>
                         )}
-                        <button
-                          onClick={() => deleteJob(job.id)}
-                          className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+
+                      <td className="py-4 px-3 text-gray-500 text-[11px]">{job.date}</td>
+
+                      <td className="py-4 pr-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {job.status === 'Completed' ? (
+                            <button
+                              onClick={() => alert(`Downloading cleaned report for ${job.filename}`)}
+                              className="bg-[#0d1b3e] hover:bg-black text-white px-3 py-1.5 rounded-lg font-bold text-[11px] flex items-center gap-1 shadow-xs"
+                            >
+                              <Download className="w-3 h-3" /> Report
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => alert('Batch is currently processing in cloud.')}
+                              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg font-bold text-[11px]"
+                            >
+                              View
+                            </button>
+                          )}
+                          <button
+                            onClick={() => deleteJob(job.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

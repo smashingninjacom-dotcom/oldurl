@@ -20,7 +20,36 @@ export default function DomainAnalyticsPage() {
       alert('Please enter domains to analyze (max 300).');
       return;
     }
-    router.push('/dashboard/domain-analytics-result');
+    try {
+      sessionStorage.setItem('pending_analytics_domains', domains.trim());
+    } catch (e) {}
+    router.push(`/dashboard/domain-analytics-result?domains=${encodeURIComponent(domains.trim())}`);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (text) {
+        const lines = text
+          .split(/[\r\n,]+/)
+          .map((l) => l.trim().replace(/^["']|["']$/g, ''))
+          .filter((l) => l && l.includes('.'));
+        if (lines.length > 0) {
+          const domStr = lines.slice(0, 300).join('\n');
+          try {
+            sessionStorage.setItem('pending_analytics_domains', domStr);
+          } catch (err) {}
+          router.push(`/dashboard/domain-analytics-result?domains=${encodeURIComponent(domStr)}`);
+        } else {
+          alert('No valid domain names found in the uploaded file.');
+        }
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -94,12 +123,15 @@ export default function DomainAnalyticsPage() {
             <FileSpreadsheet className="w-8 h-8 text-indigo-600 mx-auto mb-2" />
             <p className="text-xs font-bold text-gray-800">Drop CSV file for Domain Analytics</p>
             <p className="text-[10px] text-gray-400 mt-0.5">Maximum 300 domains per analysis run</p>
-            <button
-              onClick={() => router.push('/dashboard/domain-analytics-result')}
-              className="mt-4 bg-indigo-600 text-white text-xs font-bold px-4 py-2 rounded-xl"
-            >
-              Upload &amp; Analyze
-            </button>
+            <label className="inline-block mt-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-xl cursor-pointer transition-colors shadow-xs">
+              <input
+                type="file"
+                accept=".csv,.txt"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              Select CSV File
+            </label>
           </div>
         )}
       </div>
