@@ -54,27 +54,13 @@ export function getSearchSessions(): SearchSession[] {
     }
   } catch (e) {}
 
-  // Auto-generate a default session from search history if none saved yet
-  const history = getLocalSearchHistory();
-  if (history.length > 0) {
-    return [
-      {
-        id: 'session_initial',
-        name: `Recent Search (${history.length} domain${history.length > 1 ? 's' : ''})`,
-        createdAt: history[0]?.createdAt || new Date().toISOString(),
-        domainCount: history.length,
-        items: history,
-      },
-    ];
-  }
-
   return [];
 }
 
 export function saveSearchSession(name: string, items: StoredSearchItem[]): void {
   if (typeof window === 'undefined' || !items || !items.length) return;
   try {
-    const existing = getSearchSessions().filter((s) => s.id !== 'session_initial');
+    const existing = getSearchSessions();
     const newSession: SearchSession = {
       id: `session_${Date.now()}`,
       name: name || (items.length === 1 ? items[0].domain : `${items.length} Domains Checked`),
@@ -84,6 +70,10 @@ export function saveSearchSession(name: string, items: StoredSearchItem[]): void
     };
     const updated = [newSession, ...existing.filter((s) => s.id !== newSession.id)].slice(0, 50);
     localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(updated));
+    localStorage.setItem('oldurl_latest_search_batch', JSON.stringify(newSession.items));
+    try {
+      sessionStorage.setItem('last_scanned_results', JSON.stringify(newSession.items));
+    } catch (err) {}
   } catch (e) {}
 }
 
@@ -98,7 +88,7 @@ export function deleteSearchSession(sessionId: string): void {
 export function getLastScannedBatch(): StoredSearchItem[] {
   if (typeof window === 'undefined') return [];
   try {
-    const raw = sessionStorage.getItem('last_scanned_results');
+    const raw = sessionStorage.getItem('last_scanned_results') || localStorage.getItem('oldurl_latest_search_batch');
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
