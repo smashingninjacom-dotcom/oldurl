@@ -68,7 +68,9 @@ function getPaginationRange(currentPage: number, totalPages: number): (number | 
 function ResultsContent() {
   const searchParams = useSearchParams();
   const [results, setResults] = useState<ResultItem[]>(() => {
-    return (getLastScannedBatch() as any) || [];
+    const recent = getLastScannedBatch();
+    if (recent && recent.length > 0) return recent as any;
+    return (getLocalSearchHistory() as any) || [];
   });
   const [isScanning, setIsScanning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -322,11 +324,25 @@ function ResultsContent() {
       setIsScanning(false);
       setProgress(100);
 
-      // Only show the recent/latest scanned batch, NEVER all historical domains
       const recentBatch = getLastScannedBatch();
       if (recentBatch && recentBatch.length > 0) {
         setResults(recentBatch as any);
+      } else {
+        const local = getLocalSearchHistory();
+        if (local && local.length > 0) {
+          setResults(local as any);
+        }
       }
+
+      // Background sync from cloud if needed
+      fetchAllSearchHistory().then(({ items }) => {
+        const currentBatch = getLastScannedBatch();
+        if (!currentBatch || currentBatch.length === 0) {
+          if (items && items.length > 0) {
+            setResults(items as any);
+          }
+        }
+      }).catch(() => {});
     }
   }, [searchParams]);
 

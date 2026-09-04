@@ -61,14 +61,15 @@ export function saveSearchSession(name: string, items: StoredSearchItem[]): void
   if (typeof window === 'undefined' || !items || !items.length) return;
   try {
     const existing = getSearchSessions();
+    const sessionName = name || (items.length === 1 ? items[0].domain : `${items.length} Domains Checked`);
     const newSession: SearchSession = {
       id: `session_${Date.now()}`,
-      name: name || (items.length === 1 ? items[0].domain : `${items.length} Domains Checked`),
+      name: sessionName,
       createdAt: items[0]?.createdAt || new Date().toISOString(),
       domainCount: items.length,
       items: items.map((it, idx) => ({ ...it, id: String(idx + 1).padStart(2, '0') })),
     };
-    const updated = [newSession, ...existing.filter((s) => s.id !== newSession.id)].slice(0, 50);
+    const updated = [newSession, ...existing.filter((s) => s.id !== newSession.id)].slice(0, 100);
     localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(updated));
     localStorage.setItem('oldurl_latest_search_batch', JSON.stringify(newSession.items));
     try {
@@ -152,6 +153,33 @@ export function getLocalSearchHistory(): StoredSearchItem[] {
     loadFromRaw(localStorage.getItem(STORAGE_KEY));
   } catch (e) {}
 
+  try {
+    // Also load from all stored sessions to ensure complete total history
+    const sessions = getSearchSessions();
+    sessions.forEach((sess) => {
+      if (sess.items && Array.isArray(sess.items)) {
+        sess.items.forEach((item) => {
+          if (item && item.domain) {
+            const dom = String(item.domain).toLowerCase().trim();
+            if (dom && !map.has(dom)) {
+              map.set(dom, {
+                id: '01',
+                domain: item.domain.trim(),
+                status: item.status || 'Available',
+                daysLeft: item.daysLeft || (item.status === 'Available' ? 'Dropped' : '365d'),
+                dr: Number(item.dr) || 0,
+                registrar: item.registrar || (item.status === 'Available' ? '—' : 'Namecheap, Inc.'),
+                refDomains: item.refDomains || 0,
+                backlinks: item.backlinks || 0,
+                createdAt: item.createdAt || sess.createdAt || new Date().toISOString(),
+              });
+            }
+          }
+        });
+      }
+    });
+  } catch (e) {}
+
   // Sort strictly by most recently searched first (createdAt descending)
   const result = Array.from(map.values())
     .sort((a, b) => {
@@ -200,14 +228,14 @@ export function saveLocalSearchHistory(items: StoredSearchItem[], sessionLabel?:
       }
     });
 
-    // Keep most recent searches sorted by createdAt desc
+    // Keep all searches sorted by createdAt desc (up to 10,000)
     const merged = Array.from(existingMap.values())
       .sort((a, b) => {
         const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return bTime - aTime;
       })
-      .slice(0, 1000)
+      .slice(0, 10000)
       .map((item, idx) => ({
         ...item,
         id: String(idx + 1).padStart(2, '0'),
@@ -219,7 +247,7 @@ export function saveLocalSearchHistory(items: StoredSearchItem[], sessionLabel?:
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
     } catch (e) {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged.slice(0, 200)));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged.slice(0, 1000)));
       } catch (err) {}
     }
   } catch (e) {}
@@ -357,13 +385,13 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user;
     if (user) {
-      // Fetch only recent searches (up to 250) to prevent old bulk spam dumps
+      // Fetch all historical searches (up to 10,000)
       const { data: cloudHistory, error } = await supabase
         .from('search_history')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(250);
+        .limit(10000);
 
       lastCloudFetchTime = Date.now();
 
