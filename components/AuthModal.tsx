@@ -48,7 +48,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           Sign in to OldUrl
         </h2>
         <p className="text-xs text-gray-500 mt-1.5 max-w-xs mx-auto leading-relaxed">
-          Unlock instant high-DR expired domain searches, WHOIS audits, and backlink metrics.
+          Unlock instant high-DR expired domain searches and backlink metrics.
         </p>
 
         {/* Feature Points */}
