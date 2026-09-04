@@ -8,6 +8,7 @@ import {
   saveLocalSearchHistory,
   syncToSupabase,
   fetchAllSearchHistory,
+  getLocalSearchHistory,
   formatCheckDate,
 } from '../../../lib/searchHistory';
 import {
@@ -96,7 +97,27 @@ function ResultsContent() {
         .replace(/[^a-z0-9.-]/g, '');
     }
 
+    const existingHistory = getLocalSearchHistory();
+    const historyMap = new Map<string, any>();
+    existingHistory.forEach((h) => historyMap.set(h.domain.toLowerCase(), h));
+
     function evaluateDomain(domain: string, idx: number): ResultItem {
+      const lower = domain.toLowerCase();
+      if (historyMap.has(lower)) {
+        const cached = historyMap.get(lower)!;
+        return {
+          id: String(idx + 1).padStart(2, '0'),
+          domain: cached.domain || domain,
+          status: cached.status || 'Available',
+          daysLeft: cached.daysLeft || (cached.status === 'Available' ? 'Dropped' : '365d'),
+          dr: Number(cached.dr) || 0,
+          registrar: cached.registrar || (cached.status === 'Available' ? '—' : 'Registered / Active'),
+          refDomains: cached.refDomains || 0,
+          backlinks: cached.backlinks || 0,
+          createdAt: cached.createdAt || new Date().toISOString(),
+        };
+      }
+
       let hash = 0;
       for (let i = 0; i < domain.length; i++) {
         hash = (hash << 5) - hash + domain.charCodeAt(i);
@@ -126,10 +147,20 @@ function ResultsContent() {
         .filter((d) => d.length > 2 && d.includes('.'));
 
       if (rawDomains.length > 0) {
-        setIsScanning(true);
         const initialCalculated = rawDomains.map((d, i) => evaluateDomain(d, i));
         setResults(initialCalculated);
-        setProgress(15);
+
+        // Check if all domains are already cached in storage history
+        const allCached = rawDomains.every((d) => historyMap.has(d.toLowerCase()));
+        if (allCached) {
+          // Instant 0ms display for previously scanned files
+          setProgress(100);
+          setIsScanning(false);
+          return;
+        }
+
+        setIsScanning(true);
+        setProgress(20);
 
         // Immediate snapshot so data is never 0 even if user leaves early
         saveLocalSearchHistory(initialCalculated as any);

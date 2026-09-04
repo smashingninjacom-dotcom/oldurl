@@ -88,6 +88,10 @@ async function verifyDomainAvailability(domain: string): Promise<DomainCheckStat
   };
 }
 
+// High-speed in-memory cache for repeated scans (15-minute TTL)
+const domainCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL_MS = 15 * 60 * 1000;
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -106,6 +110,7 @@ export async function POST(request: NextRequest) {
     // Process in parallel chunks of 25
     const chunkSize = 25;
     const results: any[] = [];
+    const now = Date.now();
 
     for (let i = 0; i < domainList.length; i += chunkSize) {
       const chunk = domainList.slice(i, i + chunkSize);
@@ -122,6 +127,12 @@ export async function POST(request: NextRequest) {
 
           if (!cleanDomain || !cleanDomain.includes('.')) {
             cleanDomain = rawDomain.trim();
+          }
+
+          // Check server memory cache for instant sub-millisecond response
+          const cached = domainCache.get(cleanDomain);
+          if (cached && (now - cached.timestamp < CACHE_TTL_MS)) {
+            return cached.data;
           }
 
           let hash = 0;
@@ -195,7 +206,7 @@ export async function POST(request: NextRequest) {
             backlinks = Math.round(refDomains * (3 + (absHash % 6)));
           }
 
-          return {
+          const itemResult = {
             domain: cleanDomain,
             status,
             dr,
@@ -207,6 +218,11 @@ export async function POST(request: NextRequest) {
             namecheapLink: `https://www.namecheap.com/domains/registration/results/?domain=${cleanDomain}`,
             godaddyLink: `https://www.godaddy.com/domainsearch/find?domainToCheck=${cleanDomain}`,
           };
+
+          // Cache for subsequent fast responses
+          domainCache.set(cleanDomain, { data: itemResult, timestamp: Date.now() });
+
+          return itemResult;
         })
       );
       results.push(...chunkResults);
