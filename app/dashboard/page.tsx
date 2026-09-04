@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabaseClient';
 import {
   fetchAllSearchHistory,
@@ -54,6 +55,7 @@ function getPaginationRange(currentPage: number, totalPages: number): (number | 
 }
 
 export default function DashboardHomePage() {
+  const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [userName, setUserName] = useState<string>('Member');
   const [loading, setLoading] = useState(false);
@@ -202,7 +204,7 @@ export default function DashboardHomePage() {
     try {
       sessionStorage.setItem('pending_domains', domain);
     } catch (e) {}
-    window.location.href = '/dashboard/results';
+    router.push('/dashboard/results');
   };
 
   const filteredSearches = React.useMemo(() => {

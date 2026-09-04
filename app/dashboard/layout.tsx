@@ -34,6 +34,11 @@ export default function DashboardLayout({
   const [user, setUser] = useState<any>(() => {
     if (typeof window !== 'undefined') {
       try {
+        const directCached = localStorage.getItem('oldurl_cached_user');
+        if (directCached) {
+          const parsed = JSON.parse(directCached);
+          if (parsed) return parsed;
+        }
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
           if (key && (key.includes('auth-token') || key.includes('supabase.auth') || key.startsWith('sb-'))) {
@@ -50,8 +55,29 @@ export default function DashboardLayout({
     }
     return null;
   });
-  const [userProfile, setUserProfile] = useState<any>(null);
-  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
+  const [userProfile, setUserProfile] = useState<any>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('oldurl_cached_profile');
+        if (cached) return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return null;
+  });
+  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        if (localStorage.getItem('oldurl_cached_user')) return false;
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.includes('auth-token') || key.includes('supabase.auth') || key.startsWith('sb-'))) {
+            return false;
+          }
+        }
+      } catch (e) {}
+    }
+    return false;
+  });
   const [authError, setAuthError] = useState<string | null>(null);
   const [isGuestMode, setIsGuestMode] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
@@ -78,6 +104,9 @@ export default function DashboardLayout({
             if (!error && data?.session?.user) {
               if (isMounted) {
                 setUser(data.session.user);
+                try {
+                  localStorage.setItem('oldurl_cached_user', JSON.stringify(data.session.user));
+                } catch (e) {}
                 fetchProfile(data.session.user.id);
                 setIsAuthChecking(false);
               }
@@ -93,6 +122,9 @@ export default function DashboardLayout({
         if (isMounted) {
           if (session?.user) {
             setUser(session.user);
+            try {
+              localStorage.setItem('oldurl_cached_user', JSON.stringify(session.user));
+            } catch (e) {}
             fetchProfile(session.user.id);
           }
           setIsAuthChecking(false);
@@ -112,9 +144,16 @@ export default function DashboardLayout({
       if (isMounted) {
         setUser(session?.user ?? null);
         if (session?.user) {
+          try {
+            localStorage.setItem('oldurl_cached_user', JSON.stringify(session.user));
+          } catch (e) {}
           fetchProfile(session.user.id);
           setAuthError(null);
         } else {
+          try {
+            localStorage.removeItem('oldurl_cached_user');
+            localStorage.removeItem('oldurl_cached_profile');
+          } catch (e) {}
           setUserProfile(null);
         }
         setIsAuthChecking(false);
@@ -136,6 +175,9 @@ export default function DashboardLayout({
         .single();
       if (!error && data) {
         setUserProfile(data);
+        try {
+          localStorage.setItem('oldurl_cached_profile', JSON.stringify(data));
+        } catch (e) {}
       }
     } catch (e) {}
   };

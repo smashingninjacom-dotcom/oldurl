@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import {
   fetchAllSearchHistory,
@@ -50,6 +51,7 @@ function getPaginationRange(currentPage: number, totalPages: number): (number | 
 }
 
 export default function PreviousSearchesPage() {
+  const router = useRouter();
   const [data, setData] = useState<any[]>(() => getLocalSearchHistory());
   const [sessions, setSessions] = useState<SearchSession[]>(() => getSearchSessions());
   const [selectedSessionId, setSelectedSessionId] = useState<string>('all');
@@ -77,7 +79,7 @@ export default function PreviousSearchesPage() {
 
   useEffect(() => {
     const refreshData = () => {
-      const local = getLocalSearchHistory(true);
+      const local = getLocalSearchHistory(false);
       if (local && local.length > 0) {
         setData(local);
       }
@@ -158,69 +160,71 @@ export default function PreviousSearchesPage() {
     }
   }, [availableExtensions, extensionFilter]);
 
-  const filtered = activeData
-    .filter((item) => {
-      if (statusFilter !== 'All' && item.status !== statusFilter) return false;
-      if (extensionFilter !== 'All' && !item.domain.toLowerCase().endsWith(extensionFilter.toLowerCase())) return false;
-      if (searchQuery && !item.domain.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-      if (minDrInput && item.dr < Number(minDrInput)) return false;
-      if (maxDrInput && item.dr > Number(maxDrInput)) return false;
-      if (daysFilter !== 'Any') {
-        const rawDays = String(item.daysLeft || '').toLowerCase().trim();
-        let daysNum = parseInt(rawDays, 10);
-        if (isNaN(daysNum)) {
-          if (rawDays.includes('pending') || rawDays.includes('expir') || rawDays.includes('redemption')) {
-            daysNum = 5;
-          } else if (rawDays.includes('drop') || rawDays.includes('avail')) {
-            daysNum = 0;
-          } else {
-            daysNum = 365;
+  const filtered = React.useMemo(() => {
+    return activeData
+      .filter((item) => {
+        if (statusFilter !== 'All' && item.status !== statusFilter) return false;
+        if (extensionFilter !== 'All' && !item.domain.toLowerCase().endsWith(extensionFilter.toLowerCase())) return false;
+        if (searchQuery && !item.domain.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+        if (minDrInput && item.dr < Number(minDrInput)) return false;
+        if (maxDrInput && item.dr > Number(maxDrInput)) return false;
+        if (daysFilter !== 'Any') {
+          const rawDays = String(item.daysLeft || '').toLowerCase().trim();
+          let daysNum = parseInt(rawDays, 10);
+          if (isNaN(daysNum)) {
+            if (rawDays.includes('pending') || rawDays.includes('expir') || rawDays.includes('redemption')) {
+              daysNum = 5;
+            } else if (rawDays.includes('drop') || rawDays.includes('avail')) {
+              daysNum = 0;
+            } else {
+              daysNum = 365;
+            }
+          }
+
+          if (daysFilter === '< 30d') {
+            if (daysNum >= 30) return false;
+          } else if (daysFilter === '30-90d') {
+            if (daysNum < 30 || daysNum > 90) return false;
+          } else if (daysFilter === '> 90d') {
+            if (daysNum <= 90) return false;
           }
         }
+        return true;
+      })
+      .sort((a, b) => {
+        const aVal = a[sortField];
+        const bVal = b[sortField];
 
-        if (daysFilter === '< 30d') {
-          if (daysNum >= 30) return false;
-        } else if (daysFilter === '30-90d') {
-          if (daysNum < 30 || daysNum > 90) return false;
-        } else if (daysFilter === '> 90d') {
-          if (daysNum <= 90) return false;
-        }
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      const aVal = a[sortField];
-      const bVal = b[sortField];
-
-      if (sortField === 'id') {
-        const aNum = parseInt(aVal, 10) || 0;
-        const bNum = parseInt(bVal, 10) || 0;
-        return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
-      }
-      if (sortField === 'dr') {
-        const aNum = Number(aVal) || 0;
-        const bNum = Number(bVal) || 0;
-        return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
-      }
-      if (sortField === 'daysLeft') {
-        const aNum = parseInt(aVal, 10);
-        const bNum = parseInt(bVal, 10);
-        if (!isNaN(aNum) && !isNaN(bNum)) {
+        if (sortField === 'id') {
+          const aNum = parseInt(aVal, 10) || 0;
+          const bNum = parseInt(bVal, 10) || 0;
           return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
         }
-        return sortOrder === 'asc'
-          ? String(aVal || '').localeCompare(String(bVal || ''))
-          : String(bVal || '').localeCompare(String(aVal || ''));
-      }
-      if (sortField === 'createdAt') {
-        const aTime = aVal ? new Date(aVal).getTime() : 0;
-        const bTime = bVal ? new Date(bVal).getTime() : 0;
-        return sortOrder === 'asc' ? aTime - bTime : bTime - aTime;
-      }
-      const aStr = String(aVal || '').toLowerCase();
-      const bStr = String(bVal || '').toLowerCase();
-      return sortOrder === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
-    });
+        if (sortField === 'dr') {
+          const aNum = Number(aVal) || 0;
+          const bNum = Number(bVal) || 0;
+          return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
+        }
+        if (sortField === 'daysLeft') {
+          const aNum = parseInt(aVal, 10);
+          const bNum = parseInt(bVal, 10);
+          if (!isNaN(aNum) && !isNaN(bNum)) {
+            return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
+          }
+          return sortOrder === 'asc'
+            ? String(aVal || '').localeCompare(String(bVal || ''))
+            : String(bVal || '').localeCompare(String(aVal || ''));
+        }
+        if (sortField === 'createdAt') {
+          const aTime = aVal ? new Date(aVal).getTime() : 0;
+          const bTime = bVal ? new Date(bVal).getTime() : 0;
+          return sortOrder === 'asc' ? aTime - bTime : bTime - aTime;
+        }
+        const aStr = String(aVal || '').toLowerCase();
+        const bStr = String(bVal || '').toLowerCase();
+        return sortOrder === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
+      });
+  }, [activeData, statusFilter, extensionFilter, searchQuery, minDrInput, maxDrInput, daysFilter, sortField, sortOrder]);
 
   const [showExportMenu, setShowExportMenu] = useState(false);
 
@@ -305,7 +309,7 @@ export default function PreviousSearchesPage() {
     try {
       sessionStorage.setItem('pending_domains', domainList.join('\n'));
     } catch (e) {}
-    window.location.href = '/dashboard/results';
+    router.push('/dashboard/results');
   };
 
   return (
