@@ -60,8 +60,12 @@ export default function DashboardLayout({
   const [userProfile, setUserProfile] = useState<any>(() => {
     if (typeof window !== 'undefined') {
       try {
-        const cached = localStorage.getItem('oldurl_cached_profile');
-        if (cached) return JSON.parse(cached);
+        const cachedUser = localStorage.getItem('oldurl_cached_user');
+        const uid = cachedUser ? JSON.parse(cachedUser)?.id : null;
+        if (uid) {
+          const userSpecific = localStorage.getItem(`oldurl_cached_profile_${uid}`);
+          if (userSpecific) return JSON.parse(userSpecific);
+        }
       } catch (e) {}
     }
     return null;
@@ -191,33 +195,9 @@ export default function DashboardLayout({
         .eq('id', userId)
         .single();
       if (!error && data) {
-        let cachedUsed = 0;
-        try {
-          const raw = localStorage.getItem(`oldurl_cached_profile_${userId}`) || localStorage.getItem('oldurl_cached_profile');
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (parsed?.id === userId) {
-              cachedUsed = parsed.quota_used || 0;
-            }
-          }
-          const rawStats = localStorage.getItem(`oldurl_stats_${userId}`);
-          if (rawStats) {
-            const stats = JSON.parse(rawStats);
-            cachedUsed = Math.max(cachedUsed, stats?.totalChecked || 0);
-          }
-        } catch (e) {}
-
-        const finalUsed = Math.max(Number(data.quota_used) || 0, cachedUsed);
-        data.quota_used = finalUsed;
-
-        if (finalUsed > (Number(data.quota_used) || 0)) {
-          supabase.from('profiles').update({ quota_used: finalUsed }).eq('id', userId).then(() => {});
-        }
-
         setUserProfile(data);
         try {
           localStorage.setItem(`oldurl_cached_profile_${userId}`, JSON.stringify(data));
-          localStorage.setItem('oldurl_cached_profile', JSON.stringify(data));
         } catch (e) {}
       }
     } catch (e) {}

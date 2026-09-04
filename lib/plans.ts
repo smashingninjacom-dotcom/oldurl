@@ -104,19 +104,15 @@ export function parsePlanId(planName?: string): PlanId {
 }
 
 export function getUserQuotaData(profile?: any): UserQuotaData {
-  const uid = profile?.id || (typeof window !== 'undefined' ? (function() {
-    try {
-      const cachedUser = localStorage.getItem('oldurl_cached_user');
-      if (cachedUser) return JSON.parse(cachedUser)?.id;
-    } catch (e) {}
-    return 'guest';
-  })() : 'guest');
-
   let p = profile;
   if (!p && typeof window !== 'undefined') {
     try {
-      const cached = localStorage.getItem(`oldurl_cached_profile_${uid}`) || localStorage.getItem('oldurl_cached_profile');
-      if (cached) p = JSON.parse(cached);
+      const cachedUser = localStorage.getItem('oldurl_cached_user');
+      const uid = cachedUser ? JSON.parse(cachedUser)?.id : null;
+      if (uid) {
+        const raw = localStorage.getItem(`oldurl_cached_profile_${uid}`);
+        if (raw) p = JSON.parse(raw);
+      }
     } catch (e) {}
   }
 
@@ -124,21 +120,7 @@ export function getUserQuotaData(profile?: any): UserQuotaData {
   const plan = PLANS[planId] || PLANS.free;
 
   const lookupsLimit = p?.quota_limit ?? plan.monthlyLookups;
-
-  // Calculate lookupsUsed reliably from profile and search history stats for THIS user
-  let lookupsUsed = Number(p?.quota_used) || 0;
-  if (typeof window !== 'undefined') {
-    try {
-      const rawStats = localStorage.getItem(`oldurl_stats_${uid}`);
-      if (rawStats) {
-        const stats = JSON.parse(rawStats);
-        if (typeof stats?.totalChecked === 'number' && stats.totalChecked > lookupsUsed) {
-          lookupsUsed = stats.totalChecked;
-        }
-      }
-    } catch (e) {}
-  }
-
+  const lookupsUsed = Math.max(0, Number(p?.quota_used) || 0);
   const lookupsRemaining = Math.max(0, lookupsLimit - lookupsUsed);
   const lookupsPercent = lookupsLimit > 0 ? Math.min(100, Math.round((lookupsUsed / lookupsLimit) * 100)) : 0;
 
