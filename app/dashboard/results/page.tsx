@@ -95,6 +95,9 @@ function ResultsContent() {
   };
 
   const hasLoadedRef = useRef(false);
+  const isPausedRef = useRef(false);
+  const isCancelledRef = useRef(false);
+  const isStoppedRef = useRef(false);
 
   useEffect(() => {
     if (hasLoadedRef.current) return;
@@ -201,7 +204,11 @@ function ResultsContent() {
           return;
         }
 
+        isPausedRef.current = false;
+        isCancelledRef.current = false;
+        isStoppedRef.current = false;
         setIsScanning(true);
+        setIsPaused(false);
         setProgress(20);
 
         // Immediate snapshot so data is never 0 even if user leaves early
@@ -214,6 +221,35 @@ function ResultsContent() {
           const allFormatted: ResultItem[] = [...initialCalculated];
 
           for (let i = 0; i < rawDomains.length; i += CHUNK_SIZE) {
+            // Check if cancelled or stopped before starting this chunk
+            if (isCancelledRef.current) {
+              setIsScanning(false);
+              setIsPaused(false);
+              return;
+            }
+            if (isStoppedRef.current) {
+              setIsScanning(false);
+              setIsPaused(false);
+              setProgress(100);
+              return;
+            }
+
+            // Await while paused
+            while (isPausedRef.current) {
+              if (isCancelledRef.current) {
+                setIsScanning(false);
+                setIsPaused(false);
+                return;
+              }
+              if (isStoppedRef.current) {
+                setIsScanning(false);
+                setIsPaused(false);
+                setProgress(100);
+                return;
+              }
+              await new Promise((resolve) => setTimeout(resolve, 200));
+            }
+
             const chunkIndex = Math.floor(i / CHUNK_SIZE);
             const chunk = rawDomains.slice(i, i + CHUNK_SIZE);
             try {
@@ -250,12 +286,26 @@ function ResultsContent() {
             } catch (err) {
               console.warn('Chunk check error:', err);
             }
+
+            if (isCancelledRef.current) {
+              setIsScanning(false);
+              setIsPaused(false);
+              return;
+            }
+            if (isStoppedRef.current) {
+              setIsScanning(false);
+              setIsPaused(false);
+              setProgress(100);
+              return;
+            }
+
             const currentProgress = Math.min(95, Math.round(((chunkIndex + 1) / totalChunks) * 100));
             setProgress(currentProgress);
           }
 
           setProgress(100);
           setIsScanning(false);
+          setIsPaused(false);
 
           // Final save of all completed results
           try {
@@ -281,18 +331,25 @@ function ResultsContent() {
   }, [searchParams]);
 
   const handleTogglePause = () => {
-    setIsPaused((prev) => !prev);
+    const next = !isPausedRef.current;
+    isPausedRef.current = next;
+    setIsPaused(next);
   };
 
   const handleCancel = () => {
+    isCancelledRef.current = true;
+    isPausedRef.current = false;
     setIsScanning(false);
     setIsPaused(false);
     setProgress(0);
   };
 
   const handleStop = () => {
+    isStoppedRef.current = true;
+    isPausedRef.current = false;
     setIsScanning(false);
     setIsPaused(false);
+    setProgress(100);
   };
 
   const totalCount = results.length;
