@@ -41,7 +41,76 @@ function detectRegistrar(nsRecords: string[]): string {
   return 'Registered / Active';
 }
 
-// Ultra-accurate high-throughput DNS verification engine (Native Node.js DNS + Cloudflare DoH + Google DoH)
+async function checkWithRDAP(domain: string): Promise<DomainCheckStatus | null> {
+  const parts = domain.split('.');
+  const tld = parts[parts.length - 1];
+
+  let rdapUrl = `https://rdap.org/domain/${encodeURIComponent(domain)}`;
+  if (tld === 'com') rdapUrl = `https://rdap.verisign.com/com/v1/domain/${encodeURIComponent(domain)}`;
+  else if (tld === 'net') rdapUrl = `https://rdap.verisign.com/net/v1/domain/${encodeURIComponent(domain)}`;
+  else if (tld === 'org') rdapUrl = `https://rdap.publicinterestregistry.org/rdap/domain/${encodeURIComponent(domain)}`;
+  else if (tld === 'co') rdapUrl = `https://rdap.nic.co/domain/${encodeURIComponent(domain)}`;
+
+  try {
+    const res = await fetch(rdapUrl, {
+      headers: {
+        Accept: 'application/rdap+json, application/json',
+        'User-Agent': 'OldUrl-Checker/2.0 (+https://oldurl.com)',
+      },
+      signal: AbortSignal.timeout(3000),
+      redirect: 'follow',
+    });
+
+    if (res.status === 200) {
+      const data = await res.json();
+      const events = data.events || [];
+      const expEvent = events.find((e: any) => e.eventAction === 'expiration');
+      const registrarName =
+        data.entities?.find((e: any) => e.roles?.includes('registrar'))?.vcardArray?.[1]?.find((v: any) => v[0] === 'fn')?.[3] ||
+        'Registered / Active';
+
+      let daysLeft = 'Active';
+      let status: 'Available' | 'Expiring Soon' | 'Registered' = 'Registered';
+
+      if (expEvent && expEvent.eventDate) {
+        const exp = new Date(expEvent.eventDate);
+        if (!isNaN(exp.getTime())) {
+          const diffDays = Math.round((exp.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+          if (diffDays > 0) {
+            daysLeft = `${diffDays}d`;
+            if (diffDays <= 30) {
+              status = 'Expiring Soon';
+            }
+          } else {
+            daysLeft = 'Expired';
+          }
+        }
+      }
+
+      return {
+        registered: true,
+        status,
+        registrar: registrarName,
+        daysLeft,
+        expirationDate: expEvent?.eventDate,
+      };
+    }
+
+    if (res.status === 404) {
+      return {
+        registered: false,
+        status: 'Available',
+        registrar: '—',
+        daysLeft: 'Dropped',
+      };
+    }
+  } catch (e) {
+    return null;
+  }
+  return null;
+}
+
+// Ultra-accurate high-throughput DNS & RDAP verification engine (Native Node.js DNS + ICANN RDAP + Cloudflare DoH + Google DoH)
 async function verifyDomainAvailability(domain: string): Promise<DomainCheckStatus> {
   const clean = domain
     .trim()
@@ -108,6 +177,12 @@ async function verifyDomainAvailability(domain: string): Promise<DomainCheckStat
     }
   } catch (err) {}
 
+  // 4. Official ICANN Registry RDAP Check (Verisign, PIR, etc.)
+  const rdapResult = await checkWithRDAP(clean);
+  if (rdapResult) {
+    return rdapResult;
+  }
+
   let cfStatus: number | null = null;
   let cfAnswers: any[] = [];
   let cfAuthorities: any[] = [];
@@ -115,7 +190,7 @@ async function verifyDomainAvailability(domain: string): Promise<DomainCheckStat
   let gAnswers: any[] = [];
   let gAuthorities: any[] = [];
 
-  // 4. Cloudflare DoH (A / CNAME / AAAA records)
+  // 5. Cloudflare DoH (A / CNAME / AAAA records)
   try {
     const cfUrl = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(clean)}&type=A`;
     const cfRes = await fetch(cfUrl, {
@@ -140,7 +215,7 @@ async function verifyDomainAvailability(domain: string): Promise<DomainCheckStat
     };
   }
 
-  // 5. Google DoH (NS query) for authoritative nameservers
+  // 6. Google DoH (NS query) for authoritative nameservers
   try {
     const gUrl = `https://dns.google/resolve?name=${encodeURIComponent(clean)}&type=NS`;
     const gRes = await fetch(gUrl, {
