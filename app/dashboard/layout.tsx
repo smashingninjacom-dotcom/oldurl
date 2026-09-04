@@ -38,14 +38,41 @@ export default function DashboardLayout({
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
+    async function initAuth() {
+      try {
+        // 1. Check if URL contains PKCE authorization code
+        if (typeof window !== 'undefined') {
+          const urlParams = new URLSearchParams(window.location.search);
+          const code = urlParams.get('code');
+          if (code) {
+            const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+            if (!error && data?.session?.user) {
+              setUser(data.session.user);
+              fetchProfile(data.session.user.id);
+              setAuthLoading(false);
+              // Clean URL query params without reloading
+              window.history.replaceState({}, document.title, window.location.pathname);
+              return;
+            }
+          }
+        }
+
+        // 2. Otherwise get existing session
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          fetchProfile(session.user.id);
+        }
+      } catch (e) {
+        console.warn('Auth init note:', e);
+      } finally {
+        setAuthLoading(false);
       }
-      setAuthLoading(false);
-    });
+    }
+
+    initAuth();
 
     // Listen for auth state changes
     const {
