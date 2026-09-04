@@ -34,6 +34,7 @@ import {
   ArrowDown,
   RefreshCw,
   Trash2,
+  Layers,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -398,80 +399,139 @@ export default function PreviousSearchesPage() {
         </div>
       </div>
 
-      {/* Previous Searches Wise (Session Wise) Selector */}
+      {/* -------------------- PREVIOUS SEARCHES (SEARCH-WISE BATCHES) -------------------- */}
       {sessions.length > 0 && (
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-xs space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+        <div className="bg-white p-5 rounded-2xl border border-gray-200/90 shadow-xs space-y-3.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#FC6B17]"></span>
-              <span className="text-xs font-bold text-[#0d1b3e] uppercase tracking-wider">
-                Previous Searches (Search-Wise)
-              </span>
+              <div className="w-7 h-7 rounded-xl bg-orange-50 text-[#FC6B17] flex items-center justify-center font-bold shadow-2xs">
+                <Layers className="w-3.5 h-3.5" />
+              </div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-bold text-[#0d1b3e] uppercase tracking-wider">
+                  Search-Wise Batches
+                </h3>
+                <span className="bg-orange-50 text-[#FC6B17] border border-orange-100/80 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                  {sessions.length} {sessions.length === 1 ? 'Batch' : 'Batches'}
+                </span>
+              </div>
             </div>
-            <span className="text-[11px] text-gray-400 font-medium">
-              Click any search batch below to view domains search-wise
-            </span>
+
+            {/* Quick Batch Jump Dropdown */}
+            <div className="flex items-center gap-2">
+              <select
+                value={selectedSessionId}
+                onChange={(e) => {
+                  setSelectedSessionId(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="text-xs bg-gray-50 hover:bg-gray-100/80 border border-gray-200 text-gray-700 font-semibold px-3 py-1.5 rounded-xl outline-none focus:border-[#FC6B17] transition-colors cursor-pointer"
+              >
+                <option value="all">
+                  All Searches ({Math.max(data.length, cachedStats.totalChecked).toLocaleString()} domains)
+                </option>
+                {sessions.map((sess, idx) => (
+                  <option key={sess.id} value={sess.id}>
+                    Batch #{sessions.length - idx}: {sess.name} ({sess.domainCount} domains) • {formatCheckDate(sess.createdAt)}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+          {/* Clean Horizontal Scroll Carousel */}
+          <div className="flex items-center gap-2.5 overflow-x-auto pb-1.5 pt-0.5 scrollbar-thin">
+            {/* All Searches Master Chip */}
             <button
               type="button"
               onClick={() => {
                 setSelectedSessionId('all');
                 setCurrentPage(1);
               }}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`group shrink-0 px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border cursor-pointer ${
                 selectedSessionId === 'all'
-                  ? 'bg-[#0d1b3e] text-white shadow-xs'
-                  : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
+                  ? 'bg-[#0d1b3e] text-white border-[#0d1b3e] shadow-xs ring-2 ring-[#0d1b3e]/15'
+                  : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-200 hover:border-gray-300 shadow-2xs'
               }`}
             >
-              <span>All Previous Searches</span>
+              <span>All Searches</span>
               <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                  selectedSessionId === 'all' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-700'
+                className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
+                  selectedSessionId === 'all'
+                    ? 'bg-white/20 text-white'
+                    : 'bg-gray-100 text-gray-700 group-hover:bg-gray-200'
                 }`}
               >
-                {Math.max(data.length, cachedStats.totalChecked)}
+                {Math.max(data.length, cachedStats.totalChecked).toLocaleString()}
               </span>
             </button>
 
-            {sessions.map((sess, idx) => (
-              <div
-                key={sess.id}
-                onClick={() => {
-                  setSelectedSessionId(sess.id);
-                  setCurrentPage(1);
-                }}
-                className={`cursor-pointer px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 border ${
-                  selectedSessionId === sess.id
-                    ? 'bg-[#FC6B17] text-white border-[#FC6B17] shadow-xs'
-                    : 'bg-gray-50 hover:bg-orange-50/60 text-gray-700 border-gray-200 hover:border-orange-200'
-                }`}
-              >
-                <span>Search #{sessions.length - idx}: {sess.name}</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                    selectedSessionId === sess.id ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-700'
+            {/* Individual Batch Cards */}
+            {sessions.map((sess, idx) => {
+              const batchNum = sessions.length - idx;
+              const isSelected = selectedSessionId === sess.id;
+
+              return (
+                <div
+                  key={sess.id}
+                  onClick={() => {
+                    setSelectedSessionId(sess.id);
+                    setCurrentPage(1);
+                  }}
+                  className={`group shrink-0 cursor-pointer pl-3.5 pr-2 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2.5 border ${
+                    isSelected
+                      ? 'bg-gradient-to-r from-[#FC6B17] to-[#ff7d33] text-white border-[#FC6B17] shadow-sm ring-2 ring-[#FC6B17]/20'
+                      : 'bg-white hover:bg-orange-50/40 text-gray-800 border-gray-200 hover:border-orange-200 shadow-2xs'
                   }`}
                 >
-                  {sess.domainCount}
-                </span>
-                <span className={`text-[10px] ${selectedSessionId === sess.id ? 'text-white/80' : 'text-gray-400'}`}>
-                  • {formatCheckDate(sess.createdAt)}
-                </span>
-                <button
-                  type="button"
-                  onClick={(e) => handleDeleteSession(e, sess.id)}
-                  className={`p-0.5 rounded-md hover:bg-black/10 transition-colors ml-0.5 ${
-                    selectedSessionId === sess.id ? 'text-white hover:text-white' : 'text-gray-400 hover:text-red-500'
-                  }`}
-                  title="Remove this search batch"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
+                  <span
+                    className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${
+                      isSelected
+                        ? 'bg-black/15 text-white'
+                        : 'bg-orange-50 text-[#FC6B17] border border-orange-100'
+                    }`}
+                  >
+                    #{batchNum}
+                  </span>
+
+                  <div className="flex flex-col text-left">
+                    <span className="truncate max-w-[125px] font-bold leading-tight">
+                      {sess.name.replace(/Check$/i, '').trim() || `${sess.domainCount} Domains`}
+                    </span>
+                    <span
+                      className={`text-[10px] font-normal leading-tight ${
+                        isSelected ? 'text-white/80' : 'text-gray-400'
+                      }`}
+                    >
+                      {formatCheckDate(sess.createdAt)}
+                    </span>
+                  </div>
+
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded-full font-extrabold ml-0.5 ${
+                      isSelected
+                        ? 'bg-white/25 text-white'
+                        : 'bg-gray-100 text-gray-700 group-hover:bg-orange-100 group-hover:text-[#FC6B17]'
+                    }`}
+                  >
+                    {sess.domainCount}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteSession(e, sess.id)}
+                    className={`p-1 rounded-lg transition-colors ${
+                      isSelected
+                        ? 'text-white/70 hover:text-white hover:bg-white/20'
+                        : 'text-gray-300 hover:text-red-500 hover:bg-red-50'
+                    }`}
+                    title="Remove this batch"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
