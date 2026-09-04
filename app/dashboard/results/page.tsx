@@ -62,7 +62,7 @@ function ResultsContent() {
     }
 
     // Ignore binary zip/xlsx payloads or corrupted URLs
-    if (domainInput.startsWith('PK') || domainInput.includes('\ufffd') || domainInput.length > 5000) {
+    if (domainInput.startsWith('PK\x03\x04') || (domainInput.startsWith('PK') && domainInput.length < 500 && domainInput.includes('%')) || domainInput.includes('\ufffd')) {
       domainInput = '';
       if (typeof window !== 'undefined' && window.location.search) {
         window.history.replaceState({}, '', '/dashboard/results');
@@ -114,51 +114,73 @@ function ResultsContent() {
         setIsScanning(true);
         const initialCalculated = rawDomains.map((d, i) => evaluateDomain(d, i));
         setResults(initialCalculated);
-        setProgress(20);
+        setProgress(15);
 
-        fetch('/api/check-domain', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ domains: rawDomains }),
-        })
-          .then((res) => res.json())
-          .then((data) => {
-            if (data.results && data.results.length > 0) {
-              const formatted: ResultItem[] = data.results.map((r: any, idx: number) => ({
-                id: String(idx + 1).padStart(2, '0'),
-                domain: r.domain,
-                status: r.status === 'Expiring Soon' ? 'Expiring Soon' : r.status,
-                daysLeft: r.status === 'Available' ? 'Dropped' : r.status === 'Expiring Soon' ? '8d' : `${10 + (Math.abs(r.dr * 7) % 700)}d`,
-                dr: r.dr,
-                registrar: r.status === 'Available' ? '—' : 'Namecheap, Inc.',
-                refDomains: r.refDomains,
-                backlinks: r.backlinks,
-              }));
-              setResults(formatted);
-              setProgress(100);
-              setIsScanning(false);
+        const CHUNK_SIZE = 50;
+        const totalChunks = Math.ceil(rawDomains.length / CHUNK_SIZE);
 
-              // Persist to Supabase if logged in
-              supabase.auth.getUser().then(({ data: { user } }) => {
-                if (user) {
-                  const toInsert = formatted.map((f) => ({
-                    user_id: user.id,
-                    domain: f.domain,
-                    status: f.status,
-                    dr: f.dr,
-                    days_left: f.daysLeft,
-                    registrar: f.registrar,
-                    ref_domains: f.refDomains || 0,
-                  }));
-                  supabase.from('search_history').insert(toInsert).then(() => {});
+        const runAllChunks = async () => {
+          const allFormatted: ResultItem[] = [...initialCalculated];
+
+          for (let i = 0; i < rawDomains.length; i += CHUNK_SIZE) {
+            const chunkIndex = Math.floor(i / CHUNK_SIZE);
+            const chunk = rawDomains.slice(i, i + CHUNK_SIZE);
+            try {
+              const res = await fetch('/api/check-domain', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ domains: chunk }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                if (data.results && data.results.length > 0) {
+                  data.results.forEach((r: any, rIdx: number) => {
+                    const globalIdx = i + rIdx;
+                    if (globalIdx < allFormatted.length) {
+                      allFormatted[globalIdx] = {
+                        id: String(globalIdx + 1).padStart(2, '0'),
+                        domain: r.domain,
+                        status: r.status === 'Expiring Soon' ? 'Expiring Soon' : r.status,
+                        daysLeft: r.status === 'Available' ? 'Dropped' : r.status === 'Expiring Soon' ? '8d' : `${10 + (Math.abs(r.dr * 7) % 700)}d`,
+                        dr: r.dr,
+                        registrar: r.status === 'Available' ? '—' : (r.registrar || 'Namecheap, Inc.'),
+                        refDomains: r.refDomains,
+                        backlinks: r.backlinks,
+                      };
+                    }
+                  });
+                  setResults([...allFormatted]);
                 }
-              }).catch(() => {});
+              }
+            } catch (err) {
+              console.warn('Chunk check error:', err);
             }
-          })
-          .catch((err) => {
-            console.warn('API note:', err);
-            setIsScanning(false);
-          });
+            const currentProgress = Math.min(95, Math.round(((chunkIndex + 1) / totalChunks) * 100));
+            setProgress(currentProgress);
+          }
+
+          setProgress(100);
+          setIsScanning(false);
+
+          // Persist top results to Supabase if logged in
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              const toInsert = allFormatted.slice(0, 100).map((f) => ({
+                user_id: user.id,
+                domain: f.domain,
+                status: f.status,
+                dr: f.dr,
+                days_left: f.daysLeft,
+                registrar: f.registrar,
+                ref_domains: f.refDomains || 0,
+              }));
+              await supabase.from('search_history').insert(toInsert);
+            }
+          } catch (e) {}
+        }
+
+        runAllChunks();
       }
     } else {
       setIsScanning(false);
