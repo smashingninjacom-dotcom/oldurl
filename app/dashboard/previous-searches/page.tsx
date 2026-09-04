@@ -40,6 +40,7 @@ export default function PreviousSearchesPage() {
   const [data, setData] = useState<any[]>(() => getLocalSearchHistory());
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'All' | 'Available' | 'Registered'>('All');
+  const [extensionFilter, setExtensionFilter] = useState<string>('All');
   const [daysFilter, setDaysFilter] = useState<'Any' | '< 30d' | '30-90d' | '> 90d'>('Any');
   const [minDrInput, setMinDrInput] = useState('');
   const [maxDrInput, setMaxDrInput] = useState('');
@@ -86,9 +87,20 @@ export default function PreviousSearchesPage() {
   const filtered = data
     .filter((item) => {
       if (statusFilter !== 'All' && item.status !== statusFilter) return false;
+      if (extensionFilter !== 'All' && !item.domain.toLowerCase().endsWith(extensionFilter.toLowerCase())) return false;
       if (searchQuery && !item.domain.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       if (minDrInput && item.dr < Number(minDrInput)) return false;
       if (maxDrInput && item.dr > Number(maxDrInput)) return false;
+      if (daysFilter === '< 30d') {
+        const num = parseInt(item.daysLeft);
+        if (item.status === 'Available' || isNaN(num) || num >= 30) return false;
+      } else if (daysFilter === '30-90d') {
+        const num = parseInt(item.daysLeft);
+        if (isNaN(num) || num < 30 || num > 90) return false;
+      } else if (daysFilter === '> 90d') {
+        const num = parseInt(item.daysLeft);
+        if (isNaN(num) || num <= 90) return false;
+      }
       return true;
     })
     .sort((a, b) => {
@@ -250,9 +262,27 @@ export default function PreviousSearchesPage() {
           {/* Extension Filter */}
           <div className="flex items-center gap-1.5">
             <span className="font-bold text-gray-500">Extension</span>
-            <button className="bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl font-bold text-gray-700 flex items-center gap-1">
-              All Extensions <ChevronDown className="w-3 h-3 text-gray-400" />
-            </button>
+            <select
+              value={extensionFilter}
+              onChange={(e) => {
+                setExtensionFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl font-bold text-gray-700 outline-none cursor-pointer focus:border-[#FC6B17]"
+            >
+              <option value="All">All Extensions</option>
+              <option value=".com">.com</option>
+              <option value=".org">.org</option>
+              <option value=".net">.net</option>
+              <option value=".io">.io</option>
+              <option value=".co">.co</option>
+              <option value=".ai">.ai</option>
+              <option value=".gov">.gov</option>
+              <option value=".edu">.edu</option>
+              <option value=".info">.info</option>
+              <option value=".biz">.biz</option>
+              <option value=".xyz">.xyz</option>
+            </select>
           </div>
 
           {/* DR Inputs */}
