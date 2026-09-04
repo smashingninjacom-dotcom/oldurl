@@ -34,7 +34,10 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  FileSpreadsheet,
+  Code,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 interface ResultItem {
   id: string;
@@ -415,17 +418,53 @@ function ResultsContent() {
     });
   }, [results, statusFilter, extensionFilter, minDr, maxDr, daysFilter, searchQuery, sortField, sortOrder]);
 
-  const handleExportCSV = () => {
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showTableExportMenu, setShowTableExportMenu] = useState(false);
+
+  const exportData = (format: 'csv' | 'xlsx' | 'xml') => {
+    const filename = `oldurl_domains_report_${new Date().toISOString().slice(0, 10)}`;
     const headers = ['#', 'Domain', 'Status', 'Days Left', 'Domain Rating (DR)', 'Registrar', 'Date Checked'];
     const rows = filtered.map((r) => [r.id, r.domain, r.status, r.daysLeft, r.dr, r.registrar, formatCheckDate(r.createdAt)]);
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `oldurl_domains_report_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+
+    if (format === 'csv') {
+      const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.map((val) => `"${String(val ?? '').replace(/"/g, '""')}"`).join(','))].join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `${filename}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else if (format === 'xlsx') {
+      const sheetData = [headers, ...rows];
+      const ws = XLSX.utils.aoa_to_sheet(sheetData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Domain Results');
+      XLSX.writeFile(wb, `${filename}.xlsx`);
+    } else if (format === 'xml') {
+      let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<domains>\n';
+      filtered.forEach((r) => {
+        xml += '  <domain_record>\n';
+        xml += `    <id>${r.id}</id>\n`;
+        xml += `    <domain>${r.domain}</domain>\n`;
+        xml += `    <status>${r.status}</status>\n`;
+        xml += `    <days_left>${r.daysLeft}</days_left>\n`;
+        xml += `    <domain_rating>${r.dr}</domain_rating>\n`;
+        xml += `    <registrar>${String(r.registrar || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</registrar>\n`;
+        xml += `    <date_checked>${formatCheckDate(r.createdAt)}</date_checked>\n`;
+        xml += '  </domain_record>\n';
+      });
+      xml += '</domains>';
+      const blob = new Blob([xml], { type: 'application/xml;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${filename}.xml`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
   };
 
   return (
@@ -506,13 +545,59 @@ function ResultsContent() {
               </>
             ) : (
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleExportCSV}
-                  className="bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 px-3.5 py-2 rounded-xl font-semibold text-xs flex items-center gap-1.5 transition-colors"
-                >
-                  <Download className="w-3.5 h-3.5 text-gray-500" /> Export CSV
-                </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowExportMenu((prev) => !prev)}
+                    className="bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 px-3.5 py-2 rounded-xl font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
+                  >
+                    <Download className="w-3.5 h-3.5 text-gray-500" />
+                    <span>Export</span>
+                    <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {showExportMenu && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
+                      <div className="absolute right-0 top-full mt-1.5 w-48 bg-white border border-gray-100 rounded-2xl shadow-xl p-1.5 z-50 animate-in fade-in zoom-in-95">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            exportData('csv');
+                            setShowExportMenu(false);
+                          }}
+                          className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-orange-50 hover:text-[#FC6B17] rounded-xl transition-colors"
+                        >
+                          <span className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 font-mono text-[10px] font-bold flex items-center justify-center">CSV</span>
+                          <span>Export as CSV</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            exportData('xlsx');
+                            setShowExportMenu(false);
+                          }}
+                          className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-orange-50 hover:text-[#FC6B17] rounded-xl transition-colors"
+                        >
+                          <span className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 font-mono text-[10px] font-bold flex items-center justify-center">XLS</span>
+                          <span>Export as Excel (.xlsx)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            exportData('xml');
+                            setShowExportMenu(false);
+                          }}
+                          className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-orange-50 hover:text-[#FC6B17] rounded-xl transition-colors"
+                        >
+                          <span className="w-6 h-6 rounded-lg bg-amber-50 text-amber-600 font-mono text-[10px] font-bold flex items-center justify-center">XML</span>
+                          <span>Export as XML (.xml)</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+
                 <Link
                   href="/dashboard/domain-checker"
                   className="bg-[#FC6B17] hover:bg-[#e05b10] text-white px-4 py-2 rounded-xl font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
@@ -704,12 +789,59 @@ function ResultsContent() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            <button
-              onClick={handleExportCSV}
-              className="bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 px-3.5 py-1.5 rounded-xl font-semibold text-xs flex items-center gap-1.5 transition-colors"
-            >
-              <Download className="w-3.5 h-3.5 text-gray-500" /> Export CSV
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowTableExportMenu((prev) => !prev)}
+                className="bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 px-3.5 py-1.5 rounded-xl font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
+              >
+                <Download className="w-3.5 h-3.5 text-gray-500" />
+                <span>Export</span>
+                <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${showTableExportMenu ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showTableExportMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowTableExportMenu(false)} />
+                  <div className="absolute right-0 top-full mt-1.5 w-48 bg-white border border-gray-100 rounded-2xl shadow-xl p-1.5 z-50 animate-in fade-in zoom-in-95">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        exportData('csv');
+                        setShowTableExportMenu(false);
+                      }}
+                      className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-orange-50 hover:text-[#FC6B17] rounded-xl transition-colors"
+                    >
+                      <span className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 font-mono text-[10px] font-bold flex items-center justify-center">CSV</span>
+                      <span>Export as CSV</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        exportData('xlsx');
+                        setShowTableExportMenu(false);
+                      }}
+                      className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-orange-50 hover:text-[#FC6B17] rounded-xl transition-colors"
+                    >
+                      <span className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 font-mono text-[10px] font-bold flex items-center justify-center">XLS</span>
+                      <span>Export as Excel (.xlsx)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        exportData('xml');
+                        setShowTableExportMenu(false);
+                      }}
+                      className="w-full text-left flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-orange-50 hover:text-[#FC6B17] rounded-xl transition-colors"
+                    >
+                      <span className="w-6 h-6 rounded-lg bg-amber-50 text-amber-600 font-mono text-[10px] font-bold flex items-center justify-center">XML</span>
+                      <span>Export as XML (.xml)</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
             <Link
               href="/dashboard/domain-checker"
               className="bg-[#FC6B17] hover:bg-[#e05b10] text-white px-4 py-1.5 rounded-xl font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
