@@ -325,6 +325,16 @@ function ResultsContent() {
       .map(([ext, count]) => ({ ext, count }));
   }, [results]);
 
+  // If currently selected extension is not present in results, reset to All
+  useEffect(() => {
+    if (extensionFilter !== 'All' && availableExtensions.length > 0) {
+      const exists = availableExtensions.some((e) => e.ext.toLowerCase() === extensionFilter.toLowerCase());
+      if (!exists) {
+        setExtensionFilter('All');
+      }
+    }
+  }, [availableExtensions, extensionFilter]);
+
   const filtered = useMemo(() => {
     const list = results.filter((item) => {
       if (statusFilter === 'Available' && item.status !== 'Available') return false;
@@ -674,7 +684,7 @@ function ResultsContent() {
           </div>
         </div>
 
-        {filtered.length === 0 ? (
+        {results.length === 0 ? (
           <div className="p-12 text-center space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-orange-50 text-[#FC6B17] flex items-center justify-center mx-auto">
               <Search className="w-6 h-6" />
@@ -690,6 +700,33 @@ function ResultsContent() {
               >
                 <Plus className="w-3.5 h-3.5" /> Start New Domain Check
               </Link>
+            </div>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="p-12 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-orange-50 text-[#FC6B17] flex items-center justify-center mx-auto">
+              <Search className="w-6 h-6" />
+            </div>
+            <h4 className="text-sm font-bold text-gray-800">No matching domains found</h4>
+            <p className="text-xs text-gray-400 max-w-sm mx-auto">
+              No domains match your current filter criteria {extensionFilter !== 'All' ? `(${extensionFilter})` : ''}. Try resetting your filters.
+            </p>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter('All');
+                  setExtensionFilter('All');
+                  setMinDr('');
+                  setMaxDr('');
+                  setDaysFilter('Any');
+                  setSearchQuery('');
+                  setCurrentPage(1);
+                }}
+                className="inline-flex items-center gap-1.5 bg-[#FC6B17] hover:bg-[#e05607] text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> Reset All Filters
+              </button>
             </div>
           </div>
         ) : (
