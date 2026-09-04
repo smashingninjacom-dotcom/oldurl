@@ -70,7 +70,7 @@ export default function DashboardHomePage() {
         setAvailableCount(avail);
         setRegisteredCount(reg);
         setAvgDr(avg);
-        setSearches(items.slice(0, 15));
+        setSearches(items);
       } catch (err) {
         console.warn('Dashboard data fetch note:', err);
       } finally {
@@ -114,7 +114,7 @@ export default function DashboardHomePage() {
       saveLocalSearchHistory([newRecord as any]);
       syncToSupabase([newRecord as any]);
 
-      setSearches((prev) => [newRecord, ...prev.filter((s) => s.domain !== newRecord.domain)].slice(0, 15));
+      setSearches((prev) => [newRecord, ...prev.filter((s) => s.domain !== newRecord.domain)]);
       setTotalChecked((prev) => prev + 1);
       if (result.status === 'Available') {
         setAvailableCount((prev) => prev + 1);
@@ -153,7 +153,7 @@ export default function DashboardHomePage() {
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
             {totalChecked > 0
               ? `You have audited ${totalChecked} domain${totalChecked > 1 ? 's' : ''} in your workspace.`
-              : 'Your workspace is ready. You have 10 free domain audits this month.'}
+              : 'Your workspace is ready with Unlimited Pro domain audits.'}
           </p>
         </div>
 

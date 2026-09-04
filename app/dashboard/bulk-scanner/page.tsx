@@ -87,13 +87,13 @@ export default function BulkScannerPage() {
             Bulk CSV / XML Scanner
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
-            Upload massive lists of up to 55,000 domains. Our cloud nodes process them in the background.
+            Upload unlimited domain lists. Our high-speed cloud nodes process them instantly with real-time WHOIS/RDAP.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-500 bg-white px-3 py-1.5 rounded-xl border border-gray-200">
-            Monthly Bulk Limit: <strong>55,000 domains</strong>
+          <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+            Monthly Bulk Limit: <strong>Unlimited (Pro Plan)</strong>
           </span>
         </div>
       </div>

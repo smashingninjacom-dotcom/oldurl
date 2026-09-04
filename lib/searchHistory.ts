@@ -96,14 +96,13 @@ export function saveLocalSearchHistory(items: StoredSearchItem[]): void {
       }
     });
 
-    const merged = Array.from(existingMap.values()).slice(0, 2500);
+    const merged = Array.from(existingMap.values());
 
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
     } catch (e) {
-      // If quota exceeded, store top 500
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged.slice(0, 500)));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged.slice(0, 5000)));
       } catch (err) {}
     }
 
@@ -152,7 +151,7 @@ export async function fetchAllSearchHistory(): Promise<{
         .select('*', { count: 'exact' })
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(2500);
+        .limit(100000);
 
       if (!error && cloudHistory && cloudHistory.length > 0) {
         const cloudMapped: StoredSearchItem[] = cloudHistory.map((item, idx) => ({

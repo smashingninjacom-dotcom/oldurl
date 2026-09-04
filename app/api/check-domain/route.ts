@@ -104,8 +104,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Process up to 2,000 domains per batch
-    const domainList = domains.slice(0, 2000);
+    // Unlimited domain audit processing
+    const domainList = domains;
 
     // Process in parallel chunks of 25
     const chunkSize = 25;
