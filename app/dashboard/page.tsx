@@ -16,6 +16,7 @@ import {
   Lock,
   Activity,
   ChevronRight,
+  ChevronLeft,
   Plus,
   BarChart2,
   History,
@@ -38,6 +39,19 @@ interface SearchRecord {
   createdAt?: string;
 }
 
+function getPaginationRange(currentPage: number, totalPages: number): (number | string)[] {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  if (currentPage <= 4) {
+    return [1, 2, 3, 4, 5, '...', totalPages];
+  }
+  if (currentPage >= totalPages - 3) {
+    return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+  }
+  return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
+}
+
 export default function DashboardHomePage() {
   const [user, setUser] = useState<any>(null);
   const [userName, setUserName] = useState<string>('Member');
@@ -47,6 +61,8 @@ export default function DashboardHomePage() {
   const [isChecking, setIsChecking] = useState(false);
   const [sortField, setSortField] = useState<'id' | 'domain' | 'status' | 'daysLeft' | 'dr' | 'registrar' | 'createdAt'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   const handleSort = (field: 'id' | 'domain' | 'status' | 'daysLeft' | 'dr' | 'registrar' | 'createdAt') => {
     if (sortField === field) {
@@ -55,6 +71,7 @@ export default function DashboardHomePage() {
       setSortField(field);
       setSortOrder('asc');
     }
+    setCurrentPage(1);
   };
 
   // Compute immediate 0ms local metrics
@@ -169,6 +186,45 @@ export default function DashboardHomePage() {
     if (!quickInput.trim()) return;
     await auditDomain(quickInput);
   };
+
+  const sortedSearches = React.useMemo(() => {
+    return [...searches].sort((a, b) => {
+      const aVal = (a as any)[sortField];
+      const bVal = (b as any)[sortField];
+
+      if (sortField === 'id') {
+        const aNum = parseInt(aVal, 10) || 0;
+        const bNum = parseInt(bVal, 10) || 0;
+        return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
+      }
+      if (sortField === 'dr') {
+        const aNum = Number(aVal) || 0;
+        const bNum = Number(bVal) || 0;
+        return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
+      }
+      if (sortField === 'daysLeft') {
+        const aNum = parseInt(aVal, 10);
+        const bNum = parseInt(bVal, 10);
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
+        }
+        return sortOrder === 'asc'
+          ? String(aVal || '').localeCompare(String(bVal || ''))
+          : String(bVal || '').localeCompare(String(aVal || ''));
+      }
+      if (sortField === 'createdAt') {
+        const aTime = aVal ? new Date(aVal).getTime() : 0;
+        const bTime = bVal ? new Date(bVal).getTime() : 0;
+        return sortOrder === 'asc' ? aTime - bTime : bTime - aTime;
+      }
+      const aStr = String(aVal || '').toLowerCase();
+      const bStr = String(bVal || '').toLowerCase();
+      return sortOrder === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
+    });
+  }, [searches, sortField, sortOrder]);
+
+  const totalPages = Math.ceil(sortedSearches.length / pageSize) || 1;
+  const paginatedSearches = sortedSearches.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto font-sans">
@@ -539,45 +595,12 @@ export default function DashboardHomePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {[...searches]
-                  .sort((a, b) => {
-                    const aVal = (a as any)[sortField];
-                    const bVal = (b as any)[sortField];
-
-                    if (sortField === 'id') {
-                      const aNum = parseInt(aVal, 10) || 0;
-                      const bNum = parseInt(bVal, 10) || 0;
-                      return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
-                    }
-                    if (sortField === 'dr') {
-                      const aNum = Number(aVal) || 0;
-                      const bNum = Number(bVal) || 0;
-                      return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
-                    }
-                    if (sortField === 'daysLeft') {
-                      const aNum = parseInt(aVal, 10);
-                      const bNum = parseInt(bVal, 10);
-                      if (!isNaN(aNum) && !isNaN(bNum)) {
-                        return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
-                      }
-                      return sortOrder === 'asc'
-                        ? String(aVal || '').localeCompare(String(bVal || ''))
-                        : String(bVal || '').localeCompare(String(aVal || ''));
-                    }
-                    if (sortField === 'createdAt') {
-                      const aTime = aVal ? new Date(aVal).getTime() : 0;
-                      const bTime = bVal ? new Date(bVal).getTime() : 0;
-                      return sortOrder === 'asc' ? aTime - bTime : bTime - aTime;
-                    }
-                    const aStr = String(aVal || '').toLowerCase();
-                    const bStr = String(bVal || '').toLowerCase();
-                    return sortOrder === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
-                  })
-                  .slice(0, 3)
-                  .map((row, idx) => (
+                {paginatedSearches.map((row, idx) => {
+                  const itemIndex = (currentPage - 1) * pageSize + idx + 1;
+                  return (
                     <tr key={row.id + '-' + row.domain} className="hover:bg-orange-50/20 transition-colors">
                       <td className="py-3.5 px-4 text-center text-gray-400 text-xs font-mono font-bold">
-                        {idx + 1}
+                        {itemIndex}
                       </td>
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-2">
@@ -617,18 +640,60 @@ export default function DashboardHomePage() {
                         {formatCheckDate(row.createdAt)}
                       </td>
                     </tr>
-                  ))}
+                  );
+                })}
               </tbody>
             </table>
-            {searches.length > 3 && (
-              <div className="p-3 bg-gray-50/80 border-t border-gray-100 text-center">
-                <Link
-                  href="/dashboard/previous-searches"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#FC6B17] hover:text-[#e05607] transition-colors"
-                >
-                  <span>View all {searches.length} domains in Previous Searches</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </Link>
+
+            {/* Number-wise Pagination Bar */}
+            {totalPages > 1 && (
+              <div className="px-4 py-3 bg-white border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                <div className="text-gray-500 font-medium">
+                  Showing <span className="font-bold text-gray-800">{(currentPage - 1) * pageSize + 1}</span> to{' '}
+                  <span className="font-bold text-gray-800">{Math.min(currentPage * pageSize, sortedSearches.length)}</span> of{' '}
+                  <span className="font-bold text-gray-800">{sortedSearches.length}</span> domains
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span>Prev</span>
+                  </button>
+
+                  {getPaginationRange(currentPage, totalPages).map((num, i) =>
+                    num === '...' ? (
+                      <span key={`dots-${i}`} className="px-2 py-1 text-gray-400 font-bold">...</span>
+                    ) : (
+                      <button
+                        type="button"
+                        key={num}
+                        onClick={() => setCurrentPage(Number(num))}
+                        className={`w-7.5 h-7.5 rounded-lg font-bold text-xs flex items-center justify-center transition-all ${
+                          currentPage === num
+                            ? 'bg-[#FC6B17] text-white shadow-xs'
+                            : 'border border-gray-200 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        {num}
+                      </button>
+                    )
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             )}
           </div>

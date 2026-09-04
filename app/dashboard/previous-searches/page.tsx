@@ -11,6 +11,8 @@ import {
   BarChart2,
   MoreHorizontal,
   ChevronDown,
+  ChevronRight,
+  ChevronLeft,
   Globe,
   Lock,
   CheckCircle2,
@@ -20,6 +22,19 @@ import {
   ArrowUp,
   ArrowDown,
 } from 'lucide-react';
+
+function getPaginationRange(currentPage: number, totalPages: number): (number | string)[] {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  if (currentPage <= 4) {
+    return [1, 2, 3, 4, 5, '...', totalPages];
+  }
+  if (currentPage >= totalPages - 3) {
+    return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+  }
+  return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
+}
 
 export default function PreviousSearchesPage() {
   const [data, setData] = useState<any[]>(() => getLocalSearchHistory());
@@ -31,6 +46,8 @@ export default function PreviousSearchesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<'id' | 'domain' | 'status' | 'daysLeft' | 'dr' | 'registrar' | 'createdAt'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 25;
 
   const handleSort = (field: 'id' | 'domain' | 'status' | 'daysLeft' | 'dr' | 'registrar' | 'createdAt') => {
     if (sortField === field) {
@@ -39,6 +56,7 @@ export default function PreviousSearchesPage() {
       setSortField(field);
       setSortOrder('asc');
     }
+    setCurrentPage(1);
   };
 
   useEffect(() => {
@@ -438,51 +456,108 @@ export default function PreviousSearchesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filtered.map((row) => (
-                  <tr key={row.id} className="hover:bg-orange-50/20 transition-colors">
-                    <td className="py-3.5 px-4 text-center text-gray-400 text-xs font-mono">{row.id}</td>
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-md bg-gray-100 text-gray-500 flex items-center justify-center flex-shrink-0">
-                          <Globe className="w-3.5 h-3.5" />
+                {filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((row, idx) => {
+                  const itemIndex = (currentPage - 1) * pageSize + idx + 1;
+                  return (
+                    <tr key={row.id + '-' + row.domain} className="hover:bg-orange-50/20 transition-colors">
+                      <td className="py-3.5 px-4 text-center text-gray-400 text-xs font-mono font-bold">
+                        {itemIndex}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-md bg-gray-100 text-gray-500 flex items-center justify-center flex-shrink-0">
+                            <Globe className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-[#0d1b3e] font-semibold text-xs sm:text-sm">{row.domain}</span>
                         </div>
-                        <span className="text-[#0d1b3e] font-semibold text-xs sm:text-sm">{row.domain}</span>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      {row.status === 'Available' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                          Available
+                      </td>
+                      <td className="py-3.5 px-4">
+                        {row.status === 'Available' ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            Available
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-orange-50 text-orange-700 border border-orange-200/60">
+                            <Lock className="w-3 h-3 text-[#FC6B17]" />
+                            <span>Registered</span>
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="text-emerald-700 font-semibold text-xs">⚑ {row.daysLeft}</span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="inline-flex items-center gap-1 font-bold text-xs text-[#FC6B17] bg-orange-50 px-2.5 py-1 rounded-md border border-orange-100">
+                          {row.dr} <BarChart2 className="w-3.5 h-3.5 text-emerald-500 inline" />
                         </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-orange-50 text-orange-700 border border-orange-200/60">
-                          <Lock className="w-3 h-3 text-[#FC6B17]" />
-                          <span>Registered</span>
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="text-emerald-700 font-semibold text-xs">⚑ {row.daysLeft}</span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="inline-flex items-center gap-1 font-bold text-xs text-[#FC6B17] bg-orange-50 px-2.5 py-1 rounded-md border border-orange-100">
-                        {row.dr} <BarChart2 className="w-3.5 h-3.5 text-emerald-500 inline" />
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-gray-500 font-medium text-xs">{row.registrar}</td>
-                    <td className="py-3.5 px-4 text-gray-400 font-medium text-xs whitespace-nowrap">
-                      {formatCheckDate(row.createdAt)}
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <button className="text-gray-400 hover:text-gray-700 p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="py-3.5 px-4 text-gray-500 font-medium text-xs">{row.registrar}</td>
+                      <td className="py-3.5 px-4 text-gray-400 font-medium text-xs whitespace-nowrap">
+                        {formatCheckDate(row.createdAt)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <button className="text-gray-400 hover:text-gray-700 p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
+
+            {/* Number-wise Pagination Bar */}
+            {Math.ceil(filtered.length / pageSize) > 1 && (
+              <div className="px-4 py-3 bg-white border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                <div className="text-gray-500 font-medium">
+                  Showing <span className="font-bold text-gray-800">{(currentPage - 1) * pageSize + 1}</span> to{' '}
+                  <span className="font-bold text-gray-800">{Math.min(currentPage * pageSize, filtered.length)}</span> of{' '}
+                  <span className="font-bold text-gray-800">{filtered.length}</span> domains
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-wrap justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                    <span>Prev</span>
+                  </button>
+
+                  {getPaginationRange(currentPage, Math.ceil(filtered.length / pageSize)).map((num, i) =>
+                    num === '...' ? (
+                      <span key={`dots-${i}`} className="px-2 py-1 text-gray-400 font-bold">...</span>
+                    ) : (
+                      <button
+                        type="button"
+                        key={num}
+                        onClick={() => setCurrentPage(Number(num))}
+                        className={`w-7.5 h-7.5 rounded-lg font-bold text-xs flex items-center justify-center transition-all ${
+                          currentPage === num
+                            ? 'bg-[#FC6B17] text-white shadow-xs'
+                            : 'border border-gray-200 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        {num}
+                      </button>
+                    )
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.min(Math.ceil(filtered.length / pageSize), p + 1))}
+                    disabled={currentPage === Math.ceil(filtered.length / pageSize)}
+                    className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
