@@ -9,6 +9,34 @@ interface DomainCheckStatus {
   daysLeft: string;
 }
 
+function detectRegistrar(nsRecords: string[]): string {
+  const joined = nsRecords.join(' ').toLowerCase();
+  if (joined.includes('cloudflare')) return 'Cloudflare, Inc.';
+  if (joined.includes('domaincontrol') || joined.includes('godaddy')) return 'GoDaddy.com, LLC';
+  if (joined.includes('registrar-servers') || joined.includes('namecheap')) return 'Namecheap, Inc.';
+  if (joined.includes('awsdns') || joined.includes('route53')) return 'Amazon Route 53';
+  if (joined.includes('googledomains') || joined.includes('google')) return 'Google Cloud DNS';
+  if (joined.includes('azure-dns')) return 'Microsoft Azure DNS';
+  if (joined.includes('markmonitor')) return 'MarkMonitor Inc.';
+  if (joined.includes('cscdns') || joined.includes('corporatedomains')) return 'CSC Corporate Domains';
+  if (joined.includes('porkbun')) return 'Porkbun LLC';
+  if (joined.includes('dynadot')) return 'Dynadot LLC';
+  if (joined.includes('name.com')) return 'Name.com, Inc.';
+  if (joined.includes('gandi')) return 'Gandi SAS';
+  if (joined.includes('ovh')) return 'OVH SAS';
+  if (joined.includes('hostinger') || joined.includes('dns-parking')) return 'Hostinger';
+  if (joined.includes('bluehost')) return 'Bluehost Inc.';
+  if (joined.includes('siteground')) return 'SiteGround';
+  if (joined.includes('fastly')) return 'Fastly';
+  if (joined.includes('akamai') || joined.includes('edgesuite') || joined.includes('edgekey')) return 'Akamai Technologies';
+  if (joined.includes('squarespace')) return 'Squarespace Inc.';
+  if (joined.includes('wixdns')) return 'Wix.com Ltd.';
+  if (joined.includes('shopify')) return 'Shopify Inc.';
+  if (joined.includes('automattic') || joined.includes('wordpress')) return 'Automattic Inc.';
+  if (joined.includes('nsone') || joined.includes('netdna')) return 'NS1 / IBM';
+  return 'Registered / Active';
+}
+
 // Ultra-accurate high-throughput DNS verification engine (Cloudflare DoH + Google DoH)
 async function verifyDomainAvailability(domain: string): Promise<DomainCheckStatus> {
   const clean = domain.trim().toLowerCase();
@@ -35,66 +63,134 @@ async function verifyDomainAvailability(domain: string): Promise<DomainCheckStat
     'cloudflare.com',
     'wordpress.org',
     'adobe.com',
+    'medium.com',
+    'theverge.com',
+    'techradar.com',
+    'shopify.com',
+    'stripe.com',
+    'openai.com',
+    'spotify.com',
+    'quora.com',
+    'tumblr.com',
+    'pinterest.com',
+    'instagram.com',
+    'facebook.com',
+    'walmart.com',
+    'ebay.com',
   ];
 
   if (knownActive.some((k) => clean === k || clean.endsWith('.' + k))) {
     return {
       registered: true,
       status: 'Registered',
-      registrar: 'MarkMonitor Inc.',
-      daysLeft: '730d',
+      registrar: 'Registered / Active',
+      daysLeft: 'Active',
     };
   }
 
-  // Fast primary check: Cloudflare DoH (A record)
+  let cfStatus: number | null = null;
+  let cfAnswers: any[] = [];
+  let cfAuthorities: any[] = [];
+  let gStatus: number | null = null;
+  let gAnswers: any[] = [];
+  let gAuthorities: any[] = [];
+
+  // 1. Primary check: Cloudflare DoH (A / CNAME / AAAA records)
   try {
     const cfUrl = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(clean)}&type=A`;
     const cfRes = await fetch(cfUrl, {
       headers: { Accept: 'application/dns-json' },
-      signal: AbortSignal.timeout(2200),
+      signal: AbortSignal.timeout(2500),
     });
 
     if (cfRes.ok) {
       const data = await cfRes.json();
-      if (data.Status === 3) {
-        // Status 3 = NXDOMAIN -> Available
-        return {
-          registered: false,
-          status: 'Available',
-          registrar: '—',
-          daysLeft: 'Dropped',
-        };
-      }
-      if (data.Status === 0 && data.Answer && Array.isArray(data.Answer) && data.Answer.length > 0) {
-        return {
-          registered: true,
-          status: 'Registered',
-          registrar: 'Registered / Active',
-          daysLeft: 'Active',
-        };
-      }
+      cfStatus = data.Status;
+      if (Array.isArray(data.Answer)) cfAnswers = data.Answer;
+      if (Array.isArray(data.Authority)) cfAuthorities = data.Authority;
     }
   } catch (e) {}
 
-  // Secondary check: Google DoH (NS query)
+  // If Cloudflare returns NOERROR (0) with active answers, domain is working & registered
+  if (cfStatus === 0 && cfAnswers.length > 0) {
+    return {
+      registered: true,
+      status: 'Registered',
+      registrar: 'Registered / Active',
+      daysLeft: 'Active',
+    };
+  }
+
+  // 2. Secondary check: Google DoH (NS query) for authoritative nameservers
   try {
     const gUrl = `https://dns.google/resolve?name=${encodeURIComponent(clean)}&type=NS`;
     const gRes = await fetch(gUrl, {
       headers: { Accept: 'application/dns-json' },
-      signal: AbortSignal.timeout(2200),
+      signal: AbortSignal.timeout(2500),
     });
 
     if (gRes.ok) {
       const gData = await gRes.json();
-      if (gData.Status === 3 || (!gData.Answer || gData.Answer.length === 0)) {
-        return {
-          registered: false,
-          status: 'Available',
-          registrar: '—',
-          daysLeft: 'Dropped',
-        };
-      }
-      if (gData.Status === 0 && gData.Answer && gData.Answer.length > 0) {
+      gStatus = gData.Status;
+      if (Array.isArray(gData.Answer)) gAnswers = gData.Answer;
+      if (Array.isArray(gData.Authority)) gAuthorities = gData.Authority;
+    }
+  } catch (e) {}
+
+  // Check if Google returned active NS records in Answer section
+  if (gAnswers.length > 0) {
+    const nsList = gAnswers.map((a: any) => String(a.data || ''));
+    return {
+      registered: true,
+      status: 'Registered',
+      registrar: detectRegistrar(nsList),
+      daysLeft: 'Active',
+    };
+  }
+
+  // Check if Authority records contain NS or SOA for the domain (delegated zone)
+  const allAuthorities = [...cfAuthorities, ...gAuthorities];
+  const nsInAuth = allAuthorities.filter((a: any) => a.type === 2 || a.type === 6);
+  if (nsInAuth.length > 0 && (cfStatus === 0 || gStatus === 0)) {
+    const authData = nsInAuth.map((a: any) => String(a.data || ''));
+    return {
+      registered: true,
+      status: 'Registered',
+      registrar: detectRegistrar(authData),
+      daysLeft: 'Active',
+    };
+  }
+
+  // If either DNS server returned Status 0 (NOERROR), domain is active/registered in registry
+  if (cfStatus === 0 || gStatus === 0) {
+    return {
+      registered: true,
+      status: 'Registered',
+      registrar: 'Registered / Active',
+      daysLeft: 'Active',
+    };
+  }
+
+  // 3. If both or either resolver returned Status 3 (NXDOMAIN), domain is definitely Available
+  if (cfStatus === 3 || gStatus === 3) {
+    return {
+      registered: false,
+      status: 'Available',
+      registrar: '—',
+      daysLeft: 'Dropped',
+    };
+  }
+
+  // 4. Fallback SOA lookup for any remaining edge-case ccTLDs
+  try {
+    const soaUrl = `https://dns.google/resolve?name=${encodeURIComponent(clean)}&type=SOA`;
+    const soaRes = await fetch(soaUrl, {
+      headers: { Accept: 'application/dns-json' },
+      signal: AbortSignal.timeout(2000),
+    });
+    if (soaRes.ok) {
+      const soaData = await soaRes.json();
+      if (soaData.Status === 0) {
         return {
           registered: true,
           status: 'Registered',
@@ -102,10 +198,18 @@ async function verifyDomainAvailability(domain: string): Promise<DomainCheckStat
           daysLeft: 'Active',
         };
       }
+      if (soaData.Status === 3) {
+        return {
+          registered: false,
+          status: 'Available',
+          registrar: '—',
+          daysLeft: 'Dropped',
+        };
+      }
     }
   } catch (e) {}
 
-  // Default for dropped/unresolvable domains: Available for registration
+  // Final fallback: unresolvable/dropped domain -> Available
   return {
     registered: false,
     status: 'Available',

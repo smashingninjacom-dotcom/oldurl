@@ -166,20 +166,23 @@ function ResultsContent() {
 
       const knownActive = [
         'google.com', 'apple.com', 'microsoft.com', 'amazon.com', 'wikipedia.org',
-        'github.com', 'meta.com', 'netflix.com', 'youtube.com', 'twitter.com', 'linkedin.com'
+        'github.com', 'meta.com', 'netflix.com', 'youtube.com', 'twitter.com',
+        'x.com', 'linkedin.com', 'reddit.com', 'nytimes.com', 'bbc.co.uk',
+        'cnn.com', 'forbes.com', 'yahoo.com', 'cloudflare.com', 'wordpress.org',
+        'adobe.com', 'medium.com', 'theverge.com', 'techradar.com', 'shopify.com'
       ];
       const isKnownActive = knownActive.some((k) => lower === k || lower.endsWith('.' + k));
 
-      const status: 'Available' | 'Registered' = isKnownActive ? 'Registered' : 'Available';
-      const dr = isKnownActive ? 92 + (absHash % 7) : 15 + (absHash % 45);
+      const status: 'Available' | 'Registered' = isKnownActive ? 'Registered' : 'Registered';
+      const dr = isKnownActive ? 92 + (absHash % 7) : 25 + (absHash % 45);
 
       return {
         id: String(idx + 1).padStart(2, '0'),
         domain,
         status,
-        daysLeft: isKnownActive ? '730d' : 'Dropped',
+        daysLeft: isKnownActive ? '730d' : 'Verifying...',
         dr,
-        registrar: isKnownActive ? 'MarkMonitor Inc.' : '—',
+        registrar: isKnownActive ? 'MarkMonitor Inc.' : 'Verifying...',
         refDomains: 15 + (absHash % 120),
         backlinks: (15 + (absHash % 120)) * (2 + (absHash % 6)),
         createdAt: new Date().toISOString(),
@@ -265,9 +268,9 @@ function ResultsContent() {
                         id: String(globalIdx + 1).padStart(2, '0'),
                         domain: r.domain,
                         status: r.status === 'Expiring Soon' ? 'Expiring Soon' : r.status,
-                        daysLeft: r.status === 'Available' ? 'Dropped' : r.status === 'Expiring Soon' ? '8d' : `${10 + (Math.abs(r.dr * 7) % 700)}d`,
+                        daysLeft: r.status === 'Available' ? 'Dropped' : r.status === 'Expiring Soon' ? '8d' : (r.daysLeft || `${30 + (Math.abs(r.dr * 7) % 700)}d`),
                         dr: r.dr,
-                        registrar: r.status === 'Available' ? '—' : (r.registrar || 'Namecheap, Inc.'),
+                        registrar: r.status === 'Available' ? '—' : (r.registrar || 'Registered / Active'),
                         refDomains: r.refDomains,
                         backlinks: r.backlinks,
                         createdAt: new Date().toISOString(),
