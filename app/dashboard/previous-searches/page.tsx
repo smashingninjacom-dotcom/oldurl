@@ -128,15 +128,26 @@ export default function PreviousSearchesPage() {
       if (searchQuery && !item.domain.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       if (minDrInput && item.dr < Number(minDrInput)) return false;
       if (maxDrInput && item.dr > Number(maxDrInput)) return false;
-      if (daysFilter === '< 30d') {
-        const num = parseInt(item.daysLeft);
-        if (item.status === 'Available' || isNaN(num) || num >= 30) return false;
-      } else if (daysFilter === '30-90d') {
-        const num = parseInt(item.daysLeft);
-        if (isNaN(num) || num < 30 || num > 90) return false;
-      } else if (daysFilter === '> 90d') {
-        const num = parseInt(item.daysLeft);
-        if (isNaN(num) || num <= 90) return false;
+      if (daysFilter !== 'Any') {
+        const rawDays = String(item.daysLeft || '').toLowerCase().trim();
+        let daysNum = parseInt(rawDays, 10);
+        if (isNaN(daysNum)) {
+          if (rawDays.includes('pending') || rawDays.includes('expir') || rawDays.includes('redemption')) {
+            daysNum = 5;
+          } else if (rawDays.includes('drop') || rawDays.includes('avail')) {
+            daysNum = 0;
+          } else {
+            daysNum = 365;
+          }
+        }
+
+        if (daysFilter === '< 30d') {
+          if (daysNum >= 30) return false;
+        } else if (daysFilter === '30-90d') {
+          if (daysNum < 30 || daysNum > 90) return false;
+        } else if (daysFilter === '> 90d') {
+          if (daysNum <= 90) return false;
+        }
       }
       return true;
     })
@@ -326,16 +337,22 @@ export default function PreviousSearchesPage() {
               type="number"
               placeholder="Min"
               value={minDrInput}
-              onChange={(e) => setMinDrInput(e.target.value)}
-              className="w-14 p-1 bg-gray-50 border border-gray-200 rounded-lg text-center text-xs font-bold"
+              onChange={(e) => {
+                setMinDrInput(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-14 p-1.5 bg-gray-50 border border-gray-200 rounded-lg text-center text-xs font-bold outline-none focus:border-[#FC6B17]"
             />
-            <span className="text-gray-400">-</span>
+            <span className="text-gray-400 font-bold">-</span>
             <input
               type="number"
               placeholder="Max"
               value={maxDrInput}
-              onChange={(e) => setMaxDrInput(e.target.value)}
-              className="w-14 p-1 bg-gray-50 border border-gray-200 rounded-lg text-center text-xs font-bold"
+              onChange={(e) => {
+                setMaxDrInput(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-14 p-1.5 bg-gray-50 border border-gray-200 rounded-lg text-center text-xs font-bold outline-none focus:border-[#FC6B17]"
             />
           </div>
 
@@ -346,14 +363,17 @@ export default function PreviousSearchesPage() {
               {(['Any', '< 30d', '30-90d', '> 90d'] as const).map((dl) => (
                 <button
                   key={dl}
-                  onClick={() => setDaysFilter(dl)}
-                  className={`px-2.5 py-1 rounded-lg transition-colors ${
+                  onClick={() => {
+                    setDaysFilter(dl);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg transition-colors ${
                     daysFilter === dl
                       ? 'bg-[#FC6B17] text-white'
                       : 'text-gray-600 hover:bg-gray-100'
                   }`}
                 >
-                  {dl}
+                  {dl === '30-90d' ? '30–90d' : dl}
                 </button>
               ))}
             </div>

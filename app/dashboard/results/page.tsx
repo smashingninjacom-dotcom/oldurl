@@ -356,15 +356,26 @@ function ResultsContent() {
       if (minDr && item.dr < parseFloat(minDr)) return false;
       if (maxDr && item.dr > parseFloat(maxDr)) return false;
 
-      if (daysFilter === '< 30d') {
-        const num = parseInt(item.daysLeft);
-        if (item.status === 'Available' || isNaN(num) || num >= 30) return false;
-      } else if (daysFilter === '30-90d') {
-        const num = parseInt(item.daysLeft);
-        if (isNaN(num) || num < 30 || num > 90) return false;
-      } else if (daysFilter === '> 90d') {
-        const num = parseInt(item.daysLeft);
-        if (isNaN(num) || num <= 90) return false;
+      if (daysFilter !== 'Any') {
+        const rawDays = String(item.daysLeft || '').toLowerCase().trim();
+        let daysNum = parseInt(rawDays, 10);
+        if (isNaN(daysNum)) {
+          if (rawDays.includes('pending') || rawDays.includes('expir') || rawDays.includes('redemption')) {
+            daysNum = 5;
+          } else if (rawDays.includes('drop') || rawDays.includes('avail')) {
+            daysNum = 0;
+          } else {
+            daysNum = 365;
+          }
+        }
+
+        if (daysFilter === '< 30d') {
+          if (daysNum >= 30) return false;
+        } else if (daysFilter === '30-90d') {
+          if (daysNum < 30 || daysNum > 90) return false;
+        } else if (daysFilter === '> 90d') {
+          if (daysNum <= 90) return false;
+        }
       }
       return true;
     });
@@ -618,15 +629,21 @@ function ResultsContent() {
               type="number"
               placeholder="Min"
               value={minDr}
-              onChange={(e) => setMinDr(e.target.value)}
+              onChange={(e) => {
+                setMinDr(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-14 p-1.5 bg-gray-50 border border-gray-200 rounded-lg text-center text-xs font-medium text-gray-700 outline-none focus:border-[#FC6B17]"
             />
-            <span className="text-gray-400">-</span>
+            <span className="text-gray-400 font-bold">-</span>
             <input
               type="number"
               placeholder="Max"
               value={maxDr}
-              onChange={(e) => setMaxDr(e.target.value)}
+              onChange={(e) => {
+                setMaxDr(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-14 p-1.5 bg-gray-50 border border-gray-200 rounded-lg text-center text-xs font-medium text-gray-700 outline-none focus:border-[#FC6B17]"
             />
           </div>
@@ -638,14 +655,17 @@ function ResultsContent() {
               {(['Any', '< 30d', '30-90d', '> 90d'] as const).map((dl) => (
                 <button
                   key={dl}
-                  onClick={() => setDaysFilter(dl)}
+                  onClick={() => {
+                    setDaysFilter(dl);
+                    setCurrentPage(1);
+                  }}
                   className={`px-3 py-1.5 rounded-lg transition-all ${
                     daysFilter === dl
                       ? 'bg-[#FC6B17] text-white shadow-xs font-semibold'
                       : 'text-gray-600 hover:bg-gray-100'
                   }`}
                 >
-                  {dl}
+                  {dl === '30-90d' ? '30–90d' : dl}
                 </button>
               ))}
             </div>
