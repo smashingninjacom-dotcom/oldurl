@@ -24,6 +24,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { getUserQuotaData } from '../../lib/plans';
+import { resetMemoryCacheForUser } from '../../lib/searchHistory';
 
 export default function DashboardLayout({
   children,
@@ -143,18 +144,21 @@ export default function DashboardLayout({
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (isMounted) {
-        setUser(session?.user ?? null);
-        if (session?.user) {
+        const newUser = session?.user ?? null;
+        setUser(newUser);
+        if (newUser) {
           try {
-            localStorage.setItem('oldurl_cached_user', JSON.stringify(session.user));
+            localStorage.setItem('oldurl_cached_user', JSON.stringify(newUser));
           } catch (e) {}
-          fetchProfile(session.user.id);
+          resetMemoryCacheForUser(newUser.id);
+          fetchProfile(newUser.id);
           setAuthError(null);
         } else {
           try {
             localStorage.removeItem('oldurl_cached_user');
             localStorage.removeItem('oldurl_cached_profile');
           } catch (e) {}
+          resetMemoryCacheForUser('guest');
           setUserProfile(null);
         }
         setIsAuthChecking(false);
@@ -189,9 +193,14 @@ export default function DashboardLayout({
       if (!error && data) {
         let cachedUsed = 0;
         try {
-          const raw = localStorage.getItem('oldurl_cached_profile');
-          if (raw) cachedUsed = JSON.parse(raw)?.quota_used || 0;
-          const rawStats = localStorage.getItem('oldurl_search_history_stats');
+          const raw = localStorage.getItem(`oldurl_cached_profile_${userId}`) || localStorage.getItem('oldurl_cached_profile');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed?.id === userId) {
+              cachedUsed = parsed.quota_used || 0;
+            }
+          }
+          const rawStats = localStorage.getItem(`oldurl_stats_${userId}`);
           if (rawStats) {
             const stats = JSON.parse(rawStats);
             cachedUsed = Math.max(cachedUsed, stats?.totalChecked || 0);
@@ -207,6 +216,7 @@ export default function DashboardLayout({
 
         setUserProfile(data);
         try {
+          localStorage.setItem(`oldurl_cached_profile_${userId}`, JSON.stringify(data));
           localStorage.setItem('oldurl_cached_profile', JSON.stringify(data));
         } catch (e) {}
       }
@@ -214,8 +224,14 @@ export default function DashboardLayout({
   };
 
   const handleSignOut = async () => {
+    try {
+      localStorage.removeItem('oldurl_cached_user');
+      localStorage.removeItem('oldurl_cached_profile');
+    } catch (e) {}
+    resetMemoryCacheForUser('guest');
     await supabase.auth.signOut();
     setUser(null);
+    setUserProfile(null);
     setIsGuestMode(false);
     setIsProfileDropdownOpen(false);
     window.location.href = '/';

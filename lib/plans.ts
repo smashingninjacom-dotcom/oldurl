@@ -104,10 +104,18 @@ export function parsePlanId(planName?: string): PlanId {
 }
 
 export function getUserQuotaData(profile?: any): UserQuotaData {
+  const uid = profile?.id || (typeof window !== 'undefined' ? (function() {
+    try {
+      const cachedUser = localStorage.getItem('oldurl_cached_user');
+      if (cachedUser) return JSON.parse(cachedUser)?.id;
+    } catch (e) {}
+    return 'guest';
+  })() : 'guest');
+
   let p = profile;
   if (!p && typeof window !== 'undefined') {
     try {
-      const cached = localStorage.getItem('oldurl_cached_profile');
+      const cached = localStorage.getItem(`oldurl_cached_profile_${uid}`) || localStorage.getItem('oldurl_cached_profile');
       if (cached) p = JSON.parse(cached);
     } catch (e) {}
   }
@@ -117,11 +125,11 @@ export function getUserQuotaData(profile?: any): UserQuotaData {
 
   const lookupsLimit = p?.quota_limit ?? plan.monthlyLookups;
 
-  // Calculate lookupsUsed reliably from profile and search history stats
+  // Calculate lookupsUsed reliably from profile and search history stats for THIS user
   let lookupsUsed = Number(p?.quota_used) || 0;
   if (typeof window !== 'undefined') {
     try {
-      const rawStats = localStorage.getItem('oldurl_search_history_stats');
+      const rawStats = localStorage.getItem(`oldurl_stats_${uid}`);
       if (rawStats) {
         const stats = JSON.parse(rawStats);
         if (typeof stats?.totalChecked === 'number' && stats.totalChecked > lookupsUsed) {
@@ -156,9 +164,12 @@ export function getUserQuotaData(profile?: any): UserQuotaData {
 
 export async function consumeLookups(count: number): Promise<UserQuotaData> {
   let profile: any = null;
+  let uid = 'guest';
   if (typeof window !== 'undefined') {
     try {
-      const raw = localStorage.getItem('oldurl_cached_profile');
+      const cachedUser = localStorage.getItem('oldurl_cached_user');
+      if (cachedUser) uid = JSON.parse(cachedUser)?.id || 'guest';
+      const raw = localStorage.getItem(`oldurl_cached_profile_${uid}`) || localStorage.getItem('oldurl_cached_profile');
       if (raw) profile = JSON.parse(raw);
     } catch (e) {}
   }
@@ -177,6 +188,7 @@ export async function consumeLookups(count: number): Promise<UserQuotaData> {
 
   if (typeof window !== 'undefined') {
     try {
+      localStorage.setItem(`oldurl_cached_profile_${uid}`, JSON.stringify(updatedProfile));
       localStorage.setItem('oldurl_cached_profile', JSON.stringify(updatedProfile));
       window.dispatchEvent(new CustomEvent('oldurl_quota_updated', { detail: updatedProfile }));
     } catch (e) {}
@@ -200,9 +212,12 @@ export async function consumeLookups(count: number): Promise<UserQuotaData> {
 
 export async function consumeAnalytics(count: number): Promise<UserQuotaData> {
   let profile: any = null;
+  let uid = 'guest';
   if (typeof window !== 'undefined') {
     try {
-      const raw = localStorage.getItem('oldurl_cached_profile');
+      const cachedUser = localStorage.getItem('oldurl_cached_user');
+      if (cachedUser) uid = JSON.parse(cachedUser)?.id || 'guest';
+      const raw = localStorage.getItem(`oldurl_cached_profile_${uid}`) || localStorage.getItem('oldurl_cached_profile');
       if (raw) profile = JSON.parse(raw);
     } catch (e) {}
   }
@@ -221,6 +236,7 @@ export async function consumeAnalytics(count: number): Promise<UserQuotaData> {
 
   if (typeof window !== 'undefined') {
     try {
+      localStorage.setItem(`oldurl_cached_profile_${uid}`, JSON.stringify(updatedProfile));
       localStorage.setItem('oldurl_cached_profile', JSON.stringify(updatedProfile));
       window.dispatchEvent(new CustomEvent('oldurl_quota_updated', { detail: updatedProfile }));
     } catch (e) {}
@@ -231,20 +247,17 @@ export async function consumeAnalytics(count: number): Promise<UserQuotaData> {
     if (user) {
       await supabase
         .from('profiles')
-        .upsert({
-          id: user.id,
-          email: user.email,
-          plan: currentQuota.plan.name,
-          quota_used: currentQuota.lookupsUsed,
-          analytics_limit: currentQuota.analyticsLimit,
+        .update({
           analytics_used: newAnalyticsUsed,
           updated_at: new Date().toISOString(),
-        });
+        })
+        .eq('id', user.id);
     }
   } catch (e) {}
 
   return getUserQuotaData(updatedProfile);
 }
+
 
 export async function switchUserPlan(targetPlanId: PlanId): Promise<UserQuotaData> {
   const plan = PLANS[targetPlanId] || PLANS.free;

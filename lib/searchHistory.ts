@@ -10,6 +10,8 @@ export interface StoredSearchItem {
   refDomains?: number;
   backlinks?: number;
   createdAt?: string;
+  userId?: string;
+  recordKey?: string;
 }
 
 export interface SearchSession {
@@ -18,11 +20,8 @@ export interface SearchSession {
   createdAt: string;
   domainCount: number;
   items: StoredSearchItem[];
+  userId?: string;
 }
-
-const STORAGE_KEY = 'oldurl_local_search_history';
-const SESSIONS_STORAGE_KEY = 'oldurl_search_sessions';
-const STATS_STORAGE_KEY = 'oldurl_search_history_stats';
 
 export interface HistoryStats {
   totalChecked: number;
@@ -34,13 +33,61 @@ export interface HistoryStats {
 // In-memory cache for instantaneous 0ms tab switching
 let memoryCache: StoredSearchItem[] | null = null;
 let cachedStatsMemory: HistoryStats | null = null;
+let cachedUserId: string | null = null;
 let lastCloudFetchTime = 0;
 let isCloudFetching = false;
 
-// IndexedDB persistence for handling tens of thousands of domains smoothly
-const IDB_NAME = 'oldurl_local_db';
+export function getActiveUserId(): string {
+  if (typeof window === 'undefined') return 'guest';
+  try {
+    const raw = localStorage.getItem('oldurl_cached_user');
+    if (raw) {
+      const u = JSON.parse(raw);
+      if (u?.id) return u.id;
+    }
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.includes('auth-token') || key.includes('supabase.auth') || key.startsWith('sb-'))) {
+        const val = localStorage.getItem(key);
+        if (val) {
+          const parsed = JSON.parse(val);
+          const id = parsed?.user?.id || parsed?.currentSession?.user?.id || parsed?.session?.user?.id;
+          if (id) return id;
+        }
+      }
+    }
+  } catch (e) {}
+  return 'guest';
+}
+
+export function resetMemoryCacheForUser(newUserId?: string): void {
+  memoryCache = null;
+  cachedStatsMemory = null;
+  cachedUserId = newUserId || getActiveUserId();
+  lastCloudFetchTime = 0;
+  isCloudFetching = false;
+  latestBatchMemory = null;
+}
+
+export function getStorageKey(userId?: string): string {
+  const uid = userId || getActiveUserId();
+  return `oldurl_history_${uid}`;
+}
+
+export function getSessionsStorageKey(userId?: string): string {
+  const uid = userId || getActiveUserId();
+  return `oldurl_sessions_${uid}`;
+}
+
+export function getStatsStorageKey(userId?: string): string {
+  const uid = userId || getActiveUserId();
+  return `oldurl_stats_${uid}`;
+}
+
+// IndexedDB persistence for handling tens of thousands of domains smoothly with strict per-user isolation
+const IDB_NAME = 'oldurl_local_db_v2';
 const IDB_VERSION = 1;
-const IDB_STORE = 'search_history';
+const IDB_STORE = 'user_search_history';
 
 function openHistoryDB(): Promise<IDBDatabase | null> {
   if (typeof window === 'undefined' || !window.indexedDB) return Promise.resolve(null);
@@ -50,7 +97,7 @@ function openHistoryDB(): Promise<IDBDatabase | null> {
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(IDB_STORE)) {
-          db.createObjectStore(IDB_STORE, { keyPath: 'domain' });
+          db.createObjectStore(IDB_STORE, { keyPath: 'recordKey' });
         }
       };
       req.onsuccess = () => resolve(req.result);
@@ -61,8 +108,9 @@ function openHistoryDB(): Promise<IDBDatabase | null> {
   });
 }
 
-export async function saveToIndexedDB(items: StoredSearchItem[]): Promise<void> {
+export async function saveToIndexedDB(items: StoredSearchItem[], userId?: string): Promise<void> {
   if (!items || !items.length || typeof window === 'undefined') return;
+  const uid = userId || getActiveUserId();
   try {
     const db = await openHistoryDB();
     if (!db) return;
@@ -70,15 +118,21 @@ export async function saveToIndexedDB(items: StoredSearchItem[]): Promise<void> 
     const store = tx.objectStore(IDB_STORE);
     items.forEach((item) => {
       if (item && item.domain) {
-        store.put(item);
+        const dom = item.domain.toLowerCase().trim();
+        store.put({
+          ...item,
+          userId: uid,
+          recordKey: `${uid}___${dom}`,
+        });
       }
     });
     tx.oncomplete = () => db.close();
   } catch (e) {}
 }
 
-export async function loadFromIndexedDB(): Promise<StoredSearchItem[]> {
+export async function loadFromIndexedDB(userId?: string): Promise<StoredSearchItem[]> {
   if (typeof window === 'undefined') return [];
+  const uid = userId || getActiveUserId();
   try {
     const db = await openHistoryDB();
     if (!db) return [];
@@ -91,7 +145,9 @@ export async function loadFromIndexedDB(): Promise<StoredSearchItem[]> {
           db.close();
           const list = req.result;
           if (Array.isArray(list) && list.length > 0) {
-            resolve(list);
+            // Strictly filter only items belonging to THIS user
+            const userItems = list.filter((it: any) => it.userId === uid || (it.recordKey && it.recordKey.startsWith(`${uid}___`)));
+            resolve(userItems);
           } else {
             resolve([]);
           }
@@ -110,69 +166,47 @@ export async function loadFromIndexedDB(): Promise<StoredSearchItem[]> {
   }
 }
 
-// Automatically bootstrap memoryCache from IndexedDB in browser
-if (typeof window !== 'undefined') {
-  loadFromIndexedDB().then((idbItems) => {
-    if (idbItems && idbItems.length > 0) {
-      if (!memoryCache || idbItems.length > memoryCache.length) {
-        memoryCache = idbItems.sort((a, b) => {
-          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return bTime - aTime;
-        }).map((item, idx) => ({ ...item, id: String(idx + 1).padStart(2, '0') }));
-
-        const total = memoryCache.length;
-        const avail = memoryCache.filter((s) => s.status === 'Available').length;
-        const reg = total - avail;
-        const avg = total > 0 ? Math.round(memoryCache.reduce((acc, s) => acc + (s.dr || 0), 0) / total) : 0;
-        const stats = { totalChecked: total, availableCount: avail, registeredCount: reg, avgDr: avg };
-        saveCachedHistoryStats(stats);
-        try {
-          window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: total } }));
-        } catch (e) {}
-      }
-    }
-  }).catch(() => {});
-}
-
-export function getCachedHistoryStats(): HistoryStats {
-  if (cachedStatsMemory && cachedStatsMemory.totalChecked > 0) {
+export function getCachedHistoryStats(userId?: string): HistoryStats {
+  const uid = userId || getActiveUserId();
+  if (cachedUserId === uid && cachedStatsMemory && cachedStatsMemory.totalChecked > 0) {
     return cachedStatsMemory;
   }
   if (typeof window === 'undefined') {
     return { totalChecked: 0, availableCount: 0, registeredCount: 0, avgDr: 0 };
   }
   try {
-    const raw = localStorage.getItem(STATS_STORAGE_KEY);
+    const raw = localStorage.getItem(getStatsStorageKey(uid));
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed.totalChecked === 'number' && parsed.totalChecked > 0) {
+      if (parsed && typeof parsed.totalChecked === 'number' && parsed.totalChecked >= 0) {
         cachedStatsMemory = parsed;
+        cachedUserId = uid;
         return parsed;
       }
     }
   } catch (e) {}
 
-  const local = getLocalSearchHistory();
+  const local = getLocalSearchHistory(false, uid);
   const total = local.length;
   const avail = local.filter((s) => s.status === 'Available').length;
   const reg = total - avail;
   const avg = total > 0 ? Math.round(local.reduce((acc, s) => acc + (s.dr || 0), 0) / total) : 0;
   const stats = { totalChecked: total, availableCount: avail, registeredCount: reg, avgDr: avg };
-  if (total > 0) {
-    cachedStatsMemory = stats;
-    try {
-      localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(stats));
-    } catch (e) {}
-  }
+  cachedStatsMemory = stats;
+  cachedUserId = uid;
+  try {
+    localStorage.setItem(getStatsStorageKey(uid), JSON.stringify(stats));
+  } catch (e) {}
   return stats;
 }
 
-export function saveCachedHistoryStats(stats: HistoryStats): void {
+export function saveCachedHistoryStats(stats: HistoryStats, userId?: string): void {
+  const uid = userId || getActiveUserId();
   cachedStatsMemory = stats;
+  cachedUserId = uid;
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(stats));
+    localStorage.setItem(getStatsStorageKey(uid), JSON.stringify(stats));
   } catch (e) {}
 }
 
@@ -192,10 +226,11 @@ export function formatCheckDate(dateStr?: string): string {
   }
 }
 
-export function getSearchSessions(): SearchSession[] {
+export function getSearchSessions(userId?: string): SearchSession[] {
   if (typeof window === 'undefined') return [];
+  const uid = userId || getActiveUserId();
   try {
-    const raw = localStorage.getItem(SESSIONS_STORAGE_KEY);
+    const raw = localStorage.getItem(getSessionsStorageKey(uid));
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -205,32 +240,35 @@ export function getSearchSessions(): SearchSession[] {
   return [];
 }
 
-export function saveSearchSession(name: string, items: StoredSearchItem[]): void {
+export function saveSearchSession(name: string, items: StoredSearchItem[], userId?: string): void {
   if (typeof window === 'undefined' || !items || !items.length) return;
+  const uid = userId || getActiveUserId();
   try {
-    const existing = getSearchSessions();
+    const existing = getSearchSessions(uid);
     const sessionName = name || (items.length === 1 ? items[0].domain : `${items.length} Domains Checked`);
     const newSession: SearchSession = {
       id: `session_${Date.now()}`,
       name: sessionName,
       createdAt: items[0]?.createdAt || new Date().toISOString(),
       domainCount: items.length,
-      items: items.map((it, idx) => ({ ...it, id: String(idx + 1).padStart(2, '0') })),
+      userId: uid,
+      items: items.map((it, idx) => ({ ...it, id: String(idx + 1).padStart(2, '0'), userId: uid })),
     };
     const updated = [newSession, ...existing.filter((s) => s.id !== newSession.id)].slice(0, 100);
-    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(updated));
-    localStorage.setItem('oldurl_latest_search_batch', JSON.stringify(newSession.items));
+    localStorage.setItem(getSessionsStorageKey(uid), JSON.stringify(updated));
+    localStorage.setItem(`oldurl_latest_batch_${uid}`, JSON.stringify(newSession.items));
     try {
       sessionStorage.setItem('last_scanned_results', JSON.stringify(newSession.items));
     } catch (err) {}
   } catch (e) {}
 }
 
-export function deleteSearchSession(sessionId: string): void {
+export function deleteSearchSession(sessionId: string, userId?: string): void {
   if (typeof window === 'undefined') return;
+  const uid = userId || getActiveUserId();
   try {
-    const sessions = getSearchSessions().filter((s) => s.id !== sessionId);
-    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
+    const sessions = getSearchSessions(uid).filter((s) => s.id !== sessionId);
+    localStorage.setItem(getSessionsStorageKey(uid), JSON.stringify(sessions));
   } catch (e) {}
 }
 
@@ -340,9 +378,10 @@ export function getLastScannedBatch(): StoredSearchItem[] {
   return [];
 }
 
-export function getLocalSearchHistory(forceFresh = false): StoredSearchItem[] {
+export function getLocalSearchHistory(forceFresh = false, userId?: string): StoredSearchItem[] {
+  const uid = userId || getActiveUserId();
   if (typeof window === 'undefined') return [];
-  if (!forceFresh && memoryCache && memoryCache.length > 0) {
+  if (!forceFresh && cachedUserId === uid && memoryCache && memoryCache.length > 0) {
     return memoryCache;
   }
 
@@ -356,22 +395,20 @@ export function getLocalSearchHistory(forceFresh = false): StoredSearchItem[] {
         parsed.forEach((item: any) => {
           if (item && item.domain) {
             const dom = String(item.domain).toLowerCase().trim();
-            if (dom) {
-              const existing = map.get(dom);
+            if (dom && !map.has(dom)) {
               const itemDate = item.createdAt || item.created_at || new Date().toISOString();
-              if (!existing) {
-                map.set(dom, {
-                  id: '01',
-                  domain: item.domain.trim(),
-                  status: item.status || 'Available',
-                  daysLeft: item.daysLeft || item.days_left || (item.status === 'Available' ? 'Dropped' : '365d'),
-                  dr: Number(item.dr) || 0,
-                  registrar: item.registrar || (item.status === 'Available' ? '—' : 'Namecheap, Inc.'),
-                  refDomains: item.refDomains || item.ref_domains || 0,
-                  backlinks: item.backlinks || 0,
-                  createdAt: itemDate,
-                });
-              }
+              map.set(dom, {
+                id: '01',
+                domain: item.domain.trim(),
+                status: item.status || 'Available',
+                daysLeft: item.daysLeft || item.days_left || (item.status === 'Available' ? 'Dropped' : '365d'),
+                dr: Number(item.dr) || 0,
+                registrar: item.registrar || (item.status === 'Available' ? '—' : 'Namecheap, Inc.'),
+                refDomains: item.refDomains || item.ref_domains || 0,
+                backlinks: item.backlinks || 0,
+                createdAt: itemDate,
+                userId: uid,
+              });
             }
           }
         });
@@ -380,12 +417,11 @@ export function getLocalSearchHistory(forceFresh = false): StoredSearchItem[] {
   };
 
   try {
-    loadFromRaw(localStorage.getItem(STORAGE_KEY));
+    loadFromRaw(localStorage.getItem(getStorageKey(uid)));
   } catch (e) {}
 
   try {
-    // Also load from all stored sessions to ensure complete total history
-    const sessions = getSearchSessions();
+    const sessions = getSearchSessions(uid);
     sessions.forEach((sess) => {
       if (sess.items && Array.isArray(sess.items)) {
         sess.items.forEach((item) => {
@@ -402,6 +438,7 @@ export function getLocalSearchHistory(forceFresh = false): StoredSearchItem[] {
                 refDomains: item.refDomains || 0,
                 backlinks: item.backlinks || 0,
                 createdAt: item.createdAt || sess.createdAt || new Date().toISOString(),
+                userId: uid,
               });
             }
           }
@@ -410,7 +447,6 @@ export function getLocalSearchHistory(forceFresh = false): StoredSearchItem[] {
     });
   } catch (e) {}
 
-  // Sort strictly by most recently searched first (createdAt descending)
   const result = Array.from(map.values())
     .sort((a, b) => {
       const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -420,24 +456,26 @@ export function getLocalSearchHistory(forceFresh = false): StoredSearchItem[] {
     .map((item, idx) => ({
       ...item,
       id: String(idx + 1).padStart(2, '0'),
+      userId: uid,
     }));
 
   memoryCache = result;
+  cachedUserId = uid;
   return result;
 }
 
-export function saveLocalSearchHistory(items: StoredSearchItem[], sessionLabel?: string): void {
+export function saveLocalSearchHistory(items: StoredSearchItem[], sessionLabel?: string, userId?: string): void {
   if (typeof window === 'undefined' || !items || !items.length) return;
+  const uid = userId || getActiveUserId();
   try {
     lastCloudFetchTime = 0;
-    // Also save search session for search-wise grouping
-    saveSearchSession(sessionLabel || (items.length === 1 ? items[0].domain : `${items.length} Domains Check`), items);
+    saveSearchSession(sessionLabel || (items.length === 1 ? items[0].domain : `${items.length} Domains Check`), items, uid);
 
-    const existing = getLocalSearchHistory(true);
+    const existing = getLocalSearchHistory(true, uid);
     const existingMap = new Map<string, StoredSearchItem>();
     const nowIso = new Date().toISOString();
 
-    // New items take precedence (updating the timestamp and metrics for that domain)
+    // New items take precedence
     items.forEach((it) => {
       if (it && it.domain) {
         const dom = it.domain.toLowerCase().trim();
@@ -445,6 +483,7 @@ export function saveLocalSearchHistory(items: StoredSearchItem[], sessionLabel?:
           ...it,
           domain: it.domain.trim(),
           createdAt: it.createdAt || nowIso,
+          userId: uid,
         });
       }
     });
@@ -454,12 +493,11 @@ export function saveLocalSearchHistory(items: StoredSearchItem[], sessionLabel?:
       if (it && it.domain) {
         const key = it.domain.toLowerCase().trim();
         if (!existingMap.has(key)) {
-          existingMap.set(key, it);
+          existingMap.set(key, { ...it, userId: uid });
         }
       }
     });
 
-    // Keep all searches sorted by createdAt desc (up to 10,000)
     const merged = Array.from(existingMap.values())
       .sort((a, b) => {
         const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -470,33 +508,40 @@ export function saveLocalSearchHistory(items: StoredSearchItem[], sessionLabel?:
       .map((item, idx) => ({
         ...item,
         id: String(idx + 1).padStart(2, '0'),
+        userId: uid,
       }));
 
     memoryCache = merged;
+    cachedUserId = uid;
     const total = merged.length;
     const avail = merged.filter((s) => s.status === 'Available').length;
     const reg = total - avail;
     const avg = total > 0 ? Math.round(merged.reduce((acc, s) => acc + (s.dr || 0), 0) / total) : 0;
-    saveCachedHistoryStats({ totalChecked: total, availableCount: avail, registeredCount: reg, avgDr: avg });
+    saveCachedHistoryStats({ totalChecked: total, availableCount: avail, registeredCount: reg, avgDr: avg }, uid);
 
-    saveToIndexedDB(merged);
+    saveToIndexedDB(merged, uid);
 
     try {
-      window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: merged.length } }));
+      localStorage.setItem(getStorageKey(uid), JSON.stringify(merged.slice(0, 1000)));
     } catch (e) {}
 
     try {
-      const cached = localStorage.getItem('oldurl_cached_profile');
+      window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: merged.length, userId: uid } }));
+    } catch (e) {}
+
+    try {
+      const cached = localStorage.getItem(`oldurl_cached_profile_${uid}`) || localStorage.getItem('oldurl_cached_profile');
       if (cached) {
         const parsed = JSON.parse(cached);
         const newUsed = Math.max(Number(parsed.quota_used) || 0, total);
         if (newUsed !== parsed.quota_used) {
           parsed.quota_used = newUsed;
+          localStorage.setItem(`oldurl_cached_profile_${uid}`, JSON.stringify(parsed));
           localStorage.setItem('oldurl_cached_profile', JSON.stringify(parsed));
           window.dispatchEvent(new CustomEvent('oldurl_quota_updated', { detail: parsed }));
           supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session?.user) {
-              supabase.from('profiles').update({ quota_used: newUsed }).eq('id', session.user.id).then(() => {});
+            if (session?.user && session.user.id === uid) {
+              supabase.from('profiles').update({ quota_used: newUsed }).eq('id', uid).then(() => {});
             }
           });
         }
@@ -505,59 +550,63 @@ export function saveLocalSearchHistory(items: StoredSearchItem[], sessionLabel?:
   } catch (e) {}
 }
 
-export async function deleteHistoryItem(domain: string): Promise<void> {
+export async function deleteHistoryItem(domain: string, userId?: string): Promise<void> {
   if (typeof window === 'undefined' || !domain) return;
+  const uid = userId || getActiveUserId();
   const lower = domain.toLowerCase().trim();
-  const current = getLocalSearchHistory(true);
+  const current = getLocalSearchHistory(true, uid);
   const updated = current
     .filter((it) => it.domain.toLowerCase().trim() !== lower)
     .map((it, idx) => ({
       ...it,
       id: String(idx + 1).padStart(2, '0'),
+      userId: uid,
     }));
   memoryCache = updated;
+  cachedUserId = uid;
   const total = updated.length;
   const avail = updated.filter((s) => s.status === 'Available').length;
   const reg = total - avail;
   const avg = total > 0 ? Math.round(updated.reduce((acc, s) => acc + (s.dr || 0), 0) / total) : 0;
-  saveCachedHistoryStats({ totalChecked: total, availableCount: avail, registeredCount: reg, avgDr: avg });
+  saveCachedHistoryStats({ totalChecked: total, availableCount: avail, registeredCount: reg, avgDr: avg }, uid);
 
-  saveToIndexedDB(updated);
+  saveToIndexedDB(updated, uid);
 
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated.slice(0, 1000)));
+    localStorage.setItem(getStorageKey(uid), JSON.stringify(updated.slice(0, 1000)));
   } catch (e) {}
 
-  // Also remove from sessions
   try {
-    const sessions = getSearchSessions().map((s) => ({
+    const sessions = getSearchSessions(uid).map((s) => ({
       ...s,
       items: s.items.filter((it) => it.domain.toLowerCase().trim() !== lower),
       domainCount: s.items.filter((it) => it.domain.toLowerCase().trim() !== lower).length,
     })).filter((s) => s.domainCount > 0);
-    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
+    localStorage.setItem(getSessionsStorageKey(uid), JSON.stringify(sessions));
   } catch (e) {}
 
   try {
-    window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: updated.length } }));
+    window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: updated.length, userId: uid } }));
   } catch (e) {}
 
   try {
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user;
-    if (user) {
-      await supabase.from('search_history').delete().eq('user_id', user.id).eq('domain', domain.trim());
+    if (user && user.id === uid) {
+      await supabase.from('search_history').delete().eq('user_id', uid).eq('domain', domain.trim());
     }
   } catch (e) {}
 }
 
-export async function clearSearchHistory(): Promise<void> {
+export async function clearSearchHistory(userId?: string): Promise<void> {
   if (typeof window === 'undefined') return;
+  const uid = userId || getActiveUserId();
   memoryCache = [];
-  saveCachedHistoryStats({ totalChecked: 0, availableCount: 0, registeredCount: 0, avgDr: 0 });
+  cachedUserId = uid;
+  saveCachedHistoryStats({ totalChecked: 0, availableCount: 0, registeredCount: 0, avgDr: 0 }, uid);
   try {
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(SESSIONS_STORAGE_KEY);
+    localStorage.removeItem(getStorageKey(uid));
+    localStorage.removeItem(getSessionsStorageKey(uid));
     sessionStorage.removeItem('last_scanned_results');
   } catch (e) {}
 
@@ -565,29 +614,41 @@ export async function clearSearchHistory(): Promise<void> {
     const db = await openHistoryDB();
     if (db) {
       const tx = db.transaction(IDB_STORE, 'readwrite');
-      tx.objectStore(IDB_STORE).clear();
+      const store = tx.objectStore(IDB_STORE);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const list = req.result;
+        if (Array.isArray(list)) {
+          list.forEach((it: any) => {
+            if (it.userId === uid || (it.recordKey && it.recordKey.startsWith(`${uid}___`))) {
+              store.delete(it.recordKey);
+            }
+          });
+        }
+      };
       tx.oncomplete = () => db.close();
     }
   } catch (e) {}
 
   try {
-    window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: 0 } }));
+    window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: 0, userId: uid } }));
   } catch (e) {}
 
   try {
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user;
-    if (user) {
-      await supabase.from('search_history').delete().eq('user_id', user.id);
+    if (user && user.id === uid) {
+      await supabase.from('search_history').delete().eq('user_id', uid);
     }
   } catch (e) {}
 }
 
-export async function syncToSupabase(items: StoredSearchItem[]): Promise<void> {
+export async function syncToSupabase(items: StoredSearchItem[], userId?: string): Promise<void> {
   try {
+    const uid = userId || getActiveUserId();
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user;
-    if (!user || !items.length) return;
+    if (!user || user.id !== uid || !items.length) return;
 
     // Deduplicate input chunk by domain
     const dedupedMap = new Map<string, StoredSearchItem>();
@@ -619,16 +680,17 @@ export async function syncToSupabase(items: StoredSearchItem[]): Promise<void> {
   }
 }
 
-export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
+export async function fetchAllSearchHistory(forceRefresh = false, targetUserId?: string): Promise<{
   items: StoredSearchItem[];
   totalChecked: number;
   availableCount: number;
   registeredCount: number;
   avgDr: number;
 }> {
+  const activeUid = targetUserId || getActiveUserId();
   const now = Date.now();
-  // Return cached data immediately if queried within 10 minutes and not forceRefresh
-  if (!forceRefresh && lastCloudFetchTime > 0 && now - lastCloudFetchTime < 600000 && memoryCache && memoryCache.length > 0) {
+  // Return cached data immediately if queried within 10 minutes and not forceRefresh and matches current user
+  if (!forceRefresh && cachedUserId === activeUid && lastCloudFetchTime > 0 && now - lastCloudFetchTime < 600000 && memoryCache && memoryCache.length > 0) {
     const total = memoryCache.length;
     const avail = memoryCache.filter((s) => s.status === 'Available').length;
     const reg = total - avail;
@@ -643,7 +705,7 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
   }
 
   if (isCloudFetching) {
-    const active = (memoryCache && memoryCache.length > 0) ? memoryCache : getLocalSearchHistory(false);
+    const active = (cachedUserId === activeUid && memoryCache && memoryCache.length > 0) ? memoryCache : getLocalSearchHistory(false, activeUid);
     const total = active.length;
     const avail = active.filter((s) => s.status === 'Available').length;
     const reg = total - avail;
@@ -660,60 +722,60 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
   try {
     isCloudFetching = true;
 
-    // Load from IndexedDB, Local Storage, Sessions, and Memory Cache
-    const idbItems = await loadFromIndexedDB();
-    const localItems = getLocalSearchHistory(false);
-    const sessionItems = getSearchSessions().flatMap((s) => s.items || []);
+    // Load user's data from IndexedDB, Local Storage, Sessions, and Memory Cache
+    const idbItems = await loadFromIndexedDB(activeUid);
+    const localItems = getLocalSearchHistory(false, activeUid);
+    const sessionItems = getSearchSessions(activeUid).flatMap((s) => s.items || []);
 
     const masterMap = new Map<string, StoredSearchItem>();
 
-    // Priority 1: In-memory cache
-    if (memoryCache && Array.isArray(memoryCache)) {
+    // Priority 1: In-memory cache (if belonging to this user)
+    if (cachedUserId === activeUid && memoryCache && Array.isArray(memoryCache)) {
       memoryCache.forEach((it) => {
         if (it && it.domain) masterMap.set(it.domain.toLowerCase().trim(), it);
       });
     }
 
-    // Priority 2: IndexedDB (contains complete all-time domains)
+    // Priority 2: IndexedDB (contains complete all-time domains for THIS user)
     if (idbItems && Array.isArray(idbItems)) {
       idbItems.forEach((it) => {
         if (it && it.domain) {
           const k = it.domain.toLowerCase().trim();
           if (!masterMap.has(k) || (it.createdAt && !masterMap.get(k)?.createdAt)) {
-            masterMap.set(k, it);
+            masterMap.set(k, { ...it, userId: activeUid });
           }
         }
       });
     }
 
-    // Priority 3: Local storage items
+    // Priority 3: Local storage items for THIS user
     if (localItems && Array.isArray(localItems)) {
       localItems.forEach((it) => {
         if (it && it.domain) {
           const k = it.domain.toLowerCase().trim();
           if (!masterMap.has(k)) {
-            masterMap.set(k, it);
+            masterMap.set(k, { ...it, userId: activeUid });
           }
         }
       });
     }
 
-    // Priority 4: Search sessions
+    // Priority 4: Search sessions for THIS user
     if (sessionItems && Array.isArray(sessionItems)) {
       sessionItems.forEach((it) => {
         if (it && it.domain) {
           const k = it.domain.toLowerCase().trim();
           if (!masterMap.has(k)) {
-            masterMap.set(k, it);
+            masterMap.set(k, { ...it, userId: activeUid });
           }
         }
       });
     }
 
-    // Priority 5: Supabase Cloud History
+    // Priority 5: Supabase Cloud History strictly for THIS user
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user;
-    if (user) {
+    if (user && user.id === activeUid) {
       const allCloudHistory: any[] = [];
       let from = 0;
       const batchSize = 1000;
@@ -752,6 +814,7 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
                 dr: Number(item.dr) || 0,
                 registrar: item.registrar || (item.status === 'Available' ? '—' : 'Namecheap, Inc.'),
                 createdAt: item.created_at,
+                userId: user.id,
               });
             }
           }
@@ -770,35 +833,35 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
       .map((item, idx) => ({
         ...item,
         id: String(idx + 1).padStart(2, '0'),
+        userId: activeUid,
       }));
 
-    if (finalItems.length > 0) {
-      memoryCache = finalItems;
-      await saveToIndexedDB(finalItems);
+    memoryCache = finalItems;
+    cachedUserId = activeUid;
+    await saveToIndexedDB(finalItems, activeUid);
 
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(finalItems.slice(0, 1000)));
-      } catch (e) {}
+    try {
+      localStorage.setItem(getStorageKey(activeUid), JSON.stringify(finalItems.slice(0, 1000)));
+    } catch (e) {}
 
-      const total = finalItems.length;
-      const avail = finalItems.filter((s) => s.status === 'Available').length;
-      const reg = total - avail;
-      const avg = total > 0 ? Math.round(finalItems.reduce((acc, s) => acc + (s.dr || 0), 0) / total) : 0;
-      const stats = { totalChecked: total, availableCount: avail, registeredCount: reg, avgDr: avg };
-      saveCachedHistoryStats(stats);
+    const total = finalItems.length;
+    const avail = finalItems.filter((s) => s.status === 'Available').length;
+    const reg = total - avail;
+    const avg = total > 0 ? Math.round(finalItems.reduce((acc, s) => acc + (s.dr || 0), 0) / total) : 0;
+    const stats = { totalChecked: total, availableCount: avail, registeredCount: reg, avgDr: avg };
+    saveCachedHistoryStats(stats, activeUid);
 
-      try {
-        window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: total } }));
-      } catch (e) {}
+    try {
+      window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: total, userId: activeUid } }));
+    } catch (e) {}
 
-      return {
-        items: finalItems,
-        totalChecked: total,
-        availableCount: avail,
-        registeredCount: reg,
-        avgDr: avg,
-      };
-    }
+    return {
+      items: finalItems,
+      totalChecked: total,
+      availableCount: avail,
+      registeredCount: reg,
+      avgDr: avg,
+    };
   } catch (e) {
     console.warn('fetchAllSearchHistory error:', e);
   } finally {
@@ -806,7 +869,7 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
   }
 
   // Fallback
-  const fallback = memoryCache || getLocalSearchHistory(false);
+  const fallback = (cachedUserId === activeUid && memoryCache) ? memoryCache : getLocalSearchHistory(false, activeUid);
   const total = fallback.length;
   const avail = fallback.filter((s) => s.status === 'Available').length;
   const reg = total - avail;
