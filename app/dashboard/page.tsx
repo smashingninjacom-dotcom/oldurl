@@ -119,8 +119,8 @@ export default function DashboardHomePage() {
         }
       } catch (e) {}
 
-      // Reconcile with cloud without blocking UI
-      fetchAllSearchHistory(true)
+      // Reconcile with cloud in background without blocking UI
+      fetchAllSearchHistory(false)
         .then(({ items, totalChecked: tot, availableCount: avail, registeredCount: reg, avgDr: avg }) => {
           if (items && items.length > 0) {
             setTotalChecked(tot);

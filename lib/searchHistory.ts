@@ -37,6 +37,104 @@ let cachedStatsMemory: HistoryStats | null = null;
 let lastCloudFetchTime = 0;
 let isCloudFetching = false;
 
+// IndexedDB persistence for handling tens of thousands of domains smoothly
+const IDB_NAME = 'oldurl_local_db';
+const IDB_VERSION = 1;
+const IDB_STORE = 'search_history';
+
+function openHistoryDB(): Promise<IDBDatabase | null> {
+  if (typeof window === 'undefined' || !window.indexedDB) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    try {
+      const req = window.indexedDB.open(IDB_NAME, IDB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) {
+          db.createObjectStore(IDB_STORE, { keyPath: 'domain' });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    } catch (e) {
+      resolve(null);
+    }
+  });
+}
+
+export async function saveToIndexedDB(items: StoredSearchItem[]): Promise<void> {
+  if (!items || !items.length || typeof window === 'undefined') return;
+  try {
+    const db = await openHistoryDB();
+    if (!db) return;
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    const store = tx.objectStore(IDB_STORE);
+    items.forEach((item) => {
+      if (item && item.domain) {
+        store.put(item);
+      }
+    });
+    tx.oncomplete = () => db.close();
+  } catch (e) {}
+}
+
+export async function loadFromIndexedDB(): Promise<StoredSearchItem[]> {
+  if (typeof window === 'undefined') return [];
+  try {
+    const db = await openHistoryDB();
+    if (!db) return [];
+    return new Promise((resolve) => {
+      try {
+        const tx = db.transaction(IDB_STORE, 'readonly');
+        const store = tx.objectStore(IDB_STORE);
+        const req = store.getAll();
+        req.onsuccess = () => {
+          db.close();
+          const list = req.result;
+          if (Array.isArray(list) && list.length > 0) {
+            resolve(list);
+          } else {
+            resolve([]);
+          }
+        };
+        req.onerror = () => {
+          db.close();
+          resolve([]);
+        };
+      } catch (e) {
+        db.close();
+        resolve([]);
+      }
+    });
+  } catch (e) {
+    return [];
+  }
+}
+
+// Automatically bootstrap memoryCache from IndexedDB in browser
+if (typeof window !== 'undefined') {
+  loadFromIndexedDB().then((idbItems) => {
+    if (idbItems && idbItems.length > 0) {
+      if (!memoryCache || idbItems.length > memoryCache.length) {
+        memoryCache = idbItems.sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bTime - aTime;
+        }).map((item, idx) => ({ ...item, id: String(idx + 1).padStart(2, '0') }));
+
+        const total = memoryCache.length;
+        const avail = memoryCache.filter((s) => s.status === 'Available').length;
+        const reg = total - avail;
+        const avg = total > 0 ? Math.round(memoryCache.reduce((acc, s) => acc + (s.dr || 0), 0) / total) : 0;
+        const stats = { totalChecked: total, availableCount: avail, registeredCount: reg, avgDr: avg };
+        saveCachedHistoryStats(stats);
+        try {
+          window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: total } }));
+        } catch (e) {}
+      }
+    }
+  }).catch(() => {});
+}
+
 export function getCachedHistoryStats(): HistoryStats {
   if (cachedStatsMemory && cachedStatsMemory.totalChecked > 0) {
     return cachedStatsMemory;
@@ -299,13 +397,11 @@ export function saveLocalSearchHistory(items: StoredSearchItem[], sessionLabel?:
     const avg = total > 0 ? Math.round(merged.reduce((acc, s) => acc + (s.dr || 0), 0) / total) : 0;
     saveCachedHistoryStats({ totalChecked: total, availableCount: avail, registeredCount: reg, avgDr: avg });
 
+    saveToIndexedDB(merged);
+
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-    } catch (e) {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged.slice(0, 1000)));
-      } catch (err) {}
-    }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged.slice(0, 1000)));
+    } catch (e) {}
 
     try {
       window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: merged.length } }));
@@ -330,8 +426,10 @@ export async function deleteHistoryItem(domain: string): Promise<void> {
   const avg = total > 0 ? Math.round(updated.reduce((acc, s) => acc + (s.dr || 0), 0) / total) : 0;
   saveCachedHistoryStats({ totalChecked: total, availableCount: avail, registeredCount: reg, avgDr: avg });
 
+  saveToIndexedDB(updated);
+
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated.slice(0, 1000)));
   } catch (e) {}
 
   // Also remove from sessions
@@ -365,6 +463,15 @@ export async function clearSearchHistory(): Promise<void> {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(SESSIONS_STORAGE_KEY);
     sessionStorage.removeItem('last_scanned_results');
+  } catch (e) {}
+
+  try {
+    const db = await openHistoryDB();
+    if (db) {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).clear();
+      tx.oncomplete = () => db.close();
+    }
   } catch (e) {}
 
   try {
@@ -426,8 +533,8 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
   const localItems = getLocalSearchHistory(forceRefresh);
 
   const now = Date.now();
-  // Return cached data immediately if queried within 15s and not forceRefresh
-  if (!forceRefresh && lastCloudFetchTime > 0 && now - lastCloudFetchTime < 15000 && memoryCache && memoryCache.length > 0) {
+  // Return cached data immediately if queried within 5 minutes and not forceRefresh
+  if (!forceRefresh && lastCloudFetchTime > 0 && now - lastCloudFetchTime < 300000 && memoryCache && memoryCache.length > 0) {
     const total = memoryCache.length;
     const avail = memoryCache.filter((s) => s.status === 'Available').length;
     const reg = total - avail;
@@ -444,14 +551,15 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
   }
 
   if (isCloudFetching) {
-    const total = localItems.length;
-    const avail = localItems.filter((s) => s.status === 'Available').length;
+    const active = (memoryCache && memoryCache.length > 0) ? memoryCache : localItems;
+    const total = active.length;
+    const avail = active.filter((s) => s.status === 'Available').length;
     const reg = total - avail;
     const avg = Math.round(
-      localItems.reduce((acc, s) => acc + (s.dr || 0), 0) / (total || 1)
+      active.reduce((acc, s) => acc + (s.dr || 0), 0) / (total || 1)
     );
     return {
-      items: localItems,
+      items: active,
       totalChecked: total,
       availableCount: avail,
       registeredCount: reg,
@@ -535,15 +643,12 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
           }));
 
         memoryCache = finalItems;
+        saveToIndexedDB(finalItems);
 
-        // Persist to local storage (up to 5,000 for local cache)
+        // Persist to local storage (up to 1,000 for local sync bootstrap)
         try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(finalItems.slice(0, 5000)));
-        } catch (e) {
-          try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(finalItems.slice(0, 1000)));
-          } catch (err) {}
-        }
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(finalItems.slice(0, 1000)));
+        } catch (e) {}
 
         const total = finalItems.length;
         const avail = finalItems.filter((s) => s.status === 'Available').length;

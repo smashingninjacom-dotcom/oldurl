@@ -92,7 +92,7 @@ export default function PreviousSearchesPage() {
     window.addEventListener('storage', refreshData);
 
     // Background cloud reconciliation without blocking UI
-    fetchAllSearchHistory(true)
+    fetchAllSearchHistory(false)
       .then(({ items }) => {
         if (items && items.length > 0) {
           setData(items);
