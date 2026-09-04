@@ -3,7 +3,16 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../../lib/supabaseClient';
-import { fetchAllSearchHistory, getLocalSearchHistory, formatCheckDate, clearSearchHistory, deleteHistoryItem } from '../../../lib/searchHistory';
+import {
+  fetchAllSearchHistory,
+  getLocalSearchHistory,
+  formatCheckDate,
+  clearSearchHistory,
+  deleteHistoryItem,
+  getSearchSessions,
+  deleteSearchSession,
+  SearchSession,
+} from '../../../lib/searchHistory';
 import {
   Search,
   Download,
@@ -41,6 +50,8 @@ function getPaginationRange(currentPage: number, totalPages: number): (number | 
 
 export default function PreviousSearchesPage() {
   const [data, setData] = useState<any[]>(() => getLocalSearchHistory());
+  const [sessions, setSessions] = useState<SearchSession[]>(() => getSearchSessions());
+  const [selectedSessionId, setSelectedSessionId] = useState<string>('all');
   const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'All' | 'Available' | 'Registered'>('All');
   const [extensionFilter, setExtensionFilter] = useState<string>('All');
@@ -69,12 +80,17 @@ export default function PreviousSearchesPage() {
     if (local && local.length > 0) {
       setData(local);
     }
+    const localSessions = getSearchSessions();
+    if (localSessions && localSessions.length > 0) {
+      setSessions(localSessions);
+    }
 
     // Background cloud reconciliation without blocking UI
     fetchAllSearchHistory()
       .then(({ items }) => {
         if (items && items.length > 0) {
           setData(items);
+          setSessions(getSearchSessions());
         }
       })
       .catch((e) => {
@@ -82,13 +98,19 @@ export default function PreviousSearchesPage() {
       });
   }, []);
 
-  const totalCount = data.length;
-  const availableCount = data.filter((item) => item.status === 'Available').length;
+  const activeData = React.useMemo(() => {
+    if (selectedSessionId === 'all') return data;
+    const sess = sessions.find((s) => s.id === selectedSessionId);
+    return sess ? sess.items : data;
+  }, [data, selectedSessionId, sessions]);
+
+  const totalCount = activeData.length;
+  const availableCount = activeData.filter((item) => item.status === 'Available').length;
   const registeredCount = totalCount - availableCount;
-  const avgDr = totalCount > 0 ? Math.round(data.reduce((acc, it) => acc + (Number(it.dr) || 0), 0) / totalCount) : 0;
+  const avgDr = totalCount > 0 ? Math.round(activeData.reduce((acc, it) => acc + (Number(it.dr) || 0), 0) / totalCount) : 0;
 
   const scopedTotalCount = statusFilter === 'All'
-    ? data.length
+    ? activeData.length
     : statusFilter === 'Available'
     ? availableCount
     : registeredCount;
@@ -96,8 +118,8 @@ export default function PreviousSearchesPage() {
   const availableExtensions = React.useMemo(() => {
     const map = new Map<string, number>();
     const scopedData = statusFilter === 'All'
-      ? data
-      : data.filter((item) => item.status === statusFilter);
+      ? activeData
+      : activeData.filter((item) => item.status === statusFilter);
 
     scopedData.forEach((item) => {
       if (!item.domain) return;
@@ -111,7 +133,7 @@ export default function PreviousSearchesPage() {
     return Array.from(map.entries())
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .map(([ext, count]) => ({ ext, count }));
-  }, [data, statusFilter]);
+  }, [activeData, statusFilter]);
 
   // If currently selected extension is not present in scoped status data, reset to All
   useEffect(() => {
@@ -123,7 +145,7 @@ export default function PreviousSearchesPage() {
     }
   }, [availableExtensions, extensionFilter]);
 
-  const filtered = data
+  const filtered = activeData
     .filter((item) => {
       if (statusFilter !== 'All' && item.status !== statusFilter) return false;
       if (extensionFilter !== 'All' && !item.domain.toLowerCase().endsWith(extensionFilter.toLowerCase())) return false;
@@ -190,7 +212,9 @@ export default function PreviousSearchesPage() {
   const [showExportMenu, setShowExportMenu] = useState(false);
 
   const exportData = (format: 'csv' | 'xlsx' | 'xml') => {
-    const filename = `previous_searches_${new Date().toISOString().slice(0, 10)}`;
+    const selectedSess = sessions.find((s) => s.id === selectedSessionId);
+    const sessionPrefix = selectedSess ? selectedSess.name.replace(/[^a-zA-Z0-9]/g, '_') : 'previous_searches';
+    const filename = `${sessionPrefix}_${new Date().toISOString().slice(0, 10)}`;
     const headers = ['#', 'Domain', 'Status', 'Days Left', 'DR', 'Registrar', 'Date Checked'];
     const rows = filtered.map((r) => [r.id, r.domain, r.status, r.daysLeft, r.dr, r.registrar, formatCheckDate(r.createdAt)]);
 
@@ -239,6 +263,8 @@ export default function PreviousSearchesPage() {
     if (window.confirm('Are you sure you want to clear your recent search history?')) {
       await clearSearchHistory();
       setData([]);
+      setSessions([]);
+      setSelectedSessionId('all');
       setCurrentPage(1);
     }
   };
@@ -246,6 +272,19 @@ export default function PreviousSearchesPage() {
   const handleDeleteDomain = async (domain: string) => {
     await deleteHistoryItem(domain);
     setData((prev) => prev.filter((d) => d.domain.toLowerCase().trim() !== domain.toLowerCase().trim()));
+    setSessions(getSearchSessions());
+  };
+
+  const handleDeleteSession = (e: React.MouseEvent, sessionId: string) => {
+    e.stopPropagation();
+    if (window.confirm('Remove this previous search session?')) {
+      deleteSearchSession(sessionId);
+      const updated = getSearchSessions();
+      setSessions(updated);
+      if (selectedSessionId === sessionId) {
+        setSelectedSessionId('all');
+      }
+    }
   };
 
   return (
@@ -333,6 +372,84 @@ export default function PreviousSearchesPage() {
           </span>
         </div>
       </div>
+
+      {/* Previous Searches Wise (Session Wise) Selector */}
+      {sessions.length > 0 && (
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-xs space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#FC6B17]"></span>
+              <span className="text-xs font-bold text-[#0d1b3e] uppercase tracking-wider">
+                Previous Searches (Search-Wise)
+              </span>
+            </div>
+            <span className="text-[11px] text-gray-400 font-medium">
+              Click any search batch below to view domains search-wise
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedSessionId('all');
+                setCurrentPage(1);
+              }}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+                selectedSessionId === 'all'
+                  ? 'bg-[#0d1b3e] text-white shadow-xs'
+                  : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200'
+              }`}
+            >
+              <span>All Previous Searches</span>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                  selectedSessionId === 'all' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-700'
+                }`}
+              >
+                {data.length}
+              </span>
+            </button>
+
+            {sessions.map((sess, idx) => (
+              <div
+                key={sess.id}
+                onClick={() => {
+                  setSelectedSessionId(sess.id);
+                  setCurrentPage(1);
+                }}
+                className={`cursor-pointer px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 border ${
+                  selectedSessionId === sess.id
+                    ? 'bg-[#FC6B17] text-white border-[#FC6B17] shadow-xs'
+                    : 'bg-gray-50 hover:bg-orange-50/60 text-gray-700 border-gray-200 hover:border-orange-200'
+                }`}
+              >
+                <span>Search #{sessions.length - idx}: {sess.name}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                    selectedSessionId === sess.id ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  {sess.domainCount}
+                </span>
+                <span className={`text-[10px] ${selectedSessionId === sess.id ? 'text-white/80' : 'text-gray-400'}`}>
+                  • {formatCheckDate(sess.createdAt)}
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => handleDeleteSession(e, sess.id)}
+                  className={`p-0.5 rounded-md hover:bg-black/10 transition-colors ml-0.5 ${
+                    selectedSessionId === sess.id ? 'text-white hover:text-white' : 'text-gray-400 hover:text-red-500'
+                  }`}
+                  title="Remove this search batch"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filter Row */}
       <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4 text-xs">

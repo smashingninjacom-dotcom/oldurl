@@ -12,9 +12,18 @@ export interface StoredSearchItem {
   createdAt?: string;
 }
 
-const STORAGE_KEY = 'oldurl_local_search_history';
+export interface SearchSession {
+  id: string;
+  name: string;
+  createdAt: string;
+  domainCount: number;
+  items: StoredSearchItem[];
+}
 
-// In-memory memory cache for instantaneous 0ms tab switching
+const STORAGE_KEY = 'oldurl_local_search_history';
+const SESSIONS_STORAGE_KEY = 'oldurl_search_sessions';
+
+// In-memory cache for instantaneous 0ms tab switching
 let memoryCache: StoredSearchItem[] | null = null;
 let lastCloudFetchTime = 0;
 let isCloudFetching = false;
@@ -33,6 +42,81 @@ export function formatCheckDate(dateStr?: string): string {
   } catch (e) {
     return 'Recently';
   }
+}
+
+export function getSearchSessions(): SearchSession[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(SESSIONS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+
+  // Auto-generate a default session from search history if none saved yet
+  const history = getLocalSearchHistory();
+  if (history.length > 0) {
+    return [
+      {
+        id: 'session_initial',
+        name: `Recent Search (${history.length} domain${history.length > 1 ? 's' : ''})`,
+        createdAt: history[0]?.createdAt || new Date().toISOString(),
+        domainCount: history.length,
+        items: history,
+      },
+    ];
+  }
+
+  return [];
+}
+
+export function saveSearchSession(name: string, items: StoredSearchItem[]): void {
+  if (typeof window === 'undefined' || !items || !items.length) return;
+  try {
+    const existing = getSearchSessions().filter((s) => s.id !== 'session_initial');
+    const newSession: SearchSession = {
+      id: `session_${Date.now()}`,
+      name: name || (items.length === 1 ? items[0].domain : `${items.length} Domains Checked`),
+      createdAt: items[0]?.createdAt || new Date().toISOString(),
+      domainCount: items.length,
+      items: items.map((it, idx) => ({ ...it, id: String(idx + 1).padStart(2, '0') })),
+    };
+    const updated = [newSession, ...existing.filter((s) => s.id !== newSession.id)].slice(0, 50);
+    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(updated));
+  } catch (e) {}
+}
+
+export function deleteSearchSession(sessionId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const sessions = getSearchSessions().filter((s) => s.id !== sessionId);
+    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
+  } catch (e) {}
+}
+
+export function getLastScannedBatch(): StoredSearchItem[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = sessionStorage.getItem('last_scanned_results');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((item: any, idx: number) => ({
+          ...item,
+          id: String(idx + 1).padStart(2, '0'),
+        }));
+      }
+    }
+  } catch (e) {}
+
+  // Fallback to the latest search session if present
+  const sessions = getSearchSessions();
+  if (sessions.length > 0 && sessions[0].items && sessions[0].items.length > 0) {
+    return sessions[0].items;
+  }
+
+  return [];
 }
 
 export function getLocalSearchHistory(): StoredSearchItem[] {
@@ -57,7 +141,7 @@ export function getLocalSearchHistory(): StoredSearchItem[] {
               if (!existing) {
                 map.set(dom, {
                   id: '01',
-                  domain: item.domain,
+                  domain: item.domain.trim(),
                   status: item.status || 'Available',
                   daysLeft: item.daysLeft || item.days_left || (item.status === 'Available' ? 'Dropped' : '365d'),
                   dr: Number(item.dr) || 0,
@@ -76,7 +160,6 @@ export function getLocalSearchHistory(): StoredSearchItem[] {
 
   try {
     loadFromRaw(localStorage.getItem(STORAGE_KEY));
-    loadFromRaw(sessionStorage.getItem('last_scanned_results'));
   } catch (e) {}
 
   // Sort strictly by most recently searched first (createdAt descending)
@@ -95,9 +178,12 @@ export function getLocalSearchHistory(): StoredSearchItem[] {
   return result;
 }
 
-export function saveLocalSearchHistory(items: StoredSearchItem[]): void {
+export function saveLocalSearchHistory(items: StoredSearchItem[], sessionLabel?: string): void {
   if (typeof window === 'undefined' || !items || !items.length) return;
   try {
+    // Also save search session for search-wise grouping
+    saveSearchSession(sessionLabel || (items.length === 1 ? items[0].domain : `${items.length} Domains Check`), items);
+
     const existing = getLocalSearchHistory();
     const existingMap = new Map<string, StoredSearchItem>();
     const nowIso = new Date().toISOString();
@@ -164,6 +250,16 @@ export async function deleteHistoryItem(domain: string): Promise<void> {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   } catch (e) {}
 
+  // Also remove from sessions
+  try {
+    const sessions = getSearchSessions().map((s) => ({
+      ...s,
+      items: s.items.filter((it) => it.domain.toLowerCase().trim() !== lower),
+      domainCount: s.items.filter((it) => it.domain.toLowerCase().trim() !== lower).length,
+    })).filter((s) => s.domainCount > 0);
+    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
+  } catch (e) {}
+
   try {
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user;
@@ -178,6 +274,7 @@ export async function clearSearchHistory(): Promise<void> {
   memoryCache = [];
   try {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(SESSIONS_STORAGE_KEY);
     sessionStorage.removeItem('last_scanned_results');
   } catch (e) {}
 

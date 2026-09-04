@@ -10,6 +10,7 @@ import {
   fetchAllSearchHistory,
   getLocalSearchHistory,
   formatCheckDate,
+  getLastScannedBatch,
 } from '../../../lib/searchHistory';
 import {
   FileText,
@@ -67,16 +68,7 @@ function getPaginationRange(currentPage: number, totalPages: number): (number | 
 function ResultsContent() {
   const searchParams = useSearchParams();
   const [results, setResults] = useState<ResultItem[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const lastScanned = sessionStorage.getItem('last_scanned_results');
-        if (lastScanned) {
-          const parsed = JSON.parse(lastScanned);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        }
-      } catch (e) {}
-    }
-    return getLocalSearchHistory() as any;
+    return (getLastScannedBatch() as any) || [];
   });
   const [isScanning, setIsScanning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -280,18 +272,11 @@ function ResultsContent() {
       setIsScanning(false);
       setProgress(100);
 
-      // 0ms instant display from local storage
-      const localItems = getLocalSearchHistory();
-      if (localItems && localItems.length > 0) {
-        setResults(localItems as any);
+      // Only show the recent/latest scanned batch, NEVER all historical domains
+      const recentBatch = getLastScannedBatch();
+      if (recentBatch && recentBatch.length > 0) {
+        setResults(recentBatch as any);
       }
-
-      // Background cloud reconciliation
-      fetchAllSearchHistory().then(({ items }) => {
-        if (items && items.length > 0) {
-          setResults(items as any);
-        }
-      }).catch(() => {});
     }
   }, [searchParams]);
 
