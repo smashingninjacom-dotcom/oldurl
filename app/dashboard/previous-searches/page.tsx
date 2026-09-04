@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { supabase } from '../../../lib/supabaseClient';
 import {
   Search,
   Download,
@@ -32,16 +33,44 @@ export default function PreviousSearchesPage() {
   const [daysFilter, setDaysFilter] = useState<'Any' | '< 30d' | '30-90d' | '> 90d'>('Any');
   const [searchQuery, setSearchQuery] = useState('');
 
-  React.useEffect(() => {
-    try {
-      const stored = localStorage.getItem('oldurl_search_history');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setData(parsed);
+  useEffect(() => {
+    async function loadHistory() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: cloudHistory, error } = await supabase
+            .from('search_history')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(100);
+
+          if (!error && cloudHistory && cloudHistory.length > 0) {
+            const mapped = cloudHistory.map((item, idx) => ({
+              id: String(idx + 1).padStart(2, '0'),
+              domain: item.domain,
+              status: item.status,
+              daysLeft: item.days_left || (item.status === 'Available' ? 'Dropped' : '30d'),
+              dr: item.dr,
+              registrar: item.registrar || (item.status === 'Available' ? '—' : 'Namecheap, Inc.'),
+            }));
+            setData(mapped);
+            return;
+          }
         }
+
+        const stored = localStorage.getItem('oldurl_search_history');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setData(parsed);
+          }
+        }
+      } catch (e) {
+        console.warn('History load note:', e);
       }
-    } catch (e) {}
+    }
+    loadHistory();
   }, []);
 
   const filtered = data.filter((item) => {

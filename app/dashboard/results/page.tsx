@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { supabase } from '../../../lib/supabaseClient';
 import {
   FileText,
   Clock,
@@ -153,6 +154,21 @@ function ResultsContent() {
                 const merged = [...newItems, ...existing.filter((e: any) => !newItems.some((n) => n.domain === e.domain))].slice(0, 100);
                 localStorage.setItem('oldurl_search_history', JSON.stringify(merged));
               } catch (e) {}
+
+              // Persist to Supabase if logged in
+              supabase.auth.getUser().then(({ data: { user } }) => {
+                if (user) {
+                  const toInsert = formatted.map((f) => ({
+                    user_id: user.id,
+                    domain: f.domain,
+                    status: f.status,
+                    dr: f.dr,
+                    days_left: f.daysLeft,
+                    registrar: f.registrar,
+                  }));
+                  supabase.from('search_history').insert(toInsert).then(() => {});
+                }
+              }).catch(() => {});
             }
           })
           .catch((err) => {

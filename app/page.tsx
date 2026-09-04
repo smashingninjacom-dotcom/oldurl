@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import AuthModal from '../components/AuthModal';
 import {
   Search,
   UploadCloud,
@@ -98,6 +99,8 @@ const mockDatabase: DomainItem[] = [
 ];
 
 export default function HomePage() {
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
   const [activeTab, setActiveTab] = useState<'single' | 'bulk'>('single');
   const [inputVal, setInputVal] = useState('');
   const [filterTag, setFilterTag] = useState<'all' | 'available' | 'dr50'>('all');
@@ -199,12 +202,16 @@ export default function HomePage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <a
-              href="/dashboard/domain-checker"
+            <button
+              type="button"
+              onClick={() => {
+                setAuthMode('login');
+                setIsAuthOpen(true);
+              }}
               className="bg-[#FC6B17] hover:bg-[#e05b10] text-white px-5 py-2 rounded-full font-bold text-sm shadow-sm transition-all transform hover:-translate-y-0.5"
             >
               Sign In / Free Trial
-            </a>
+            </button>
           </div>
         </nav>
       </header>
@@ -285,12 +292,16 @@ export default function HomePage() {
                 <FileSpreadsheet className="w-8 h-8 text-[#FC6B17] mx-auto mb-2" />
                 <p className="text-sm font-bold text-gray-800">Drop your CSV, XLSX, or XML file here</p>
                 <p className="text-xs text-gray-500 mt-1">Supports up to 55,000 domains per scan</p>
-                <a
-                  href="/dashboard/domain-checker"
-                  className="inline-block mt-3 bg-[#FC6B17] text-white text-xs font-bold px-4 py-2 rounded-full shadow-sm"
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('signup');
+                    setIsAuthOpen(true);
+                  }}
+                  className="inline-block mt-3 bg-[#FC6B17] text-white text-xs font-bold px-4 py-2 rounded-full shadow-sm hover:bg-[#e05607] transition-colors"
                 >
                   Sign In to Bulk Upload
-                </a>
+                </button>
               </div>
             )}
 
@@ -517,18 +528,24 @@ export default function HomePage() {
                       <td className="py-3.5 pl-2 pr-5 text-right whitespace-nowrap">
                         {item.status === 'Available' ? (
                           <a
-                            href="/dashboard/domain-checker"
+                            href={`https://www.namecheap.com/domains/registration/results/?domain=${encodeURIComponent(item.domain)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 bg-[#FC6B17] hover:bg-[#e05b10] text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-xs transition-all transform hover:-translate-y-0.5"
                           >
                             Register <ExternalLink className="w-3 h-3" />
                           </a>
                         ) : (
-                          <a
-                            href="/dashboard/domain-checker"
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuthMode('signup');
+                              setIsAuthOpen(true);
+                            }}
                             className="inline-block bg-[#0d1b3e] hover:bg-black text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-xs transition-all"
                           >
                             Set Alert
-                          </a>
+                          </button>
                         )}
                       </td>
                     </tr>
@@ -553,12 +570,16 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <a
-                href="/dashboard/domain-checker"
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('signup');
+                  setIsAuthOpen(true);
+                }}
                 className="bg-[#FC6B17] hover:bg-[#e05b10] text-white text-xs sm:text-sm font-bold px-6 py-2.5 rounded-full shadow-md whitespace-nowrap transition-transform hover:-translate-y-0.5 flex items-center gap-1.5"
               >
                 Sign In to Unlock Free <ArrowRight className="w-4 h-4" />
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -795,12 +816,16 @@ export default function HomePage() {
                   <li className="flex items-center gap-2 text-gray-400">✗ Bulk CSV upload</li>
                 </ul>
               </div>
-              <a
-                href="/dashboard/domain-checker"
-                className="block text-center border-2 border-[#FC6B17] text-[#FC6B17] hover:bg-[#FC6B17] hover:text-white font-bold py-2.5 rounded-full text-xs transition-colors"
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('signup');
+                  setIsAuthOpen(true);
+                }}
+                className="w-full text-center border-2 border-[#FC6B17] text-[#FC6B17] hover:bg-[#FC6B17] hover:text-white font-bold py-2.5 rounded-full text-xs transition-colors"
               >
                 Get Started Free
-              </a>
+              </button>
             </div>
 
             {/* Starter */}
@@ -820,12 +845,16 @@ export default function HomePage() {
                   <li className="flex items-center gap-2">✓ Search history</li>
                 </ul>
               </div>
-              <a
-                href="/dashboard/domain-checker"
-                className="block text-center border-2 border-[#FC6B17] text-[#FC6B17] hover:bg-[#FC6B17] hover:text-white font-bold py-2.5 rounded-full text-xs transition-colors"
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('signup');
+                  setIsAuthOpen(true);
+                }}
+                className="w-full text-center border-2 border-[#FC6B17] text-[#FC6B17] hover:bg-[#FC6B17] hover:text-white font-bold py-2.5 rounded-full text-xs transition-colors"
               >
                 Choose Starter
-              </a>
+              </button>
             </div>
 
             {/* Growth - Highlighted */}
@@ -848,12 +877,16 @@ export default function HomePage() {
                   <li className="flex items-center gap-2">✓ Priority email support</li>
                 </ul>
               </div>
-              <a
-                href="/dashboard/domain-checker"
-                className="block text-center bg-[#FC6B17] hover:bg-[#e05b10] text-white font-bold py-2.5 rounded-full text-xs shadow-md transition-colors"
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('signup');
+                  setIsAuthOpen(true);
+                }}
+                className="w-full text-center bg-[#FC6B17] hover:bg-[#e05b10] text-white font-bold py-2.5 rounded-full text-xs shadow-md transition-colors"
               >
                 Choose Growth
-              </a>
+              </button>
             </div>
 
             {/* Agency */}
@@ -873,12 +906,16 @@ export default function HomePage() {
                   <li className="flex items-center gap-2">✓ Dedicated account manager</li>
                 </ul>
               </div>
-              <a
-                href="/dashboard/domain-checker"
-                className="block text-center border-2 border-[#FC6B17] text-[#FC6B17] hover:bg-[#FC6B17] hover:text-white font-bold py-2.5 rounded-full text-xs transition-colors"
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('signup');
+                  setIsAuthOpen(true);
+                }}
+                className="w-full text-center border-2 border-[#FC6B17] text-[#FC6B17] hover:bg-[#FC6B17] hover:text-white font-bold py-2.5 rounded-full text-xs transition-colors"
               >
                 Choose Agency
-              </a>
+              </button>
             </div>
           </div>
         </div>
@@ -934,12 +971,16 @@ export default function HomePage() {
           <p className="text-gray-400 text-sm sm:text-base mb-8">
             Join SEOs and domain investors uncovering high-DR dropped domains before competitors. Start with 10 free lookups.
           </p>
-          <a
-            href="/dashboard/domain-checker"
+          <button
+            type="button"
+            onClick={() => {
+              setAuthMode('signup');
+              setIsAuthOpen(true);
+            }}
             className="inline-flex items-center gap-2 bg-[#FC6B17] hover:bg-[#e05b10] text-white font-bold px-8 py-3.5 rounded-full text-sm sm:text-base shadow-xl transition-transform hover:-translate-y-0.5"
           >
             Create Free Account <ArrowRight className="w-5 h-5" />
-          </a>
+          </button>
         </div>
       </section>
 
@@ -1015,6 +1056,13 @@ export default function HomePage() {
           © {new Date().getFullYear()} OldUrl.domains. All rights reserved.
         </div>
       </footer>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        defaultMode={authMode}
+      />
     </div>
   );
 }

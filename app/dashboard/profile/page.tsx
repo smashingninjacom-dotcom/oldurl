@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { supabase } from '../../../lib/supabaseClient';
 import {
   User,
   Mail,
@@ -15,14 +16,47 @@ import {
   Save,
   Bell,
   Sparkles,
+  LogOut,
 } from 'lucide-react';
 
 export default function ProfilePage() {
   const [copiedKey, setCopiedKey] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<any>(null);
   const [fullName, setFullName] = useState('Sanjay Kumar');
   const [email, setEmail] = useState('sanjay@authoritydomains.io');
-  const apiKey = 'oldurl_live_sk_948f102a84e66b89012cd';
+  const [accountId, setAccountId] = useState('USR-49021');
+  const [memberSince, setMemberSince] = useState('July 2026');
+  const [apiKey, setApiKey] = useState('oldurl_live_sk_948f102a84e66b89012cd');
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUser(user);
+        setEmail(user.email || 'sanjay@authoritydomains.io');
+        const name = user.user_metadata?.full_name || (user.email ? user.email.split('@')[0] : 'Sanjay Kumar');
+        setFullName(name);
+        setAccountId(`USR-${user.id.slice(0, 6).toUpperCase()}`);
+        if (user.created_at) {
+          const d = new Date(user.created_at);
+          setMemberSince(d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
+        }
+
+        // Fetch custom profile row if present
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single()
+          .then(({ data }) => {
+            if (data?.full_name) {
+              setFullName(data.full_name);
+            }
+          });
+      }
+    });
+  }, []);
 
   const handleCopyKey = () => {
     navigator.clipboard.writeText(apiKey);
@@ -30,10 +64,31 @@ export default function ProfilePage() {
     setTimeout(() => setCopiedKey(false), 2000);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 3000);
+    setLoading(true);
+    try {
+      if (user) {
+        // Update user metadata
+        await supabase.auth.updateUser({
+          data: { full_name: fullName },
+        });
+
+        // Upsert to profiles table
+        await supabase.from('profiles').upsert({
+          id: user.id,
+          full_name: fullName,
+          email: user.email,
+          updated_at: new Date().toISOString(),
+        });
+      }
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -60,7 +115,7 @@ export default function ProfilePage() {
           {/* User Card */}
           <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs text-center">
             <div className="w-20 h-20 rounded-full bg-[#a3381a] text-white flex items-center justify-center font-bold text-2xl mx-auto shadow-md">
-              S
+              {fullName ? fullName.charAt(0).toUpperCase() : 'S'}
             </div>
             <h2 className="text-lg font-bold text-gray-900 mt-4">{fullName}</h2>
             <p className="text-xs text-gray-500">{email}</p>
@@ -70,11 +125,11 @@ export default function ProfilePage() {
             <div className="border-t border-gray-100 mt-6 pt-4 text-left space-y-2 text-xs text-gray-600">
               <div className="flex justify-between">
                 <span className="text-gray-400">Account ID:</span>
-                <span className="font-mono font-bold text-gray-800">USR-49021</span>
+                <span className="font-mono font-bold text-gray-800">{accountId}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">Member Since:</span>
-                <span className="font-semibold text-gray-800">July 2026</span>
+                <span className="font-semibold text-gray-800">{memberSince}</span>
               </div>
             </div>
           </div>
