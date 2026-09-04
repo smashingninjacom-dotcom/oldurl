@@ -56,6 +56,10 @@ function ResultsContent() {
     let domainInput = '';
     try {
       domainInput = sessionStorage.getItem('pending_domains') || '';
+      if (domainInput) {
+        // Clear pending_domains so future clicks on Results won't re-run the file scan
+        sessionStorage.removeItem('pending_domains');
+      }
     } catch (e) {}
 
     if (!domainInput) {
@@ -165,22 +169,34 @@ function ResultsContent() {
           setProgress(100);
           setIsScanning(false);
 
-          // Persist top results to Supabase if logged in
+          // Save completed results to session & local storage
+          try {
+            sessionStorage.setItem('last_scanned_results', JSON.stringify(allFormatted));
+            localStorage.setItem('oldurl_cached_history', JSON.stringify(allFormatted));
+            localStorage.setItem('oldurl_total_domains_count', String(allFormatted.length));
+          } catch (e) {}
+
+          // Persist all results to Supabase in chunks of 50
           try {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-              const toInsert = allFormatted.slice(0, 100).map((f) => ({
-                user_id: user.id,
-                domain: f.domain,
-                status: f.status,
-                dr: f.dr,
-                days_left: f.daysLeft,
-                registrar: f.registrar,
-                ref_domains: f.refDomains || 0,
-              }));
-              await supabase.from('search_history').insert(toInsert);
+              const dbChunks = 50;
+              for (let ci = 0; ci < allFormatted.length; ci += dbChunks) {
+                const batch = allFormatted.slice(ci, ci + dbChunks).map((f) => ({
+                  user_id: user.id,
+                  domain: f.domain,
+                  status: f.status,
+                  dr: f.dr,
+                  days_left: f.daysLeft,
+                  registrar: f.registrar,
+                  ref_domains: f.refDomains || 0,
+                }));
+                await supabase.from('search_history').insert(batch);
+              }
             }
-          } catch (e) {}
+          } catch (e) {
+            console.warn('Supabase persist error:', e);
+          }
         };
 
         runAllChunks();
@@ -189,6 +205,19 @@ function ResultsContent() {
       hasLoadedRef.current = true;
       setIsScanning(false);
       setProgress(100);
+
+      // Check last active results in session or local storage first
+      try {
+        const cached = sessionStorage.getItem('last_scanned_results') || localStorage.getItem('oldurl_cached_history');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setResults(parsed);
+            return;
+          }
+        }
+      } catch (e) {}
+
       supabase.auth.getUser().then(({ data: { user } }) => {
         if (user) {
           supabase
@@ -196,7 +225,7 @@ function ResultsContent() {
             .select('*')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false })
-            .limit(50)
+            .limit(500)
             .then(({ data: cloudHistory, error }) => {
               if (!error && cloudHistory && cloudHistory.length > 0) {
                 const formatted: ResultItem[] = cloudHistory.map((r: any, idx: number) => ({

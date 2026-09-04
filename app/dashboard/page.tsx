@@ -35,9 +35,43 @@ export default function DashboardHomePage() {
   const [searches, setSearches] = useState<SearchRecord[]>([]);
   const [quickInput, setQuickInput] = useState('');
   const [isChecking, setIsChecking] = useState(false);
+  const [totalChecked, setTotalChecked] = useState(0);
+  const [availableCount, setAvailableCount] = useState(0);
+  const [registeredCount, setRegisteredCount] = useState(0);
+  const [avgDr, setAvgDr] = useState(0);
 
   useEffect(() => {
     async function loadUserData() {
+      // 1. First check local cached scans for instant accurate counts
+      let localRecords: SearchRecord[] = [];
+      try {
+        const cached = localStorage.getItem('oldurl_cached_history') || sessionStorage.getItem('last_scanned_results');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            localRecords = parsed.map((item: any, idx: number) => ({
+              id: String(idx + 1).padStart(2, '0'),
+              domain: item.domain,
+              status: item.status || 'Available',
+              daysLeft: item.daysLeft || (item.status === 'Available' ? 'Dropped' : '365d'),
+              dr: Number(item.dr) || 0,
+              registrar: item.registrar || (item.status === 'Available' ? '—' : 'Namecheap, Inc.'),
+              createdAt: 'Recent',
+            }));
+            const lTotal = localRecords.length;
+            const lAvail = localRecords.filter((s) => s.status === 'Available').length;
+            const lReg = lTotal - lAvail;
+            const lAvgDr = Math.round(localRecords.reduce((acc, s) => acc + (s.dr || 0), 0) / (lTotal || 1));
+
+            setTotalChecked(lTotal);
+            setAvailableCount(lAvail);
+            setRegisteredCount(lReg);
+            setAvgDr(lAvgDr);
+            setSearches(localRecords.slice(0, 15));
+          }
+        }
+      } catch (e) {}
+
       try {
         const {
           data: { user: currentUser },
@@ -50,25 +84,37 @@ export default function DashboardHomePage() {
             (currentUser.email ? currentUser.email.split('@')[0] : 'Member');
           setUserName(name);
 
-          // Fetch real user searches from Supabase
-          const { data: cloudHistory, error } = await supabase
+          // Fetch all user searches from Supabase with exact count
+          const { data: cloudHistory, count, error } = await supabase
             .from('search_history')
-            .select('*')
+            .select('*', { count: 'exact' })
             .eq('user_id', currentUser.id)
             .order('created_at', { ascending: false })
-            .limit(10);
+            .limit(2000);
 
-          if (!error && cloudHistory) {
+          if (!error && cloudHistory && cloudHistory.length > 0) {
             const mapped: SearchRecord[] = cloudHistory.map((item, idx) => ({
               id: String(idx + 1).padStart(2, '0'),
               domain: item.domain,
               status: item.status || 'Available',
               daysLeft: item.days_left || (item.status === 'Available' ? 'Dropped' : '365d'),
-              dr: item.dr || 0,
+              dr: Number(item.dr) || 0,
               registrar: item.registrar || (item.status === 'Available' ? '—' : 'Namecheap, Inc.'),
               createdAt: item.created_at,
             }));
-            setSearches(mapped);
+
+            const dbTotal = count || mapped.length;
+            const dbAvail = mapped.filter((s) => s.status === 'Available').length;
+            const dbReg = dbTotal - dbAvail;
+            const dbAvg = Math.round(mapped.reduce((acc, s) => acc + (s.dr || 0), 0) / (mapped.length || 1));
+
+            if (dbTotal >= localRecords.length) {
+              setTotalChecked(dbTotal);
+              setAvailableCount(dbAvail);
+              setRegisteredCount(dbReg);
+              setAvgDr(dbAvg);
+              setSearches(mapped.slice(0, 15));
+            }
           }
         }
       } catch (err) {
@@ -97,8 +143,8 @@ export default function DashboardHomePage() {
       const result = data.results?.[0] || {
         domain: domainToCheck,
         status: 'Available',
-        dr: 52,
-        refDomains: 120,
+        dr: 35,
+        refDomains: 80,
         registrar: '—',
       };
 
@@ -124,6 +170,12 @@ export default function DashboardHomePage() {
       };
 
       setSearches([newRecord, ...searches]);
+      setTotalChecked((prev) => prev + 1);
+      if (result.status === 'Available') {
+        setAvailableCount((prev) => prev + 1);
+      } else {
+        setRegisteredCount((prev) => prev + 1);
+      }
       setQuickInput('');
     } catch (e) {
       console.error(e);
@@ -131,14 +183,6 @@ export default function DashboardHomePage() {
       setIsChecking(false);
     }
   };
-
-  const totalChecked = searches.length;
-  const availableCount = searches.filter((s) => s.status === 'Available').length;
-  const registeredCount = searches.filter((s) => s.status === 'Registered').length;
-  const avgDr =
-    totalChecked > 0
-      ? Math.round(searches.reduce((acc, s) => acc + (s.dr || 0), 0) / totalChecked)
-      : 0;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto font-sans">

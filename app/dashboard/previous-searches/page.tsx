@@ -25,6 +25,25 @@ export default function PreviousSearchesPage() {
 
   useEffect(() => {
     async function loadHistory() {
+      let localList: any[] = [];
+      try {
+        const cached = localStorage.getItem('oldurl_cached_history') || sessionStorage.getItem('last_scanned_results');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            localList = parsed.map((item: any, idx: number) => ({
+              id: String(idx + 1).padStart(2, '0'),
+              domain: item.domain,
+              status: item.status || 'Available',
+              daysLeft: item.daysLeft || (item.status === 'Available' ? 'Dropped' : '30d'),
+              dr: Number(item.dr) || 0,
+              registrar: item.registrar || (item.status === 'Available' ? '—' : 'Namecheap, Inc.'),
+            }));
+            setData(localList);
+          }
+        }
+      } catch (e) {}
+
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
@@ -33,9 +52,9 @@ export default function PreviousSearchesPage() {
             .select('*')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false })
-            .limit(100);
+            .limit(2000);
 
-          if (!error && cloudHistory) {
+          if (!error && cloudHistory && cloudHistory.length > 0) {
             const mapped = cloudHistory.map((item, idx) => ({
               id: String(idx + 1).padStart(2, '0'),
               domain: item.domain,
@@ -44,15 +63,22 @@ export default function PreviousSearchesPage() {
               dr: Number(item.dr) || 0,
               registrar: item.registrar || (item.status === 'Available' ? '—' : 'Namecheap, Inc.'),
             }));
-            setData(mapped);
+            if (mapped.length >= localList.length) {
+              setData(mapped);
+            }
             setLoading(false);
             return;
           }
         }
-        setData([]);
+        if (localList.length > 0) {
+          setData(localList);
+        } else {
+          setData([]);
+        }
       } catch (e) {
         console.warn('History load note:', e);
-        setData([]);
+        if (localList.length > 0) setData(localList);
+        else setData([]);
       } finally {
         setLoading(false);
       }
