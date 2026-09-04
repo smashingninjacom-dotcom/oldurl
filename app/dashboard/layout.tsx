@@ -34,15 +34,25 @@ export default function DashboardLayout({
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isGuestMode, setIsGuestMode] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   useEffect(() => {
     async function initAuth() {
       try {
-        // 1. Check if URL contains PKCE authorization code
         if (typeof window !== 'undefined') {
           const urlParams = new URLSearchParams(window.location.search);
+          const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+
+          // Check if OAuth provider returned error
+          const err = urlParams.get('error_description') || urlParams.get('error') || hashParams.get('error_description');
+          if (err) {
+            setAuthError(decodeURIComponent(err));
+          }
+
+          // Exchange authorization code
           const code = urlParams.get('code');
           if (code) {
             const { data, error } = await supabase.auth.exchangeCodeForSession(code);
@@ -50,14 +60,12 @@ export default function DashboardLayout({
               setUser(data.session.user);
               fetchProfile(data.session.user.id);
               setAuthLoading(false);
-              // Clean URL query params without reloading
               window.history.replaceState({}, document.title, window.location.pathname);
               return;
             }
           }
         }
 
-        // 2. Otherwise get existing session
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -81,6 +89,7 @@ export default function DashboardLayout({
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchProfile(session.user.id);
+        setAuthError(null);
       } else {
         setUserProfile(null);
       }
@@ -107,6 +116,8 @@ export default function DashboardLayout({
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+    setUser(null);
+    setIsGuestMode(false);
     setIsProfileDropdownOpen(false);
     window.location.href = '/';
   };
@@ -114,9 +125,9 @@ export default function DashboardLayout({
   const displayName =
     userProfile?.full_name ||
     user?.user_metadata?.full_name ||
-    (user?.email ? user.email.split('@')[0] : 'Member');
-  const displayEmail = user?.email || '';
-  const planName = userProfile?.plan || 'Free Plan';
+    (user?.email ? user.email.split('@')[0] : isGuestMode ? 'Guest Member' : 'Member');
+  const displayEmail = user?.email || (isGuestMode ? 'guest@oldurl.domains' : '');
+  const planName = userProfile?.plan || (isGuestMode ? 'Guest Preview' : 'Free Plan');
   const initial = displayName ? displayName.charAt(0).toUpperCase() : 'M';
 
   if (authLoading) {
@@ -130,10 +141,10 @@ export default function DashboardLayout({
     );
   }
 
-  if (!user) {
+  if (!user && !isGuestMode) {
     return (
       <div className="min-h-screen bg-[#faf9f8] flex items-center justify-center p-4 font-sans">
-        <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-xl border border-gray-100 text-center space-y-6 animate-in fade-in zoom-in-95">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-xl border border-gray-100 text-center space-y-5 animate-in fade-in zoom-in-95">
           <div className="w-16 h-16 rounded-2xl bg-orange-50 text-[#FC6B17] flex items-center justify-center mx-auto shadow-xs">
             <Sparkles className="w-8 h-8" />
           </div>
@@ -142,9 +153,15 @@ export default function DashboardLayout({
               Sign in to Access Dashboard
             </h2>
             <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
-              Please sign in with your Google account to access your domain audits, search history, and live metrics.
+              Sign in with your Google account to access your domain audits, search history, and live metrics.
             </p>
           </div>
+
+          {authError && (
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl text-left">
+              <strong>Authentication Note:</strong> {authError}
+            </div>
+          )}
 
           <button
             type="button"
@@ -173,13 +190,20 @@ export default function DashboardLayout({
             <ArrowRight className="w-4 h-4 text-gray-400 ml-auto" />
           </button>
 
-          <div className="pt-2">
+          <div className="flex items-center justify-between text-xs pt-3 border-t border-gray-100">
             <Link
               href="/"
-              className="text-xs font-bold text-gray-400 hover:text-gray-700 transition-colors"
+              className="font-semibold text-gray-400 hover:text-gray-700 transition-colors"
             >
-              ← Back to Homepage
+              ← Homepage
             </Link>
+            <button
+              type="button"
+              onClick={() => setIsGuestMode(true)}
+              className="text-[#FC6B17] font-bold hover:underline"
+            >
+              Explore as Guest →
+            </button>
           </div>
         </div>
       </div>
