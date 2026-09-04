@@ -266,6 +266,9 @@ function ResultsContent() {
           setIsScanning(false);
 
           // Final save of all completed results
+          try {
+            sessionStorage.setItem('last_scanned_results', JSON.stringify(allFormatted));
+          } catch (e) {}
           saveLocalSearchHistory(allFormatted as any);
           syncToSupabase(allFormatted as any);
         };

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../../lib/supabaseClient';
-import { fetchAllSearchHistory, getLocalSearchHistory, formatCheckDate } from '../../../lib/searchHistory';
+import { fetchAllSearchHistory, getLocalSearchHistory, formatCheckDate, clearSearchHistory, deleteHistoryItem } from '../../../lib/searchHistory';
 import {
   Search,
   Download,
@@ -22,6 +22,7 @@ import {
   ArrowUp,
   ArrowDown,
   RefreshCw,
+  Trash2,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -234,6 +235,19 @@ export default function PreviousSearchesPage() {
     }
   };
 
+  const handleClearHistory = async () => {
+    if (window.confirm('Are you sure you want to clear your recent search history?')) {
+      await clearSearchHistory();
+      setData([]);
+      setCurrentPage(1);
+    }
+  };
+
+  const handleDeleteDomain = async (domain: string) => {
+    await deleteHistoryItem(domain);
+    setData((prev) => prev.filter((d) => d.domain.toLowerCase().trim() !== domain.toLowerCase().trim()));
+  };
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
@@ -438,11 +452,23 @@ export default function PreviousSearchesPage() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_2px_8px_rgba(0,0,0,0.03)] overflow-hidden">
         <div className="p-4 sm:p-5 border-b border-gray-100 flex items-center justify-between">
           <div>
-            <h3 className="text-base font-bold text-[#0d1b3e]">All Searched Domains</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Historical log of all checked domains and SEO metrics</p>
+            <h3 className="text-base font-bold text-[#0d1b3e]">Recently Searched Domains</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Live log of your recent domain searches and SEO checks</p>
           </div>
 
           <div className="flex items-center gap-2.5">
+            {data.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearHistory}
+                className="bg-gray-50 hover:bg-red-50 text-gray-600 hover:text-red-600 border border-gray-200 hover:border-red-200 px-3 py-1.5 rounded-xl font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
+                title="Clear recent search history"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Clear History</span>
+              </button>
+            )}
+
             <div className="relative">
               <button
                 type="button"
@@ -645,7 +671,7 @@ export default function PreviousSearchesPage() {
                       )}
                     </div>
                   </th>
-                  <th className="py-3 px-4 w-16 text-right">More</th>
+                  <th className="py-3 px-4 w-20 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -690,9 +716,23 @@ export default function PreviousSearchesPage() {
                         {formatCheckDate(row.createdAt)}
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        <button className="text-gray-400 hover:text-gray-700 p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Link
+                            href={`/dashboard/domain-analytics-result?domain=${encodeURIComponent(row.domain)}`}
+                            className="p-1.5 text-gray-400 hover:text-[#FC6B17] hover:bg-orange-50 rounded-lg transition-colors"
+                            title="Domain Analytics"
+                          >
+                            <Activity className="w-3.5 h-3.5" />
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteDomain(row.domain)}
+                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Remove from recent searches"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

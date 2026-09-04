@@ -79,10 +79,17 @@ export function getLocalSearchHistory(): StoredSearchItem[] {
     loadFromRaw(sessionStorage.getItem('last_scanned_results'));
   } catch (e) {}
 
-  const result = Array.from(map.values()).map((item, idx) => ({
-    ...item,
-    id: String(idx + 1).padStart(2, '0'),
-  }));
+  // Sort strictly by most recently searched first (createdAt descending)
+  const result = Array.from(map.values())
+    .sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    })
+    .map((item, idx) => ({
+      ...item,
+      id: String(idx + 1).padStart(2, '0'),
+    }));
 
   memoryCache = result;
   return result;
@@ -117,10 +124,18 @@ export function saveLocalSearchHistory(items: StoredSearchItem[]): void {
       }
     });
 
-    const merged = Array.from(existingMap.values()).map((item, idx) => ({
-      ...item,
-      id: String(idx + 1).padStart(2, '0'),
-    }));
+    // Keep most recent searches sorted by createdAt desc
+    const merged = Array.from(existingMap.values())
+      .sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bTime - aTime;
+      })
+      .slice(0, 1000)
+      .map((item, idx) => ({
+        ...item,
+        id: String(idx + 1).padStart(2, '0'),
+      }));
 
     memoryCache = merged;
 
@@ -128,13 +143,50 @@ export function saveLocalSearchHistory(items: StoredSearchItem[]): void {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
     } catch (e) {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged.slice(0, 5000)));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged.slice(0, 200)));
       } catch (err) {}
     }
+  } catch (e) {}
+}
 
-    try {
-      sessionStorage.setItem('last_scanned_results', JSON.stringify(merged.slice(0, 1000)));
-    } catch (e) {}
+export async function deleteHistoryItem(domain: string): Promise<void> {
+  if (typeof window === 'undefined' || !domain) return;
+  const lower = domain.toLowerCase().trim();
+  const current = getLocalSearchHistory();
+  const updated = current
+    .filter((it) => it.domain.toLowerCase().trim() !== lower)
+    .map((it, idx) => ({
+      ...it,
+      id: String(idx + 1).padStart(2, '0'),
+    }));
+  memoryCache = updated;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  } catch (e) {}
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+    if (user) {
+      await supabase.from('search_history').delete().eq('user_id', user.id).eq('domain', domain.trim());
+    }
+  } catch (e) {}
+}
+
+export async function clearSearchHistory(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  memoryCache = [];
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem('last_scanned_results');
+  } catch (e) {}
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
+    if (user) {
+      await supabase.from('search_history').delete().eq('user_id', user.id);
+    }
   } catch (e) {}
 }
 
@@ -218,12 +270,13 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user;
     if (user) {
+      // Fetch only recent searches (up to 250) to prevent old bulk spam dumps
       const { data: cloudHistory, error } = await supabase
         .from('search_history')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(100000);
+        .limit(250);
 
       lastCloudFetchTime = Date.now();
 
@@ -258,10 +311,16 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
           }
         });
 
-        const finalItems = Array.from(masterMap.values()).map((item, idx) => ({
-          ...item,
-          id: String(idx + 1).padStart(2, '0'),
-        }));
+        const finalItems = Array.from(masterMap.values())
+          .sort((a, b) => {
+            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return bTime - aTime;
+          })
+          .map((item, idx) => ({
+            ...item,
+            id: String(idx + 1).padStart(2, '0'),
+          }));
 
         memoryCache = finalItems;
 
