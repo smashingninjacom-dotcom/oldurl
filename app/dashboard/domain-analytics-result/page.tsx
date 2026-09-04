@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabaseClient';
 
+import { getLocalSearchHistory, saveLocalSearchHistory } from '../../../lib/searchHistory';
+
 interface AnalyzedDomain {
   domain: string;
   dr: number;
@@ -95,9 +97,7 @@ function DomainAnalyticsResultContent() {
         .filter((d) => d.length > 2 && d.includes('.'));
 
       if (rawDomains.length > 0) {
-        setLoading(true);
-
-        // Prepopulate estimated placeholder entries immediately
+        // Prepopulate estimated placeholder entries immediately so UI is never stuck
         const initialMapped: AnalyzedDomain[] = rawDomains.map((domain) => {
           let hash = 0;
           for (let i = 0; i < domain.length; i++) {
@@ -121,7 +121,9 @@ function DomainAnalyticsResultContent() {
             status: 'Registered',
           };
         });
+
         setDomains(initialMapped);
+        setLoading(false);
 
         const CHUNK_SIZE = 50;
 
@@ -187,7 +189,7 @@ function DomainAnalyticsResultContent() {
               await supabase.from('search_history').insert(toInsert);
             }
           } catch (e) {}
-        }
+        };
 
         runAnalyticsChunks();
         return;
@@ -208,7 +210,7 @@ function DomainAnalyticsResultContent() {
             .select('*')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false })
-            .limit(50);
+            .limit(100);
 
           if (!error && data && data.length > 0) {
             const mapped: AnalyzedDomain[] = data.map((item) => {
@@ -236,6 +238,35 @@ function DomainAnalyticsResultContent() {
             return;
           }
         }
+
+        // Fallback to local search history
+        const local = getLocalSearchHistory();
+        if (local && local.length > 0) {
+          const mapped: AnalyzedDomain[] = local.slice(0, 100).map((item) => {
+            const dr = Number(item.dr) || 45;
+            const ref = item.refDomains || 120;
+            return {
+              domain: item.domain,
+              dr: dr,
+              da: Math.max(10, dr - 5),
+              traffic: `${Math.round(dr * 0.2)}K/mo`,
+              refDomains: ref,
+              backlinks: `${Math.round(ref * 3.2)}`,
+              spamScore: Math.min(5, Math.max(1, Math.round(100 / dr))),
+              tier1Count: Math.min(15, Math.max(1, Math.round(dr / 8))),
+              topSources: ['Forbes', 'TechCrunch', 'Wikipedia'].slice(
+                0,
+                Math.min(3, Math.max(1, Math.round(dr / 20)))
+              ),
+              cleanHistory: true,
+              status: item.status === 'Available' ? 'Available' : 'Registered',
+            };
+          });
+          setDomains(mapped);
+          setLoading(false);
+          return;
+        }
+
         setDomains([]);
       } catch (e) {
         console.warn('Analytics result error:', e);
