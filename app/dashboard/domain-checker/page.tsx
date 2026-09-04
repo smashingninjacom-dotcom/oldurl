@@ -10,6 +10,56 @@ import {
   Plus,
 } from 'lucide-react';
 
+function extractDomainsFromText(text: string): string[] {
+  // Regex to extract all valid domains and URLs from CSV, XML, TXT, or plain text
+  const domainRegex = /(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9][-a-zA-Z0-9]*(?:\.[a-zA-Z0-9][-a-zA-Z0-9]*)*\.[a-zA-Z]{2,})/gi;
+  const matches = text.match(domainRegex) || [];
+  const unique = new Set<string>();
+
+  for (const raw of matches) {
+    const clean = raw
+      .trim()
+      .toLowerCase()
+      .replace(/^(?:https?:\/\/)?(?:www\.)?/i, '')
+      .split('/')[0]
+      .split('?')[0]
+      .split('#')[0]
+      .split(':')[0]
+      .replace(/[^a-z0-9.-]/g, '');
+
+    // Ignore file extension false positives (e.g. sitemap.xml, schema.org)
+    if (
+      clean &&
+      clean.includes('.') &&
+      clean.length >= 4 &&
+      !clean.endsWith('.xml') &&
+      !clean.endsWith('.gz') &&
+      !clean.endsWith('.html') &&
+      !clean.endsWith('.php') &&
+      !clean.endsWith('.json')
+    ) {
+      unique.add(clean);
+    }
+  }
+
+  // Also fallback to line splitting if regex didn't catch bare domain strings
+  if (unique.size === 0) {
+    text.split(/[\r\n,;]+/).forEach((line) => {
+      const clean = line
+        .trim()
+        .toLowerCase()
+        .replace(/^(?:https?:\/\/)?(?:www\.)?/i, '')
+        .split('/')[0]
+        .replace(/[^a-z0-9.-]/g, '');
+      if (clean && clean.includes('.') && clean.length >= 4) {
+        unique.add(clean);
+      }
+    });
+  }
+
+  return Array.from(unique);
+}
+
 export default function DomainCheckerPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'add' | 'upload'>('add');
@@ -20,12 +70,20 @@ export default function DomainCheckerPage() {
       alert('Please enter at least one domain name.');
       return;
     }
+    const domainList = extractDomainsFromText(domains.trim());
+    if (domainList.length === 0) {
+      alert('No valid domain names recognized. Please enter a domain like example.com.');
+      return;
+    }
+
     try {
-      sessionStorage.setItem('pending_domains', domains.trim());
+      sessionStorage.setItem('pending_domains', domainList.slice(0, 100).join('\n'));
     } catch (e) {
       console.error(e);
     }
-    router.push(`/dashboard/results?domains=${encodeURIComponent(domains.trim())}`);
+
+    // Always navigate cleanly without giant query strings to prevent URI_TOO_LONG (414)
+    router.push('/dashboard/results');
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -36,17 +94,15 @@ export default function DomainCheckerPage() {
     reader.onload = (event) => {
       const text = event.target?.result as string;
       if (text) {
-        const lines = text
-          .split(/[\r\n,]+/)
-          .map((l) => l.trim().replace(/^["']|["']$/g, ''))
-          .filter((l) => l && l.includes('.'));
-        if (lines.length > 0) {
+        const domainList = extractDomainsFromText(text);
+        if (domainList.length > 0) {
           try {
-            sessionStorage.setItem('pending_domains', lines.join('\n'));
+            sessionStorage.setItem('pending_domains', domainList.slice(0, 100).join('\n'));
           } catch (err) {}
-          router.push(`/dashboard/results?domains=${encodeURIComponent(lines.slice(0, 100).join('\n'))}`);
+          // Navigate cleanly to /dashboard/results using sessionStorage
+          router.push('/dashboard/results');
         } else {
-          alert('No valid domain names found in the uploaded file.');
+          alert('No valid domain names found in the uploaded file (supports XML sitemaps, CSV, and TXT).');
         }
       }
     };
@@ -57,7 +113,9 @@ export default function DomainCheckerPage() {
     <div className="space-y-6">
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-xs text-gray-500">
-        <Link href="/dashboard" className="text-gray-400 hover:text-gray-600">🏠 Home</Link>
+        <Link href="/dashboard" className="text-gray-400 hover:text-gray-600">
+          🏠 Home
+        </Link>
         <span>›</span>
         <span className="text-[#FC6B17] font-semibold">Domain Checker</span>
       </div>
@@ -92,7 +150,7 @@ export default function DomainCheckerPage() {
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            <UploadCloud className="w-3.5 h-3.5" /> Upload CSV
+            <UploadCloud className="w-3.5 h-3.5" /> Upload File (XML / CSV / TXT)
           </button>
         </div>
 
@@ -135,13 +193,13 @@ export default function DomainCheckerPage() {
         ) : (
           <div className="border-2 border-dashed border-gray-200 rounded-2xl p-10 text-center bg-gray-50/50 hover:bg-orange-50/30 transition-colors">
             <FileSpreadsheet className="w-8 h-8 text-[#FC6B17] mx-auto mb-2" />
-            <p className="text-xs font-bold text-gray-800">Drop your CSV or XLSX file here</p>
-            <p className="text-[10px] text-gray-400 mt-0.5">Supports bulk uploads up to 55,000 domains</p>
+            <p className="text-xs font-bold text-gray-800">Drop your XML sitemap, CSV, or TXT file here</p>
+            <p className="text-[10px] text-gray-400 mt-0.5">Supports XML sitemaps, Screaming Frog exports, CSV, and raw lists</p>
             <label className="mt-4 inline-block cursor-pointer bg-[#FC6B17] hover:bg-[#e05b10] text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors">
-              <span>Choose CSV File &amp; Analyze</span>
+              <span>Choose File &amp; Scan</span>
               <input
                 type="file"
-                accept=".csv,.txt,.xlsx"
+                accept=".xml,.csv,.txt,.xlsx"
                 onChange={handleFileUpload}
                 className="hidden"
               />

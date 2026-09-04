@@ -55,6 +55,9 @@ function ResultsContent() {
     if (!domainInput) {
       try {
         domainInput = sessionStorage.getItem('pending_domains') || '';
+        if (domainInput) {
+          sessionStorage.removeItem('pending_domains');
+        }
       } catch (e) {}
     }
 

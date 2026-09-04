@@ -45,6 +45,9 @@ function DomainAnalyticsResultContent() {
     if (!domainInput) {
       try {
         domainInput = sessionStorage.getItem('pending_analytics_domains') || '';
+        if (domainInput) {
+          sessionStorage.removeItem('pending_analytics_domains');
+        }
       } catch (e) {}
     }
 
