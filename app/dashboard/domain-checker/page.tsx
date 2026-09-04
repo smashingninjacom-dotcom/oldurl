@@ -8,62 +8,15 @@ import {
   UploadCloud,
   FileSpreadsheet,
   Plus,
+  RefreshCw,
 } from 'lucide-react';
-
-function extractDomainsFromText(text: string): string[] {
-  // Regex to extract all valid domains and URLs from CSV, XML, TXT, or plain text
-  const domainRegex = /(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9][-a-zA-Z0-9]*(?:\.[a-zA-Z0-9][-a-zA-Z0-9]*)*\.[a-zA-Z]{2,})/gi;
-  const matches = text.match(domainRegex) || [];
-  const unique = new Set<string>();
-
-  for (const raw of matches) {
-    const clean = raw
-      .trim()
-      .toLowerCase()
-      .replace(/^(?:https?:\/\/)?(?:www\.)?/i, '')
-      .split('/')[0]
-      .split('?')[0]
-      .split('#')[0]
-      .split(':')[0]
-      .replace(/[^a-z0-9.-]/g, '');
-
-    // Ignore file extension false positives (e.g. sitemap.xml, schema.org)
-    if (
-      clean &&
-      clean.includes('.') &&
-      clean.length >= 4 &&
-      !clean.endsWith('.xml') &&
-      !clean.endsWith('.gz') &&
-      !clean.endsWith('.html') &&
-      !clean.endsWith('.php') &&
-      !clean.endsWith('.json')
-    ) {
-      unique.add(clean);
-    }
-  }
-
-  // Also fallback to line splitting if regex didn't catch bare domain strings
-  if (unique.size === 0) {
-    text.split(/[\r\n,;]+/).forEach((line) => {
-      const clean = line
-        .trim()
-        .toLowerCase()
-        .replace(/^(?:https?:\/\/)?(?:www\.)?/i, '')
-        .split('/')[0]
-        .replace(/[^a-z0-9.-]/g, '');
-      if (clean && clean.includes('.') && clean.length >= 4) {
-        unique.add(clean);
-      }
-    });
-  }
-
-  return Array.from(unique);
-}
+import { parseDomainsFromFile, extractDomainsFromText } from '../../../lib/fileParser';
 
 export default function DomainCheckerPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'add' | 'upload'>('add');
   const [domains, setDomains] = useState('');
+  const [isParsing, setIsParsing] = useState(false);
 
   const handleCheckDomains = () => {
     if (!domains.trim()) {
@@ -82,31 +35,29 @@ export default function DomainCheckerPage() {
       console.error(e);
     }
 
-    // Always navigate cleanly without giant query strings to prevent URI_TOO_LONG (414)
+    // Always navigate cleanly without query strings to prevent URI_TOO_LONG (414)
     router.push('/dashboard/results');
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      if (text) {
-        const domainList = extractDomainsFromText(text);
-        if (domainList.length > 0) {
-          try {
-            sessionStorage.setItem('pending_domains', domainList.slice(0, 100).join('\n'));
-          } catch (err) {}
-          // Navigate cleanly to /dashboard/results using sessionStorage
-          router.push('/dashboard/results');
-        } else {
-          alert('No valid domain names found in the uploaded file (supports XML sitemaps, CSV, and TXT).');
-        }
+    setIsParsing(true);
+    try {
+      const domainList = await parseDomainsFromFile(file);
+      if (domainList.length > 0) {
+        sessionStorage.setItem('pending_domains', domainList.slice(0, 100).join('\n'));
+        router.push('/dashboard/results');
+      } else {
+        alert('No valid domain names found in the uploaded file. Please make sure the file contains domain names or URLs.');
       }
-    };
-    reader.readAsText(file);
+    } catch (err) {
+      console.error('File upload error:', err);
+      alert('Error parsing file. Please upload a valid CSV, XML sitemap, or XLSX file.');
+    } finally {
+      setIsParsing(false);
+    }
   };
 
   return (
@@ -150,7 +101,7 @@ export default function DomainCheckerPage() {
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            <UploadCloud className="w-3.5 h-3.5" /> Upload File (XML / CSV / TXT)
+            <UploadCloud className="w-3.5 h-3.5" /> Upload File (XML / CSV / XLSX)
           </button>
         </div>
 
@@ -192,18 +143,27 @@ export default function DomainCheckerPage() {
           </div>
         ) : (
           <div className="border-2 border-dashed border-gray-200 rounded-2xl p-10 text-center bg-gray-50/50 hover:bg-orange-50/30 transition-colors">
-            <FileSpreadsheet className="w-8 h-8 text-[#FC6B17] mx-auto mb-2" />
-            <p className="text-xs font-bold text-gray-800">Drop your XML sitemap, CSV, or TXT file here</p>
-            <p className="text-[10px] text-gray-400 mt-0.5">Supports XML sitemaps, Screaming Frog exports, CSV, and raw lists</p>
-            <label className="mt-4 inline-block cursor-pointer bg-[#FC6B17] hover:bg-[#e05b10] text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors">
-              <span>Choose File &amp; Scan</span>
-              <input
-                type="file"
-                accept=".xml,.csv,.txt,.xlsx"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </label>
+            {isParsing ? (
+              <div className="py-6 space-y-2">
+                <RefreshCw className="w-8 h-8 text-[#FC6B17] animate-spin mx-auto" />
+                <p className="text-xs font-bold text-gray-800">Parsing domains from file...</p>
+              </div>
+            ) : (
+              <>
+                <FileSpreadsheet className="w-8 h-8 text-[#FC6B17] mx-auto mb-2" />
+                <p className="text-xs font-bold text-gray-800">Drop your XML sitemap, CSV, or XLSX file here</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">Supports XML sitemaps, Screaming Frog exports, CSV, and Excel workbooks</p>
+                <label className="mt-4 inline-block cursor-pointer bg-[#FC6B17] hover:bg-[#e05b10] text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors">
+                  <span>Choose File &amp; Scan</span>
+                  <input
+                    type="file"
+                    accept=".xml,.csv,.txt,.xlsx,.xls"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </label>
+              </>
+            )}
           </div>
         )}
       </div>

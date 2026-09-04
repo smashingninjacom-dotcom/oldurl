@@ -51,6 +51,14 @@ function DomainAnalyticsResultContent() {
       } catch (e) {}
     }
 
+    // Ignore binary zip/xlsx payloads or corrupted URLs
+    if (domainInput.startsWith('PK') || domainInput.includes('\ufffd') || domainInput.length > 5000) {
+      domainInput = '';
+      if (typeof window !== 'undefined' && window.location.search) {
+        window.history.replaceState({}, '', '/dashboard/domain-analytics-result');
+      }
+    }
+
     function extractCleanDomain(raw: string): string {
       return raw
         .trim()
