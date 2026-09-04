@@ -36,6 +36,9 @@ let cachedStatsMemory: HistoryStats | null = null;
 let cachedUserId: string | null = null;
 let lastCloudFetchTime = 0;
 let isCloudFetching = false;
+let latestBatchMemory: StoredSearchItem[] | null = null;
+let pendingDomainsMemory: string[] | null = null;
+let pendingAnalyticsMemory: string[] | null = null;
 
 export function getActiveUserId(): string {
   if (typeof window === 'undefined') return 'guest';
@@ -58,15 +61,6 @@ export function getActiveUserId(): string {
     }
   } catch (e) {}
   return 'guest';
-}
-
-export function resetMemoryCacheForUser(newUserId?: string): void {
-  memoryCache = null;
-  cachedStatsMemory = null;
-  cachedUserId = newUserId || getActiveUserId();
-  lastCloudFetchTime = 0;
-  isCloudFetching = false;
-  latestBatchMemory = null;
 }
 
 export function getStorageKey(userId?: string): string {
@@ -272,34 +266,56 @@ export function deleteSearchSession(sessionId: string, userId?: string): void {
   } catch (e) {}
 }
 
-let latestBatchMemory: StoredSearchItem[] | null = null;
-let pendingDomainsMemory: string[] | null = null;
-let pendingAnalyticsMemory: string[] | null = null;
+export function resetMemoryCacheForUser(newUserId?: string): void {
+  memoryCache = null;
+  cachedStatsMemory = null;
+  cachedUserId = newUserId || getActiveUserId();
+  lastCloudFetchTime = 0;
+  isCloudFetching = false;
+  latestBatchMemory = null;
+  pendingDomainsMemory = null;
+  pendingAnalyticsMemory = null;
+  if (typeof window !== 'undefined') {
+    try {
+      // Clear legacy global un-scoped keys so old user data never leaks into new accounts
+      sessionStorage.removeItem('last_scanned_results');
+      sessionStorage.removeItem('pending_domains');
+      sessionStorage.removeItem('pending_analytics_domains');
+      localStorage.removeItem('oldurl_latest_search_batch');
+      localStorage.removeItem('oldurl_local_search_history');
+      localStorage.removeItem('oldurl_search_sessions');
+      localStorage.removeItem('oldurl_search_history_stats');
+    } catch (e) {}
+  }
+}
 
-export function setPendingDomainsToScan(domains: string[]): void {
+export function setPendingDomainsToScan(domains: string[], userId?: string): void {
   if (!domains || !domains.length) return;
+  const uid = userId || getActiveUserId();
   pendingDomainsMemory = domains;
   if (typeof window !== 'undefined') {
     try {
-      sessionStorage.setItem('pending_domains', domains.join('\n'));
+      sessionStorage.setItem(`pending_domains_${uid}`, domains.join('\n'));
     } catch (e) {
       try {
-        sessionStorage.setItem('pending_domains', domains.slice(0, 3000).join('\n'));
+        sessionStorage.setItem(`pending_domains_${uid}`, domains.slice(0, 3000).join('\n'));
       } catch (err) {}
     }
   }
 }
 
-export function getPendingDomainsToScan(): string[] {
-  if (pendingDomainsMemory && pendingDomainsMemory.length > 0) {
+export function getPendingDomainsToScan(userId?: string): string[] {
+  const uid = userId || getActiveUserId();
+  if (cachedUserId === uid && pendingDomainsMemory && pendingDomainsMemory.length > 0) {
     const list = [...pendingDomainsMemory];
     pendingDomainsMemory = null;
     return list;
   }
   if (typeof window === 'undefined') return [];
   try {
-    const raw = sessionStorage.getItem('pending_domains');
+    const raw = sessionStorage.getItem(`pending_domains_${uid}`) || sessionStorage.getItem('pending_domains');
     if (raw) {
+      sessionStorage.removeItem(`pending_domains_${uid}`);
       sessionStorage.removeItem('pending_domains');
       const list = raw.split(/[\r\n,]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
       if (list.length > 0) return list;
@@ -308,30 +324,33 @@ export function getPendingDomainsToScan(): string[] {
   return [];
 }
 
-export function setPendingAnalyticsDomains(domains: string[]): void {
+export function setPendingAnalyticsDomains(domains: string[], userId?: string): void {
   if (!domains || !domains.length) return;
+  const uid = userId || getActiveUserId();
   pendingAnalyticsMemory = domains;
   if (typeof window !== 'undefined') {
     try {
-      sessionStorage.setItem('pending_analytics_domains', domains.join('\n'));
+      sessionStorage.setItem(`pending_analytics_domains_${uid}`, domains.join('\n'));
     } catch (e) {
       try {
-        sessionStorage.setItem('pending_analytics_domains', domains.slice(0, 3000).join('\n'));
+        sessionStorage.setItem(`pending_analytics_domains_${uid}`, domains.slice(0, 3000).join('\n'));
       } catch (err) {}
     }
   }
 }
 
-export function getPendingAnalyticsDomains(): string[] {
-  if (pendingAnalyticsMemory && pendingAnalyticsMemory.length > 0) {
+export function getPendingAnalyticsDomains(userId?: string): string[] {
+  const uid = userId || getActiveUserId();
+  if (cachedUserId === uid && pendingAnalyticsMemory && pendingAnalyticsMemory.length > 0) {
     const list = [...pendingAnalyticsMemory];
     pendingAnalyticsMemory = null;
     return list;
   }
   if (typeof window === 'undefined') return [];
   try {
-    const raw = sessionStorage.getItem('pending_analytics_domains');
+    const raw = sessionStorage.getItem(`pending_analytics_domains_${uid}`) || sessionStorage.getItem('pending_analytics_domains');
     if (raw) {
+      sessionStorage.removeItem(`pending_analytics_domains_${uid}`);
       sessionStorage.removeItem('pending_analytics_domains');
       const list = raw.split(/[\r\n,]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
       if (list.length > 0) return list;
@@ -340,37 +359,43 @@ export function getPendingAnalyticsDomains(): string[] {
   return [];
 }
 
-export function setLastScannedBatch(items: StoredSearchItem[]): void {
+export function setLastScannedBatch(items: StoredSearchItem[], userId?: string): void {
   if (!items || !items.length) return;
+  const uid = userId || getActiveUserId();
   latestBatchMemory = items;
+  cachedUserId = uid;
   if (typeof window !== 'undefined') {
     try {
-      sessionStorage.setItem('last_scanned_results', JSON.stringify(items.slice(0, 2000)));
+      sessionStorage.setItem(`last_scanned_results_${uid}`, JSON.stringify(items.slice(0, 2000)));
+      sessionStorage.removeItem('last_scanned_results'); // clear legacy key
     } catch (e) {}
   }
 }
 
-export function getLastScannedBatch(): StoredSearchItem[] {
-  if (latestBatchMemory && latestBatchMemory.length > 0) {
+export function getLastScannedBatch(userId?: string): StoredSearchItem[] {
+  const uid = userId || getActiveUserId();
+  if (cachedUserId === uid && latestBatchMemory && latestBatchMemory.length > 0) {
     return latestBatchMemory;
   }
   if (typeof window === 'undefined') return [];
   try {
-    const raw = sessionStorage.getItem('last_scanned_results') || localStorage.getItem('oldurl_latest_search_batch');
+    const raw = sessionStorage.getItem(`last_scanned_results_${uid}`) || localStorage.getItem(`oldurl_latest_batch_${uid}`);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
         latestBatchMemory = parsed;
+        cachedUserId = uid;
         return parsed.map((item: any, idx: number) => ({
           ...item,
           id: String(idx + 1).padStart(2, '0'),
+          userId: uid,
         }));
       }
     }
   } catch (e) {}
 
-  // Fallback to the latest search session if present
-  const sessions = getSearchSessions();
+  // Fallback to this specific user's latest search session if present
+  const sessions = getSearchSessions(uid);
   if (sessions.length > 0 && sessions[0].items && sessions[0].items.length > 0) {
     return sessions[0].items;
   }
