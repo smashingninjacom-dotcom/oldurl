@@ -85,9 +85,19 @@ export default function PreviousSearchesPage() {
   const registeredCount = totalCount - availableCount;
   const avgDr = totalCount > 0 ? Math.round(data.reduce((acc, it) => acc + (Number(it.dr) || 0), 0) / totalCount) : 0;
 
+  const scopedTotalCount = statusFilter === 'All'
+    ? data.length
+    : statusFilter === 'Available'
+    ? availableCount
+    : registeredCount;
+
   const availableExtensions = React.useMemo(() => {
     const map = new Map<string, number>();
-    data.forEach((item) => {
+    const scopedData = statusFilter === 'All'
+      ? data
+      : data.filter((item) => item.status === statusFilter);
+
+    scopedData.forEach((item) => {
       if (!item.domain) return;
       const clean = item.domain.trim().toLowerCase();
       const lastDot = clean.lastIndexOf('.');
@@ -99,11 +109,11 @@ export default function PreviousSearchesPage() {
     return Array.from(map.entries())
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .map(([ext, count]) => ({ ext, count }));
-  }, [data]);
+  }, [data, statusFilter]);
 
-  // If currently selected extension is not present in data, reset to All
+  // If currently selected extension is not present in scoped status data, reset to All
   useEffect(() => {
-    if (extensionFilter !== 'All' && availableExtensions.length > 0) {
+    if (extensionFilter !== 'All') {
       const exists = availableExtensions.some((e) => e.ext.toLowerCase() === extensionFilter.toLowerCase());
       if (!exists) {
         setExtensionFilter('All');
@@ -273,7 +283,10 @@ export default function PreviousSearchesPage() {
               {(['All', 'Available', 'Registered'] as const).map((st) => (
                 <button
                   key={st}
-                  onClick={() => setStatusFilter(st)}
+                  onClick={() => {
+                    setStatusFilter(st);
+                    setCurrentPage(1);
+                  }}
                   className={`px-2.5 py-1 rounded-lg transition-colors ${
                     statusFilter === st
                       ? 'bg-[#FC6B17] text-white'
@@ -297,7 +310,7 @@ export default function PreviousSearchesPage() {
               }}
               className="bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl font-bold text-gray-700 outline-none cursor-pointer focus:border-[#FC6B17]"
             >
-              <option value="All">All Extensions ({data.length})</option>
+              <option value="All">All Extensions ({scopedTotalCount})</option>
               {availableExtensions.map(({ ext, count }) => (
                 <option key={ext} value={ext}>
                   {ext} ({count})

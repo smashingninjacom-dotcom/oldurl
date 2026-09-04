@@ -309,9 +309,21 @@ function ResultsContent() {
   const availableCount = results.filter((r) => r.status === 'Available').length;
   const registeredCount = results.filter((r) => r.status !== 'Available').length;
 
+  const scopedTotalCount = statusFilter === 'Available'
+    ? availableCount
+    : statusFilter === 'Registered'
+    ? registeredCount
+    : results.length;
+
   const availableExtensions = useMemo(() => {
     const map = new Map<string, number>();
-    results.forEach((item) => {
+    const scopedResults = statusFilter === 'Available'
+      ? results.filter((r) => r.status === 'Available')
+      : statusFilter === 'Registered'
+      ? results.filter((r) => r.status !== 'Available')
+      : results;
+
+    scopedResults.forEach((item) => {
       if (!item.domain) return;
       const clean = item.domain.trim().toLowerCase();
       const lastDot = clean.lastIndexOf('.');
@@ -323,11 +335,11 @@ function ResultsContent() {
     return Array.from(map.entries())
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
       .map(([ext, count]) => ({ ext, count }));
-  }, [results]);
+  }, [results, statusFilter]);
 
-  // If currently selected extension is not present in results, reset to All
+  // If currently selected extension is not present in scoped results, reset to All
   useEffect(() => {
-    if (extensionFilter !== 'All' && availableExtensions.length > 0) {
+    if (extensionFilter !== 'All') {
       const exists = availableExtensions.some((e) => e.ext.toLowerCase() === extensionFilter.toLowerCase());
       if (!exists) {
         setExtensionFilter('All');
@@ -563,7 +575,10 @@ function ResultsContent() {
               {(['All', 'Available', 'Registered'] as const).map((st) => (
                 <button
                   key={st}
-                  onClick={() => setStatusFilter(st)}
+                  onClick={() => {
+                    setStatusFilter(st);
+                    setCurrentPage(1);
+                  }}
                   className={`px-3 py-1.5 rounded-lg transition-all ${
                     statusFilter === st
                       ? 'bg-[#FC6B17] text-white shadow-xs font-semibold'
@@ -587,7 +602,7 @@ function ResultsContent() {
               }}
               className="bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl font-medium text-gray-700 outline-none cursor-pointer focus:border-[#FC6B17]"
             >
-              <option value="All">All Extensions ({results.length})</option>
+              <option value="All">All Extensions ({scopedTotalCount})</option>
               {availableExtensions.map(({ ext, count }) => (
                 <option key={ext} value={ext}>
                   {ext} ({count})
