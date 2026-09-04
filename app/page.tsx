@@ -809,7 +809,7 @@ export default function HomePage() {
                   $0<span className="text-xs text-gray-500 font-normal">/mo</span>
                 </div>
                 <ul className="space-y-2.5 text-xs text-gray-700 mb-6">
-                  <li className="flex items-center gap-2">✓ <strong>10 domain lookups</strong> / mo</li>
+                  <li className="flex items-center gap-2">✓ <strong>500 domain lookups</strong> / mo</li>
                   <li className="flex items-center gap-2">✓ Domain expiry & WHOIS check</li>
                   <li className="flex items-center gap-2">✓ Domain Rating (DR) score</li>
                   <li className="flex items-center gap-2 text-gray-400">✗ Bulk CSV upload</li>

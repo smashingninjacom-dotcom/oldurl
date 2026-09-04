@@ -102,6 +102,55 @@ function openHistoryDB(): Promise<IDBDatabase | null> {
   });
 }
 
+async function loadLegacyIndexedDB(): Promise<StoredSearchItem[]> {
+  if (typeof window === 'undefined' || !window.indexedDB) return [];
+  return new Promise((resolve) => {
+    try {
+      const req = window.indexedDB.open('oldurl_local_db', 1);
+      req.onsuccess = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains('search_history')) {
+          db.close();
+          return resolve([]);
+        }
+        const tx = db.transaction('search_history', 'readonly');
+        const store = tx.objectStore('search_history');
+        const getReq = store.getAll();
+        getReq.onsuccess = () => {
+          db.close();
+          if (Array.isArray(getReq.result) && getReq.result.length > 0) {
+            resolve(getReq.result);
+          } else {
+            resolve([]);
+          }
+        };
+        getReq.onerror = () => {
+          db.close();
+          resolve([]);
+        };
+      };
+      req.onerror = () => resolve([]);
+    } catch (e) {
+      resolve([]);
+    }
+  });
+}
+
+function isPrimaryAccount(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const raw = localStorage.getItem('oldurl_cached_user');
+    if (raw) {
+      const u = JSON.parse(raw);
+      const email = (u?.email || u?.user_metadata?.email || '').toLowerCase();
+      if (email.includes('jaysathwara96') || email.includes('jaysathwara')) {
+        return true;
+      }
+    }
+  } catch (e) {}
+  return false;
+}
+
 export async function saveToIndexedDB(items: StoredSearchItem[], userId?: string): Promise<void> {
   if (!items || !items.length || typeof window === 'undefined') return;
   const uid = userId || getActiveUserId();
@@ -130,7 +179,7 @@ export async function loadFromIndexedDB(userId?: string): Promise<StoredSearchIt
   try {
     const db = await openHistoryDB();
     if (!db) return [];
-    return new Promise((resolve) => {
+    const userItems: StoredSearchItem[] = await new Promise((resolve) => {
       try {
         const tx = db.transaction(IDB_STORE, 'readonly');
         const store = tx.objectStore(IDB_STORE);
@@ -140,8 +189,8 @@ export async function loadFromIndexedDB(userId?: string): Promise<StoredSearchIt
           const list = req.result;
           if (Array.isArray(list) && list.length > 0) {
             // Strictly filter only items belonging to THIS user
-            const userItems = list.filter((it: any) => it.userId === uid || (it.recordKey && it.recordKey.startsWith(`${uid}___`)));
-            resolve(userItems);
+            const filtered = list.filter((it: any) => it.userId === uid || (it.recordKey && it.recordKey.startsWith(`${uid}___`)));
+            resolve(filtered);
           } else {
             resolve([]);
           }
@@ -155,6 +204,35 @@ export async function loadFromIndexedDB(userId?: string): Promise<StoredSearchIt
         resolve([]);
       }
     });
+
+    if (userItems && userItems.length > 0) {
+      return userItems;
+    }
+
+    // If this is the primary account (jaysathwara96@gmail.com) and v2 store was empty, migrate from legacy v1 database
+    if (isPrimaryAccount() && uid !== 'guest') {
+      const legacy = await loadLegacyIndexedDB();
+      if (legacy && legacy.length > 0) {
+        const migrated = legacy.map((item, idx) => ({
+          ...item,
+          id: String(idx + 1).padStart(2, '0'),
+          userId: uid,
+          recordKey: `${uid}___${item.domain.toLowerCase().trim()}`,
+        }));
+        await saveToIndexedDB(migrated, uid);
+        try {
+          localStorage.setItem(getStorageKey(uid), JSON.stringify(migrated.slice(0, 1000)));
+        } catch (e) {}
+        const total = migrated.length;
+        const avail = migrated.filter((s) => s.status === 'Available').length;
+        const reg = total - avail;
+        const avg = total > 0 ? Math.round(migrated.reduce((acc, s) => acc + (s.dr || 0), 0) / total) : 0;
+        saveCachedHistoryStats({ totalChecked: total, availableCount: avail, registeredCount: reg, avgDr: avg }, uid);
+        return migrated;
+      }
+    }
+
+    return [];
   } catch (e) {
     return [];
   }

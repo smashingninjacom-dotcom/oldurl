@@ -20,11 +20,11 @@ export const PLANS: Record<PlanId, PlanConfig> = {
     name: 'Free Plan',
     monthlyPrice: 0,
     annualPrice: 0,
-    monthlyLookups: 10,
+    monthlyLookups: 500,
     monthlyAnalytics: 0,
     description: 'For individuals & quick tests',
     features: [
-      '10 domain lookups / mo',
+      '500 domain lookups / mo',
       'Domain expiry & WHOIS check',
       'Domain Rating (DR) score',
     ],
