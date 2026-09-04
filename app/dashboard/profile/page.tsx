@@ -5,18 +5,10 @@ import Link from 'next/link';
 import { supabase } from '../../../lib/supabaseClient';
 import {
   User,
-  Mail,
-  Key,
-  Shield,
-  CreditCard,
-  Zap,
   CheckCircle2,
-  Copy,
-  Check,
   Save,
   Bell,
   Sparkles,
-  LogOut,
 } from 'lucide-react';
 
 const getInitialProfileData = () => {
@@ -65,7 +57,6 @@ const getInitialProfileData = () => {
 };
 
 export default function ProfilePage() {
-  const [copiedKey, setCopiedKey] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -74,7 +65,6 @@ export default function ProfilePage() {
   const [email, setEmail] = useState<string>(() => getInitialProfileData().email);
   const [accountId, setAccountId] = useState<string>(() => getInitialProfileData().accountId);
   const [memberSince, setMemberSince] = useState<string>(() => getInitialProfileData().memberSince);
-  const [apiKey, setApiKey] = useState('oldurl_live_sk_948f102a84e66b89012cd');
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -116,12 +106,6 @@ export default function ProfilePage() {
       }
     });
   }, []);
-
-  const handleCopyKey = () => {
-    navigator.clipboard.writeText(apiKey);
-    setCopiedKey(true);
-    setTimeout(() => setCopiedKey(false), 2000);
-  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -178,7 +162,7 @@ export default function ProfilePage() {
       <div>
         <h1 className="text-2xl font-bold text-[#0d1b3e]">Profile &amp; Subscription</h1>
         <p className="text-xs text-gray-500 mt-1">
-          Manage your account credentials, current subscription quota, and developer API keys.
+          Manage your account credentials, notifications, and subscription quota.
         </p>
       </div>
 
@@ -310,46 +294,6 @@ export default function ProfilePage() {
                 </button>
               </div>
             </form>
-          </div>
-
-          {/* API Keys */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs">
-            <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
-              <Key className="w-4 h-4 text-indigo-600" /> Developer API Key
-            </h3>
-            <p className="text-xs text-gray-500 mb-4">
-              Integrate OldUrl bulk availability and backlink metrics into your automated crawling scripts or custom software.
-            </p>
-
-            <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 flex items-center justify-between gap-3">
-              <span className="font-mono text-xs text-gray-800 tracking-wider">
-                {apiKey}
-              </span>
-              <button
-                onClick={handleCopyKey}
-                className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-white border border-indigo-200 px-3 py-1.5 rounded-lg shadow-2xs transition-colors"
-              >
-                {copiedKey ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-emerald-600" /> Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" /> Copy Key
-                  </>
-                )}
-              </button>
-            </div>
-
-            <div className="mt-4 flex items-center justify-between text-xs text-gray-500">
-              <span>Rate Limit: 120 requests / min</span>
-              <button
-                onClick={() => alert('A new API Key has been generated and activated.')}
-                className="text-xs text-red-600 font-bold hover:underline"
-              >
-                Roll / Regenerate Secret Key
-              </button>
-            </div>
           </div>
 
           {/* Notification Preferences */}
