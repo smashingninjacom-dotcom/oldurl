@@ -54,10 +54,6 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         {/* Feature Points */}
         <div className="bg-gray-50/80 rounded-2xl p-4 my-6 text-left space-y-2 border border-gray-100">
           <div className="flex items-center gap-2.5 text-xs text-gray-700 font-semibold">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-            <span>Instant ICANN RDAP &amp; WHOIS live verification</span>
-          </div>
-          <div className="flex items-center gap-2.5 text-xs text-gray-700 font-semibold">
             <Zap className="w-4 h-4 text-[#FC6B17] flex-shrink-0" />
             <span>Real-time Domain Authority (DR) backlink audit</span>
           </div>
