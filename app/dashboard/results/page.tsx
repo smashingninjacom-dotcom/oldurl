@@ -48,21 +48,26 @@ function ResultsContent() {
   const [daysFilter, setDaysFilter] = useState<'Any' | '< 30d' | '30-90d' | '> 90d'>('Any');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
-    let domainInput = searchParams.get('domains') || '';
+    if (hasLoadedRef.current) return;
+
+    let domainInput = '';
+    try {
+      domainInput = sessionStorage.getItem('pending_domains') || '';
+    } catch (e) {}
+
     if (!domainInput) {
-      try {
-        domainInput = sessionStorage.getItem('pending_domains') || '';
-        if (domainInput) {
-          sessionStorage.removeItem('pending_domains');
-        }
-      } catch (e) {}
+      domainInput = searchParams.get('domains') || '';
     }
 
     // Ignore binary zip/xlsx payloads or corrupted URLs
-    if (domainInput.startsWith('PK\x03\x04') || (domainInput.startsWith('PK') && domainInput.length < 500 && domainInput.includes('%')) || domainInput.includes('\ufffd')) {
+    if (
+      domainInput.startsWith('PK\x03\x04') ||
+      (domainInput.startsWith('PK') && domainInput.length < 500 && domainInput.includes('%')) ||
+      domainInput.includes('\ufffd')
+    ) {
       domainInput = '';
       if (typeof window !== 'undefined' && window.location.search) {
         window.history.replaceState({}, '', '/dashboard/results');
@@ -105,6 +110,7 @@ function ResultsContent() {
     }
 
     if (domainInput) {
+      hasLoadedRef.current = true;
       const rawDomains = domainInput
         .split(/[\r\n,]+/)
         .map(extractCleanDomain)
@@ -178,11 +184,12 @@ function ResultsContent() {
               await supabase.from('search_history').insert(toInsert);
             }
           } catch (e) {}
-        }
+        };
 
         runAllChunks();
       }
     } else {
+      hasLoadedRef.current = true;
       setIsScanning(false);
       setProgress(100);
       supabase.auth.getUser().then(({ data: { user } }) => {
@@ -216,28 +223,6 @@ function ResultsContent() {
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    if (!isScanning || isPaused) {
-      if (timerRef.current) clearInterval(timerRef.current);
-      return;
-    }
-
-    timerRef.current = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          setIsScanning(false);
-          if (timerRef.current) clearInterval(timerRef.current);
-          return 100;
-        }
-        return Math.min(100, prev + 5);
-      });
-    }, 400);
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isScanning, isPaused]);
-
   const handleTogglePause = () => {
     setIsPaused((prev) => !prev);
   };
@@ -246,13 +231,11 @@ function ResultsContent() {
     setIsScanning(false);
     setIsPaused(false);
     setProgress(0);
-    if (timerRef.current) clearInterval(timerRef.current);
   };
 
   const handleStop = () => {
     setIsScanning(false);
     setIsPaused(false);
-    if (timerRef.current) clearInterval(timerRef.current);
   };
 
   const totalCount = results.length;

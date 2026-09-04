@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -39,16 +39,18 @@ function DomainAnalyticsResultContent() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
   const [copiedDomain, setCopiedDomain] = useState<string | null>(null);
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
-    let domainInput = searchParams.get('domains') || '';
+    if (hasLoadedRef.current) return;
+
+    let domainInput = '';
+    try {
+      domainInput = sessionStorage.getItem('pending_analytics_domains') || '';
+    } catch (e) {}
+
     if (!domainInput) {
-      try {
-        domainInput = sessionStorage.getItem('pending_analytics_domains') || '';
-        if (domainInput) {
-          sessionStorage.removeItem('pending_analytics_domains');
-        }
-      } catch (e) {}
+      domainInput = searchParams.get('domains') || '';
     }
 
     // Ignore binary zip/xlsx payloads or corrupted URLs
@@ -71,6 +73,7 @@ function DomainAnalyticsResultContent() {
     }
 
     if (domainInput) {
+      hasLoadedRef.current = true;
       const rawDomains = domainInput
         .split(/[\r\n,]+/)
         .map(extractCleanDomain)
@@ -178,6 +181,7 @@ function DomainAnalyticsResultContent() {
     }
 
     // Otherwise load only user's historical searches
+    hasLoadedRef.current = true;
     async function loadData() {
       try {
         const {

@@ -39,10 +39,7 @@ export default function DomainCheckerPage() {
     router.push('/dashboard/results');
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const handleFileProcess = async (file: File) => {
     setIsParsing(true);
     try {
       const domainList = await parseDomainsFromFile(file);
@@ -58,6 +55,17 @@ export default function DomainCheckerPage() {
     } finally {
       setIsParsing(false);
     }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleFileProcess(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFileProcess(file);
   };
 
   return (
@@ -142,7 +150,11 @@ export default function DomainCheckerPage() {
             </div>
           </div>
         ) : (
-          <div className="border-2 border-dashed border-gray-200 rounded-2xl p-10 text-center bg-gray-50/50 hover:bg-orange-50/30 transition-colors">
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDrop}
+            className="border-2 border-dashed border-gray-200 hover:border-[#FC6B17] rounded-2xl p-10 text-center bg-gray-50/50 hover:bg-orange-50/30 transition-colors"
+          >
             {isParsing ? (
               <div className="py-6 space-y-2">
                 <RefreshCw className="w-8 h-8 text-[#FC6B17] animate-spin mx-auto" />
@@ -153,7 +165,7 @@ export default function DomainCheckerPage() {
                 <FileSpreadsheet className="w-8 h-8 text-[#FC6B17] mx-auto mb-2" />
                 <p className="text-xs font-bold text-gray-800">Drop your XML sitemap, CSV, or XLSX file here</p>
                 <p className="text-[10px] text-gray-400 mt-0.5">Supports XML sitemaps, Screaming Frog exports, CSV, and Excel workbooks</p>
-                <label className="mt-4 inline-block cursor-pointer bg-[#FC6B17] hover:bg-[#e05b10] text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors">
+                <label className="mt-4 inline-block cursor-pointer bg-[#FC6B17] hover:bg-[#e05b10] text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors shadow-xs">
                   <span>Choose File &amp; Scan</span>
                   <input
                     type="file"

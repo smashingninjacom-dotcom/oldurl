@@ -151,28 +151,37 @@ export async function parseDomainsFromFile(file: File): Promise<string[]> {
         return;
       }
 
-      // XML Sitemap specific extraction (<loc>...</loc>)
-      if (text.includes('<loc>') || text.includes('</loc>')) {
-        const locRegex = /<loc>(.*?)<\/loc>/gi;
-        let match;
-        while ((match = locRegex.exec(text)) !== null) {
-          const cleaned = cleanAndValidateDomain(match[1]);
-          if (cleaned) domainSet.add(cleaned);
-        }
-      }
+      // XML tag content and standard text extraction
+      const strippedText = text.replace(/<[^>]+>/g, ' ');
 
-      // Standard multi-line and regex extraction
-      const lines = text.split(/[\r\n,; \t]+/);
-      for (const line of lines) {
-        const cleaned = cleanAndValidateDomain(line);
+      // 1. XML Sitemap specific extraction (<loc>...</loc>)
+      const locRegex = /<loc>(.*?)<\/loc>/gi;
+      let locMatch;
+      while ((locMatch = locRegex.exec(text)) !== null) {
+        const cleaned = cleanAndValidateDomain(locMatch[1]);
         if (cleaned) domainSet.add(cleaned);
       }
 
-      // Regex matching for embedded URLs inside text
+      // 2. XML Domain tags (<domain>...</domain>, <url>...</url>)
+      const genericTagRegex = /<(?:domain|url|link|Data)[^>]*>(.*?)<\/(?:domain|url|link|Data)>/gi;
+      let tagMatch;
+      while ((tagMatch = genericTagRegex.exec(text)) !== null) {
+        const cleaned = cleanAndValidateDomain(tagMatch[1]);
+        if (cleaned) domainSet.add(cleaned);
+      }
+
+      // 3. Regex matching for all embedded URLs and domain names inside text
       const urlRegex = /(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9][-a-zA-Z0-9]*(?:\.[a-zA-Z0-9][-a-zA-Z0-9]*)*\.[a-zA-Z]{2,})/gi;
       let urlMatch;
-      while ((urlMatch = urlRegex.exec(text)) !== null) {
+      while ((urlMatch = urlRegex.exec(strippedText)) !== null) {
         const cleaned = cleanAndValidateDomain(urlMatch[0]);
+        if (cleaned) domainSet.add(cleaned);
+      }
+
+      // 4. Standard multi-line splitting on whitespace/commas
+      const lines = strippedText.split(/[\r\n,; \t]+/);
+      for (const line of lines) {
+        const cleaned = cleanAndValidateDomain(line);
         if (cleaned) domainSet.add(cleaned);
       }
 
@@ -191,26 +200,27 @@ export function extractDomainsFromText(text: string): string[] {
   if (!text || typeof text !== 'string') return [];
   const domainSet = new Set<string>();
 
-  // XML Sitemap specific extraction (<loc>...</loc>)
-  if (text.includes('<loc>') || text.includes('</loc>')) {
-    const locRegex = /<loc>(.*?)<\/loc>/gi;
-    let match;
-    while ((match = locRegex.exec(text)) !== null) {
-      const cleaned = cleanAndValidateDomain(match[1]);
-      if (cleaned) domainSet.add(cleaned);
-    }
-  }
+  const strippedText = text.replace(/<[^>]+>/g, ' ');
 
-  const lines = text.split(/[\r\n,; \t]+/);
-  for (const line of lines) {
-    const cleaned = cleanAndValidateDomain(line);
+  // XML Sitemap specific extraction (<loc>...</loc>)
+  const locRegex = /<loc>(.*?)<\/loc>/gi;
+  let locMatch;
+  while ((locMatch = locRegex.exec(text)) !== null) {
+    const cleaned = cleanAndValidateDomain(locMatch[1]);
     if (cleaned) domainSet.add(cleaned);
   }
 
+  // Regex matching for embedded URLs inside text
   const urlRegex = /(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9][-a-zA-Z0-9]*(?:\.[a-zA-Z0-9][-a-zA-Z0-9]*)*\.[a-zA-Z]{2,})/gi;
   let urlMatch;
-  while ((urlMatch = urlRegex.exec(text)) !== null) {
+  while ((urlMatch = urlRegex.exec(strippedText)) !== null) {
     const cleaned = cleanAndValidateDomain(urlMatch[0]);
+    if (cleaned) domainSet.add(cleaned);
+  }
+
+  const lines = strippedText.split(/[\r\n,; \t]+/);
+  for (const line of lines) {
+    const cleaned = cleanAndValidateDomain(line);
     if (cleaned) domainSet.add(cleaned);
   }
 
