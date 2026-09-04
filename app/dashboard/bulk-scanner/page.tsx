@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   UploadCloud,
   FileSpreadsheet,
@@ -13,6 +14,7 @@ import {
   FileText,
   Plus,
 } from 'lucide-react';
+import { parseDomainsFromFile } from '../../../lib/fileParser';
 
 interface BatchScanJob {
   id: string;
@@ -27,6 +29,7 @@ interface BatchScanJob {
 }
 
 export default function BulkScannerPage() {
+  const router = useRouter();
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [selectedFormat, setSelectedFormat] = useState<'csv' | 'xlsx' | 'xml'>('csv');
@@ -34,35 +37,30 @@ export default function BulkScannerPage() {
   const [jobs, setJobs] = useState<BatchScanJob[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleFileUpload = (file?: File) => {
-    const filename = file ? file.name : `bulk_domains_${Date.now().toString().slice(-4)}.${selectedFormat}`;
-    const fileSize = file ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : '1.4 MB';
+  const handleFileUpload = async (file?: File) => {
+    if (!file) {
+      fileInputRef.current?.click();
+      return;
+    }
+    const filename = file.name;
+    const fileSize = `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
 
-    setUploadProgress(10);
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (!prev || prev >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            setUploadProgress(null);
-            const newJob: BatchScanJob = {
-              id: `job-${Date.now().toString().slice(-4)}`,
-              filename,
-              fileSize,
-              totalRows: 250,
-              completedRows: 250,
-              availableFound: 18,
-              highDrFound: 6,
-              status: 'Completed',
-              date: 'Just now',
-            };
-            setJobs((current) => [newJob, ...current]);
-          }, 400);
-          return 100;
-        }
-        return prev + 30;
-      });
-    }, 200);
+    setUploadProgress(20);
+    try {
+      const domainList = await parseDomainsFromFile(file);
+      setUploadProgress(100);
+      if (domainList.length > 0) {
+        sessionStorage.setItem('pending_domains', domainList.join('\n'));
+        router.push('/dashboard/results');
+      } else {
+        alert('No valid domain names found in the uploaded file.');
+        setUploadProgress(null);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error parsing uploaded file. Please make sure it is a valid CSV, XML, or XLSX file.');
+      setUploadProgress(null);
+    }
   };
 
   const deleteJob = (id: string) => {
