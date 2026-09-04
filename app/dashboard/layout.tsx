@@ -187,6 +187,24 @@ export default function DashboardLayout({
         .eq('id', userId)
         .single();
       if (!error && data) {
+        let cachedUsed = 0;
+        try {
+          const raw = localStorage.getItem('oldurl_cached_profile');
+          if (raw) cachedUsed = JSON.parse(raw)?.quota_used || 0;
+          const rawStats = localStorage.getItem('oldurl_search_history_stats');
+          if (rawStats) {
+            const stats = JSON.parse(rawStats);
+            cachedUsed = Math.max(cachedUsed, stats?.totalChecked || 0);
+          }
+        } catch (e) {}
+
+        const finalUsed = Math.max(Number(data.quota_used) || 0, cachedUsed);
+        data.quota_used = finalUsed;
+
+        if (finalUsed > (Number(data.quota_used) || 0)) {
+          supabase.from('profiles').update({ quota_used: finalUsed }).eq('id', userId).then(() => {});
+        }
+
         setUserProfile(data);
         try {
           localStorage.setItem('oldurl_cached_profile', JSON.stringify(data));

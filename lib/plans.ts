@@ -116,12 +116,26 @@ export function getUserQuotaData(profile?: any): UserQuotaData {
   const plan = PLANS[planId] || PLANS.free;
 
   const lookupsLimit = p?.quota_limit ?? plan.monthlyLookups;
-  const lookupsUsed = Math.max(0, p?.quota_used ?? 0);
+
+  // Calculate lookupsUsed reliably from profile and search history stats
+  let lookupsUsed = Number(p?.quota_used) || 0;
+  if (typeof window !== 'undefined') {
+    try {
+      const rawStats = localStorage.getItem('oldurl_search_history_stats');
+      if (rawStats) {
+        const stats = JSON.parse(rawStats);
+        if (typeof stats?.totalChecked === 'number' && stats.totalChecked > lookupsUsed) {
+          lookupsUsed = stats.totalChecked;
+        }
+      }
+    } catch (e) {}
+  }
+
   const lookupsRemaining = Math.max(0, lookupsLimit - lookupsUsed);
   const lookupsPercent = lookupsLimit > 0 ? Math.min(100, Math.round((lookupsUsed / lookupsLimit) * 100)) : 0;
 
   const analyticsLimit = p?.analytics_limit ?? plan.monthlyAnalytics;
-  const analyticsUsed = Math.max(0, p?.analytics_used ?? 0);
+  const analyticsUsed = Math.max(0, Number(p?.analytics_used) || 0);
   const analyticsRemaining = Math.max(0, analyticsLimit - analyticsUsed);
   const analyticsPercent = analyticsLimit > 0 ? Math.min(100, Math.round((analyticsUsed / analyticsLimit) * 100)) : 0;
 
@@ -173,14 +187,11 @@ export async function consumeLookups(count: number): Promise<UserQuotaData> {
     if (user) {
       await supabase
         .from('profiles')
-        .upsert({
-          id: user.id,
-          email: user.email,
-          plan: currentQuota.plan.name,
-          quota_limit: currentQuota.lookupsLimit,
+        .update({
           quota_used: newLookupsUsed,
           updated_at: new Date().toISOString(),
-        });
+        })
+        .eq('id', user.id);
     }
   } catch (e) {}
 

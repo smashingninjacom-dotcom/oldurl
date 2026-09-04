@@ -482,11 +482,25 @@ export function saveLocalSearchHistory(items: StoredSearchItem[], sessionLabel?:
     saveToIndexedDB(merged);
 
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged.slice(0, 1000)));
+      window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: merged.length } }));
     } catch (e) {}
 
     try {
-      window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: merged.length } }));
+      const cached = localStorage.getItem('oldurl_cached_profile');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        const newUsed = Math.max(Number(parsed.quota_used) || 0, total);
+        if (newUsed !== parsed.quota_used) {
+          parsed.quota_used = newUsed;
+          localStorage.setItem('oldurl_cached_profile', JSON.stringify(parsed));
+          window.dispatchEvent(new CustomEvent('oldurl_quota_updated', { detail: parsed }));
+          supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session?.user) {
+              supabase.from('profiles').update({ quota_used: newUsed }).eq('id', session.user.id).then(() => {});
+            }
+          });
+        }
+      }
     } catch (e) {}
   } catch (e) {}
 }
