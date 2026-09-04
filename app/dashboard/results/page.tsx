@@ -92,18 +92,15 @@ function ResultsContent() {
         hash |= 0;
       }
       const absHash = Math.abs(hash);
-      const isAvailable = absHash % 100 < 45;
-      const isExpiring = !isAvailable && absHash % 100 < 60;
       const dr = 20 + (absHash % 66);
-      const days = isAvailable ? 'Dropped' : isExpiring ? `${1 + (absHash % 28)}d` : `${40 + (absHash % 650)}d`;
 
       return {
         id: String(idx + 1).padStart(2, '0'),
         domain,
-        status: isAvailable ? 'Available' : isExpiring ? 'Expiring Soon' : 'Registered',
-        daysLeft: days,
+        status: 'Registered',
+        daysLeft: 'Active',
         dr,
-        registrar: isAvailable ? '—' : ['GoDaddy.com, LLC', 'Namecheap, Inc.', 'MarkMonitor Inc.', 'SafeNames Ltd.'][absHash % 4],
+        registrar: ['GoDaddy.com, LLC', 'Namecheap, Inc.', 'MarkMonitor Inc.', 'SafeNames Ltd.'][absHash % 4],
         refDomains: 30 + (absHash % 450),
         backlinks: (30 + (absHash % 450)) * (2 + (absHash % 8)),
       };

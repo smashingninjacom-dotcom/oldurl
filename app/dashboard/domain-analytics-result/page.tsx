@@ -103,7 +103,7 @@ function DomainAnalyticsResultContent() {
             tier1Count: Math.min(15, Math.max(1, Math.round(dr / 8))),
             topSources: ['Forbes', 'TechCrunch', 'Wikipedia'].slice(0, Math.min(3, Math.max(1, Math.round(dr / 20)))),
             cleanHistory: true,
-            status: absHash % 100 < 45 ? 'Available' : 'Registered',
+            status: 'Registered',
           };
         });
         setDomains(initialMapped);
