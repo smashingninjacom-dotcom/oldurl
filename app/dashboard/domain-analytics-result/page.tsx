@@ -17,6 +17,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Trash2,
 } from 'lucide-react';
 import { supabase } from '../../../lib/supabaseClient';
 
@@ -314,6 +315,73 @@ function DomainAnalyticsResultContent() {
     }
   };
 
+  const handleDeleteDomain = async (domainToDelete: string) => {
+    const updated = domains.filter((d) => d.domain !== domainToDelete);
+    setDomains(updated);
+    setSelectedDomains((prev) => prev.filter((d) => d !== domainToDelete));
+
+    try {
+      sessionStorage.setItem('pending_analytics_domains', updated.map((d) => d.domain).join('\n'));
+    } catch (e) {}
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('search_history')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('domain', domainToDelete);
+      }
+    } catch (e) {}
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedDomains.length === 0) return;
+    const toDelete = [...selectedDomains];
+    const updated = domains.filter((d) => !toDelete.includes(d.domain));
+    setDomains(updated);
+    setSelectedDomains([]);
+
+    try {
+      sessionStorage.setItem('pending_analytics_domains', updated.map((d) => d.domain).join('\n'));
+    } catch (e) {}
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('search_history')
+          .delete()
+          .eq('user_id', user.id)
+          .in('domain', toDelete);
+      }
+    } catch (e) {}
+  };
+
+  const handleClearAll = async () => {
+    if (domains.length === 0) return;
+    if (!confirm('Are you sure you want to delete all domains in this batch?')) return;
+    const allDomains = domains.map((d) => d.domain);
+    setDomains([]);
+    setSelectedDomains([]);
+
+    try {
+      sessionStorage.removeItem('pending_analytics_domains');
+    } catch (e) {}
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('search_history')
+          .delete()
+          .eq('user_id', user.id)
+          .in('domain', allDomains);
+      }
+    } catch (e) {}
+  };
+
   const handleCopy = (domain: string) => {
     navigator.clipboard.writeText(domain);
     setCopiedDomain(domain);
@@ -418,32 +486,55 @@ function DomainAnalyticsResultContent() {
 
       {/* Filter and Search Bar */}
       <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative w-full sm:w-72">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-          <input
-            type="text"
-            placeholder="Search analyzed domain..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500"
-          />
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative w-full sm:w-72">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Search analyzed domain..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-indigo-500"
+            />
+          </div>
+
+          {selectedDomains.length > 0 && (
+            <button
+              onClick={handleDeleteSelected}
+              className="flex items-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs shrink-0"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Delete Selected ({selectedDomains.length})
+            </button>
+          )}
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <span className="text-xs font-bold text-gray-500">Status:</span>
-          {['All', 'Available', 'Registered'].map((status) => (
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-bold text-gray-500 mr-1">Status:</span>
+            {['All', 'Available', 'Registered'].map((status) => (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors ${
+                  statusFilter === status
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+
+          {domains.length > 0 && (
             <button
-              key={status}
-              onClick={() => setStatusFilter(status)}
-              className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors ${
-                statusFilter === status
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              onClick={handleClearAll}
+              className="flex items-center gap-1 text-[11px] font-bold text-gray-400 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50 transition-colors ml-2"
+              title="Delete all analyzed domains"
             >
-              {status}
+              <Trash2 className="w-3 h-3" /> Clear All
             </button>
-          ))}
+          )}
         </div>
       </div>
 
@@ -672,6 +763,13 @@ function DomainAnalyticsResultContent() {
                             <Bookmark className="w-3.5 h-3.5" />
                           </button>
                         )}
+                        <button
+                          onClick={() => handleDeleteDomain(row.domain)}
+                          className="p-1 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          title="Delete domain"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </td>
                   </tr>
