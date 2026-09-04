@@ -211,6 +211,13 @@ export default function DashboardLayout({
   const displayEmail = user?.email || (isGuestMode ? 'guest@oldurl.domains' : '');
   const planName = quota.planName || (isGuestMode ? 'Guest Preview' : 'Free Plan');
   const initial = displayName ? displayName.charAt(0).toUpperCase() : 'M';
+  const avatarUrl =
+    userProfile?.avatar_url ||
+    user?.user_metadata?.avatar_url ||
+    user?.user_metadata?.picture ||
+    user?.identities?.[0]?.identity_data?.avatar_url ||
+    user?.identities?.[0]?.identity_data?.picture ||
+    null;
 
   // Prevent flash of login screen while validating session
   if (isAuthChecking && !user) {
@@ -517,8 +524,20 @@ export default function DashboardLayout({
                   onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
                   className="flex items-center gap-2.5 p-1 rounded-xl hover:bg-gray-50 transition-colors"
                 >
-                  <div className="w-9 h-9 rounded-full bg-[#a3381a] text-white flex items-center justify-center font-bold text-sm shadow-xs">
-                    {initial}
+                  <div className="w-9 h-9 rounded-full bg-[#a3381a] text-white flex items-center justify-center font-bold text-sm shadow-xs overflow-hidden border border-orange-200/50">
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={displayName}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      initial
+                    )}
                   </div>
                   <div className="hidden md:block text-left">
                     <div className="text-xs font-bold text-gray-800 leading-tight flex items-center gap-1">
@@ -532,9 +551,26 @@ export default function DashboardLayout({
                 {/* Dropdown Menu */}
                 {isProfileDropdownOpen && (
                   <div className="absolute right-0 top-12 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 p-2 z-50 animate-in fade-in zoom-in-95">
-                    <div className="px-3 py-2 border-b border-gray-100">
-                      <div className="text-xs font-bold text-gray-900 truncate">{displayName}</div>
-                      <div className="text-[11px] text-gray-400 truncate">{displayEmail}</div>
+                    <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-2.5">
+                      {avatarUrl ? (
+                        <img
+                          src={avatarUrl}
+                          alt={displayName}
+                          referrerPolicy="no-referrer"
+                          className="w-8 h-8 rounded-full object-cover shrink-0 border border-gray-100"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-[#a3381a] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                          {initial}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-gray-900 truncate">{displayName}</div>
+                        <div className="text-[11px] text-gray-400 truncate">{displayEmail}</div>
+                      </div>
                     </div>
                     <div className="py-1">
                       <Link

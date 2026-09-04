@@ -50,11 +50,18 @@ const getInitialProfileData = () => {
           const d = new Date(foundUser.created_at);
           ms = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
         }
-        return { user: foundUser, fullName: fn, email: em, accountId: accId, memberSince: ms };
+        const avUrl =
+          parsedProfile?.avatar_url ||
+          foundUser.user_metadata?.avatar_url ||
+          foundUser.user_metadata?.picture ||
+          foundUser.identities?.[0]?.identity_data?.avatar_url ||
+          foundUser.identities?.[0]?.identity_data?.picture ||
+          '';
+        return { user: foundUser, fullName: fn, email: em, accountId: accId, memberSince: ms, avatarUrl: avUrl };
       }
     } catch (e) {}
   }
-  return { user: null, fullName: '', email: '', accountId: '', memberSince: '' };
+  return { user: null, fullName: '', email: '', accountId: '', memberSince: '', avatarUrl: '' };
 };
 
 export default function ProfilePage() {
@@ -67,6 +74,7 @@ export default function ProfilePage() {
   const [email, setEmail] = useState<string>(() => initial.email);
   const [accountId, setAccountId] = useState<string>(() => initial.accountId);
   const [memberSince, setMemberSince] = useState<string>(() => initial.memberSince);
+  const [avatarUrl, setAvatarUrl] = useState<string>(() => initial.avatarUrl || '');
   const [profileData, setProfileData] = useState<any>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -97,6 +105,14 @@ export default function ProfilePage() {
           const d = new Date(user.created_at);
           setMemberSince(d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
         }
+
+        const pic =
+          user.user_metadata?.avatar_url ||
+          user.user_metadata?.picture ||
+          user.identities?.[0]?.identity_data?.avatar_url ||
+          user.identities?.[0]?.identity_data?.picture ||
+          '';
+        if (pic) setAvatarUrl(pic);
 
         // Fetch custom profile row if present
         supabase
@@ -198,8 +214,20 @@ export default function ProfilePage() {
         <div className="lg:col-span-1 space-y-6">
           {/* User Card */}
           <div className="bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs text-center">
-            <div className="w-20 h-20 rounded-full bg-[#a3381a] text-white flex items-center justify-center font-bold text-2xl mx-auto shadow-md">
-              {fullName ? fullName.charAt(0).toUpperCase() : (email ? email.charAt(0).toUpperCase() : 'U')}
+            <div className="w-20 h-20 rounded-full bg-[#a3381a] text-white flex items-center justify-center font-bold text-2xl mx-auto shadow-md overflow-hidden border-2 border-orange-100">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={fullName}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLElement).style.display = 'none';
+                  }}
+                />
+              ) : (
+                fullName ? fullName.charAt(0).toUpperCase() : (email ? email.charAt(0).toUpperCase() : 'U')
+              )}
             </div>
             <h2 className="text-lg font-bold text-gray-900 mt-4">{fullName || 'Account Member'}</h2>
             <p className="text-xs text-gray-500">{email}</p>
