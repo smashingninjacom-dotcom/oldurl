@@ -131,6 +131,9 @@ function ResultsContent() {
         setResults(initialCalculated);
         setProgress(15);
 
+        // Immediate snapshot so data is never 0 even if user leaves early
+        saveLocalSearchHistory(initialCalculated as any);
+
         const CHUNK_SIZE = 50;
         const totalChunks = Math.ceil(rawDomains.length / CHUNK_SIZE);
 
@@ -166,6 +169,9 @@ function ResultsContent() {
                     }
                   });
                   setResults([...allFormatted]);
+                  // Progressively save after each batch
+                  saveLocalSearchHistory(allFormatted as any);
+                  syncToSupabase(allFormatted.slice(i, i + CHUNK_SIZE) as any);
                 }
               }
             } catch (err) {
@@ -178,10 +184,8 @@ function ResultsContent() {
           setProgress(100);
           setIsScanning(false);
 
-          // Save completed results to session & local storage
+          // Final save of all completed results
           saveLocalSearchHistory(allFormatted as any);
-
-          // Persist to Supabase if logged in
           syncToSupabase(allFormatted as any);
         };
 

@@ -81,11 +81,10 @@ export default function DashboardHomePage() {
     loadUserData();
   }, []);
 
-  const handleQuickCheck = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!quickInput.trim()) return;
+  const auditDomain = async (domainToAudit: string) => {
+    if (!domainToAudit || !domainToAudit.trim()) return;
     setIsChecking(true);
-    const domainToCheck = quickInput.trim().toLowerCase();
+    const domainToCheck = domainToAudit.trim().toLowerCase();
 
     try {
       const res = await fetch('/api/check-domain', {
@@ -128,6 +127,12 @@ export default function DashboardHomePage() {
     } finally {
       setIsChecking(false);
     }
+  };
+
+  const handleQuickCheck = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickInput.trim()) return;
+    await auditDomain(quickInput);
   };
 
   return (
@@ -381,12 +386,22 @@ export default function DashboardHomePage() {
             <p className="text-xs text-gray-400 max-w-sm mx-auto">
               Use the instant audit box above or click &quot;New Domain Check&quot; to audit your first domain!
             </p>
-            <div className="pt-2">
+            <div className="pt-2 flex items-center justify-center gap-2 flex-wrap">
               <button
-                onClick={() => setQuickInput('techradar-archive.org')}
-                className="text-xs text-[#FC6B17] bg-[#fff0e8] hover:bg-[#ffe5d6] px-3.5 py-1.5 rounded-full font-bold transition-colors"
+                type="button"
+                disabled={isChecking}
+                onClick={() => auditDomain('techradar-archive.org')}
+                className="text-xs text-[#FC6B17] bg-[#fff0e8] hover:bg-[#ffe5d6] px-3.5 py-1.5 rounded-full font-bold transition-colors disabled:opacity-60"
               >
-                Try sample: techradar-archive.org
+                {isChecking ? 'Auditing...' : '⚡ Try sample: techradar-archive.org'}
+              </button>
+              <button
+                type="button"
+                disabled={isChecking}
+                onClick={() => auditDomain('nichearchive-portal.org')}
+                className="text-xs text-purple-700 bg-purple-50 hover:bg-purple-100 px-3.5 py-1.5 rounded-full font-bold transition-colors disabled:opacity-60"
+              >
+                ⚡ Try sample: nichearchive-portal.org
               </button>
             </div>
           </div>

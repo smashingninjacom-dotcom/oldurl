@@ -32,26 +32,46 @@ export function formatCheckDate(dateStr?: string): string {
 
 export function getLocalSearchHistory(): StoredSearchItem[] {
   if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY) || sessionStorage.getItem('last_scanned_results');
-    if (raw) {
+  const map = new Map<string, StoredSearchItem>();
+
+  const loadFromRaw = (raw: string | null) => {
+    if (!raw) return;
+    try {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((item: any, idx: number) => ({
-          id: String(idx + 1).padStart(2, '0'),
-          domain: item.domain,
-          status: item.status || 'Available',
-          daysLeft: item.daysLeft || item.days_left || (item.status === 'Available' ? 'Dropped' : '365d'),
-          dr: Number(item.dr) || 0,
-          registrar: item.registrar || (item.status === 'Available' ? '—' : 'Namecheap, Inc.'),
-          refDomains: item.refDomains || item.ref_domains || 0,
-          backlinks: item.backlinks || 0,
-          createdAt: item.createdAt || item.created_at || 'Just now',
-        }));
+        parsed.forEach((item: any) => {
+          if (item && item.domain) {
+            const dom = String(item.domain).toLowerCase().trim();
+            if (dom && !map.has(dom)) {
+              map.set(dom, {
+                id: '01',
+                domain: item.domain,
+                status: item.status || 'Available',
+                daysLeft: item.daysLeft || item.days_left || (item.status === 'Available' ? 'Dropped' : '365d'),
+                dr: Number(item.dr) || 0,
+                registrar: item.registrar || (item.status === 'Available' ? '—' : 'Namecheap, Inc.'),
+                refDomains: item.refDomains || item.ref_domains || 0,
+                backlinks: item.backlinks || 0,
+                createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+              });
+            }
+          }
+        });
       }
-    }
+    } catch (e) {}
+  };
+
+  try {
+    loadFromRaw(localStorage.getItem(STORAGE_KEY));
+    loadFromRaw(sessionStorage.getItem('last_scanned_results'));
+    loadFromRaw(localStorage.getItem('search_history'));
+    loadFromRaw(localStorage.getItem('oldurl_search_history'));
   } catch (e) {}
-  return [];
+
+  return Array.from(map.values()).map((item, idx) => ({
+    ...item,
+    id: String(idx + 1).padStart(2, '0'),
+  }));
 }
 
 export function saveLocalSearchHistory(items: StoredSearchItem[]): void {
