@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import dns from 'node:dns/promises';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 interface DomainCheckStatus {
   registered: boolean;
@@ -37,56 +41,72 @@ function detectRegistrar(nsRecords: string[]): string {
   return 'Registered / Active';
 }
 
-// Ultra-accurate high-throughput DNS verification engine (Cloudflare DoH + Google DoH)
+// Ultra-accurate high-throughput DNS verification engine (Native Node.js DNS + Cloudflare DoH + Google DoH)
 async function verifyDomainAvailability(domain: string): Promise<DomainCheckStatus> {
-  const clean = domain.trim().toLowerCase();
+  const clean = domain
+    .trim()
+    .toLowerCase()
+    .replace(/^(?:https?:\/\/)?(?:www\.)?/i, '')
+    .split('/')[0]
+    .split('?')[0]
+    .split('#')[0]
+    .replace(/:\d+$/, '')
+    .replace(/\.$/, '');
 
-  const knownActive = [
-    'google.com',
-    'apple.com',
-    'microsoft.com',
-    'amazon.com',
-    'wikipedia.org',
-    'github.com',
-    'meta.com',
-    'netflix.com',
-    'youtube.com',
-    'twitter.com',
-    'x.com',
-    'linkedin.com',
-    'reddit.com',
-    'nytimes.com',
-    'bbc.co.uk',
-    'cnn.com',
-    'forbes.com',
-    'yahoo.com',
-    'cloudflare.com',
-    'wordpress.org',
-    'adobe.com',
-    'medium.com',
-    'theverge.com',
-    'techradar.com',
-    'shopify.com',
-    'stripe.com',
-    'openai.com',
-    'spotify.com',
-    'quora.com',
-    'tumblr.com',
-    'pinterest.com',
-    'instagram.com',
-    'facebook.com',
-    'walmart.com',
-    'ebay.com',
-  ];
-
-  if (knownActive.some((k) => clean === k || clean.endsWith('.' + k))) {
+  if (!clean || !clean.includes('.')) {
     return {
-      registered: true,
-      status: 'Registered',
-      registrar: 'Registered / Active',
-      daysLeft: 'Active',
+      registered: false,
+      status: 'Available',
+      registrar: '—',
+      daysLeft: 'Dropped',
     };
   }
+
+  // 1. Direct Socket / OS DNS Resolution (Fastest native lookup)
+  try {
+    const lookupRes = await dns.lookup(clean);
+    if (lookupRes && lookupRes.address) {
+      let reg = 'Registered / Active';
+      try {
+        const ns = await dns.resolveNs(clean);
+        if (ns && ns.length > 0) reg = detectRegistrar(ns);
+      } catch (e) {}
+      return {
+        registered: true,
+        status: 'Registered',
+        registrar: reg,
+        daysLeft: 'Active',
+      };
+    }
+  } catch (err: any) {
+    // Continue checks if domain doesn't have an A record or is delegated
+  }
+
+  // 2. Native Authoritative NS Lookup
+  try {
+    const ns = await dns.resolveNs(clean);
+    if (ns && ns.length > 0) {
+      return {
+        registered: true,
+        status: 'Registered',
+        registrar: detectRegistrar(ns),
+        daysLeft: 'Active',
+      };
+    }
+  } catch (err) {}
+
+  // 3. Native Authoritative SOA Lookup
+  try {
+    const soa = await dns.resolveSoa(clean);
+    if (soa && soa.nsname) {
+      return {
+        registered: true,
+        status: 'Registered',
+        registrar: detectRegistrar([soa.nsname, soa.hostmaster]),
+        daysLeft: 'Active',
+      };
+    }
+  } catch (err) {}
 
   let cfStatus: number | null = null;
   let cfAnswers: any[] = [];
@@ -95,12 +115,12 @@ async function verifyDomainAvailability(domain: string): Promise<DomainCheckStat
   let gAnswers: any[] = [];
   let gAuthorities: any[] = [];
 
-  // 1. Primary check: Cloudflare DoH (A / CNAME / AAAA records)
+  // 4. Cloudflare DoH (A / CNAME / AAAA records)
   try {
     const cfUrl = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(clean)}&type=A`;
     const cfRes = await fetch(cfUrl, {
       headers: { Accept: 'application/dns-json' },
-      signal: AbortSignal.timeout(2500),
+      signal: AbortSignal.timeout(2000),
     });
 
     if (cfRes.ok) {
@@ -111,7 +131,6 @@ async function verifyDomainAvailability(domain: string): Promise<DomainCheckStat
     }
   } catch (e) {}
 
-  // If Cloudflare returns NOERROR (0) with active answers, domain is working & registered
   if (cfStatus === 0 && cfAnswers.length > 0) {
     return {
       registered: true,
@@ -121,12 +140,12 @@ async function verifyDomainAvailability(domain: string): Promise<DomainCheckStat
     };
   }
 
-  // 2. Secondary check: Google DoH (NS query) for authoritative nameservers
+  // 5. Google DoH (NS query) for authoritative nameservers
   try {
     const gUrl = `https://dns.google/resolve?name=${encodeURIComponent(clean)}&type=NS`;
     const gRes = await fetch(gUrl, {
       headers: { Accept: 'application/dns-json' },
-      signal: AbortSignal.timeout(2500),
+      signal: AbortSignal.timeout(2000),
     });
 
     if (gRes.ok) {
@@ -137,7 +156,6 @@ async function verifyDomainAvailability(domain: string): Promise<DomainCheckStat
     }
   } catch (e) {}
 
-  // Check if Google returned active NS records in Answer section
   if (gAnswers.length > 0) {
     const nsList = gAnswers.map((a: any) => String(a.data || ''));
     return {
@@ -148,7 +166,6 @@ async function verifyDomainAvailability(domain: string): Promise<DomainCheckStat
     };
   }
 
-  // Check if Authority records contain NS or SOA for the domain (delegated zone)
   const allAuthorities = [...cfAuthorities, ...gAuthorities];
   const nsInAuth = allAuthorities.filter((a: any) => a.type === 2 || a.type === 6);
   if (nsInAuth.length > 0 && (cfStatus === 0 || gStatus === 0)) {
@@ -161,7 +178,6 @@ async function verifyDomainAvailability(domain: string): Promise<DomainCheckStat
     };
   }
 
-  // If either DNS server returned Status 0 (NOERROR), domain is active/registered in registry
   if (cfStatus === 0 || gStatus === 0) {
     return {
       registered: true,
@@ -171,7 +187,7 @@ async function verifyDomainAvailability(domain: string): Promise<DomainCheckStat
     };
   }
 
-  // 3. If both or either resolver returned Status 3 (NXDOMAIN), domain is definitely Available
+  // If both or either resolver returned Status 3 (NXDOMAIN), domain is Available
   if (cfStatus === 3 || gStatus === 3) {
     return {
       registered: false,
@@ -180,34 +196,6 @@ async function verifyDomainAvailability(domain: string): Promise<DomainCheckStat
       daysLeft: 'Dropped',
     };
   }
-
-  // 4. Fallback SOA lookup for any remaining edge-case ccTLDs
-  try {
-    const soaUrl = `https://dns.google/resolve?name=${encodeURIComponent(clean)}&type=SOA`;
-    const soaRes = await fetch(soaUrl, {
-      headers: { Accept: 'application/dns-json' },
-      signal: AbortSignal.timeout(2000),
-    });
-    if (soaRes.ok) {
-      const soaData = await soaRes.json();
-      if (soaData.Status === 0) {
-        return {
-          registered: true,
-          status: 'Registered',
-          registrar: 'Registered / Active',
-          daysLeft: 'Active',
-        };
-      }
-      if (soaData.Status === 3) {
-        return {
-          registered: false,
-          status: 'Available',
-          registrar: '—',
-          daysLeft: 'Dropped',
-        };
-      }
-    }
-  } catch (e) {}
 
   // Final fallback: unresolvable/dropped domain -> Available
   return {

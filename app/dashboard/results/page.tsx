@@ -142,20 +142,6 @@ function ResultsContent() {
 
     function evaluateDomain(domain: string, idx: number): ResultItem {
       const lower = domain.toLowerCase();
-      if (historyMap.has(lower)) {
-        const cached = historyMap.get(lower)!;
-        return {
-          id: String(idx + 1).padStart(2, '0'),
-          domain: cached.domain || domain,
-          status: cached.status || 'Available',
-          daysLeft: cached.daysLeft || (cached.status === 'Available' ? 'Dropped' : '365d'),
-          dr: Number(cached.dr) || 0,
-          registrar: cached.registrar || (cached.status === 'Available' ? '—' : 'Registered / Active'),
-          refDomains: cached.refDomains || 0,
-          backlinks: cached.backlinks || 0,
-          createdAt: cached.createdAt || new Date().toISOString(),
-        };
-      }
 
       let hash = 0;
       for (let i = 0; i < domain.length; i++) {
@@ -169,19 +155,17 @@ function ResultsContent() {
         'github.com', 'meta.com', 'netflix.com', 'youtube.com', 'twitter.com',
         'x.com', 'linkedin.com', 'reddit.com', 'nytimes.com', 'bbc.co.uk',
         'cnn.com', 'forbes.com', 'yahoo.com', 'cloudflare.com', 'wordpress.org',
-        'adobe.com', 'medium.com', 'theverge.com', 'techradar.com', 'shopify.com'
+        'adobe.com', 'medium.com', 'theverge.com', 'techradar.com', 'shopify.com',
+        'stripe.com', 'openai.com', 'spotify.com', 'walmart.com', 'ebay.com'
       ];
       const isKnownActive = knownActive.some((k) => lower === k || lower.endsWith('.' + k));
-
-      const status: 'Available' | 'Registered' = isKnownActive ? 'Registered' : 'Registered';
-      const dr = isKnownActive ? 92 + (absHash % 7) : 25 + (absHash % 45);
 
       return {
         id: String(idx + 1).padStart(2, '0'),
         domain,
-        status,
+        status: isKnownActive ? 'Registered' : 'Registered',
         daysLeft: isKnownActive ? '730d' : 'Verifying...',
-        dr,
+        dr: isKnownActive ? 92 + (absHash % 7) : 25 + (absHash % 45),
         registrar: isKnownActive ? 'MarkMonitor Inc.' : 'Verifying...',
         refDomains: 15 + (absHash % 120),
         backlinks: (15 + (absHash % 120)) * (2 + (absHash % 6)),
