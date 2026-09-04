@@ -167,17 +167,25 @@ function ResultsContent() {
         hash |= 0;
       }
       const absHash = Math.abs(hash);
-      const dr = 20 + (absHash % 66);
+
+      const knownActive = [
+        'google.com', 'apple.com', 'microsoft.com', 'amazon.com', 'wikipedia.org',
+        'github.com', 'meta.com', 'netflix.com', 'youtube.com', 'twitter.com', 'linkedin.com'
+      ];
+      const isKnownActive = knownActive.some((k) => lower === k || lower.endsWith('.' + k));
+
+      const status: 'Available' | 'Registered' = isKnownActive ? 'Registered' : 'Available';
+      const dr = isKnownActive ? 92 + (absHash % 7) : 15 + (absHash % 45);
 
       return {
         id: String(idx + 1).padStart(2, '0'),
         domain,
-        status: 'Registered',
-        daysLeft: 'Active',
+        status,
+        daysLeft: isKnownActive ? '730d' : 'Dropped',
         dr,
-        registrar: ['GoDaddy.com, LLC', 'Namecheap, Inc.', 'MarkMonitor Inc.', 'SafeNames Ltd.'][absHash % 4],
-        refDomains: 30 + (absHash % 450),
-        backlinks: (30 + (absHash % 450)) * (2 + (absHash % 8)),
+        registrar: isKnownActive ? 'MarkMonitor Inc.' : '—',
+        refDomains: 15 + (absHash % 120),
+        backlinks: (15 + (absHash % 120)) * (2 + (absHash % 6)),
         createdAt: new Date().toISOString(),
       };
     }
@@ -196,15 +204,6 @@ function ResultsContent() {
       if (rawDomains.length > 0) {
         const initialCalculated = rawDomains.map((d, i) => evaluateDomain(d, i));
         setResults(initialCalculated);
-
-        // Check if all domains are already cached in storage history
-        const allCached = rawDomains.every((d) => historyMap.has(d.toLowerCase()));
-        if (allCached) {
-          // Instant 0ms display for previously scanned files
-          setProgress(100);
-          setIsScanning(false);
-          return;
-        }
 
         isPausedRef.current = false;
         isCancelledRef.current = false;
