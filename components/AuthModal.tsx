@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { signInWithGoogle } from '../lib/supabaseClient';
 import { X, Sparkles, AlertCircle, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
 
 interface AuthModalProps {
@@ -20,18 +20,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const redirectUrl =
-        typeof window !== 'undefined'
-          ? `${window.location.origin}/dashboard`
-          : 'https://oldurl.vercel.app/dashboard';
-
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUrl,
-        },
-      });
-      if (error) throw error;
+      await signInWithGoogle();
     } catch (err: any) {
       setErrorMsg(err.message || 'Google sign-in failed. Please check Supabase Google provider configuration.');
       setLoading(false);

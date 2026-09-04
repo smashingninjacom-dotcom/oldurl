@@ -23,8 +23,8 @@ export async function signInWithGoogle(redirectTo?: string) {
     options: {
       redirectTo: redirectUrl,
       queryParams: {
+        prompt: 'select_account',
         access_type: 'offline',
-        prompt: 'consent',
       },
     },
   });

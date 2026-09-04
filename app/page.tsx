@@ -110,12 +110,8 @@ export default function HomePage() {
   const [scanMessage, setScanMessage] = useState<string | null>(null);
   const [isBlurred, setIsBlurred] = useState(true);
 
-  const handleGoogleSignIn = async () => {
-    try {
-      await signInWithGoogle();
-    } catch (e) {
-      setIsAuthOpen(true);
-    }
+  const openAuthModal = () => {
+    setIsAuthOpen(true);
   };
 
   const handleTestSample = async (sampleDomain: string) => {
@@ -212,7 +208,7 @@ export default function HomePage() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={handleGoogleSignIn}
+              onClick={openAuthModal}
               className="bg-[#FC6B17] hover:bg-[#e05b10] text-white px-5 py-2 rounded-full font-bold text-sm shadow-sm transition-all transform hover:-translate-y-0.5"
             >
               Sign In / Free Trial
@@ -299,7 +295,7 @@ export default function HomePage() {
                 <p className="text-xs text-gray-500 mt-1">Supports up to 55,000 domains per scan</p>
                 <button
                   type="button"
-                  onClick={handleGoogleSignIn}
+                  onClick={openAuthModal}
                   className="inline-block mt-3 bg-[#FC6B17] text-white text-xs font-bold px-4 py-2 rounded-full shadow-sm hover:bg-[#e05607] transition-colors"
                 >
                   Sign In to Bulk Upload
@@ -540,7 +536,7 @@ export default function HomePage() {
                         ) : (
                           <button
                             type="button"
-                            onClick={handleGoogleSignIn}
+                            onClick={openAuthModal}
                             className="inline-block bg-[#0d1b3e] hover:bg-black text-white text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-xs transition-all"
                           >
                             Set Alert
@@ -571,7 +567,7 @@ export default function HomePage() {
 
               <button
                 type="button"
-                onClick={handleGoogleSignIn}
+                onClick={openAuthModal}
                 className="bg-[#FC6B17] hover:bg-[#e05b10] text-white text-xs sm:text-sm font-bold px-6 py-2.5 rounded-full shadow-md whitespace-nowrap transition-transform hover:-translate-y-0.5 flex items-center gap-1.5"
               >
                 Sign In with Google to Unlock <ArrowRight className="w-4 h-4" />
@@ -814,7 +810,7 @@ export default function HomePage() {
               </div>
               <button
                 type="button"
-                onClick={handleGoogleSignIn}
+                onClick={openAuthModal}
                 className="w-full text-center border-2 border-[#FC6B17] text-[#FC6B17] hover:bg-[#FC6B17] hover:text-white font-bold py-2.5 rounded-full text-xs transition-colors"
               >
                 Get Started Free
@@ -840,7 +836,7 @@ export default function HomePage() {
               </div>
               <button
                 type="button"
-                onClick={handleGoogleSignIn}
+                onClick={openAuthModal}
                 className="w-full text-center border-2 border-[#FC6B17] text-[#FC6B17] hover:bg-[#FC6B17] hover:text-white font-bold py-2.5 rounded-full text-xs transition-colors"
               >
                 Choose Starter
@@ -869,7 +865,7 @@ export default function HomePage() {
               </div>
               <button
                 type="button"
-                onClick={handleGoogleSignIn}
+                onClick={openAuthModal}
                 className="w-full text-center bg-[#FC6B17] hover:bg-[#e05b10] text-white font-bold py-2.5 rounded-full text-xs shadow-md transition-colors"
               >
                 Choose Growth
@@ -895,7 +891,7 @@ export default function HomePage() {
               </div>
               <button
                 type="button"
-                onClick={handleGoogleSignIn}
+                onClick={openAuthModal}
                 className="w-full text-center border-2 border-[#FC6B17] text-[#FC6B17] hover:bg-[#FC6B17] hover:text-white font-bold py-2.5 rounded-full text-xs transition-colors"
               >
                 Choose Agency
@@ -957,7 +953,7 @@ export default function HomePage() {
           </p>
           <button
             type="button"
-            onClick={handleGoogleSignIn}
+            onClick={openAuthModal}
             className="inline-flex items-center gap-2 bg-[#FC6B17] hover:bg-[#e05b10] text-white font-bold px-8 py-3.5 rounded-full text-sm sm:text-base shadow-xl transition-transform hover:-translate-y-0.5"
           >
             Create Free Account <ArrowRight className="w-5 h-5" />
