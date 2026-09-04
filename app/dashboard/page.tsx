@@ -538,84 +538,98 @@ export default function DashboardHomePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {[...searches].sort((a, b) => {
-                  const aVal = (a as any)[sortField];
-                  const bVal = (b as any)[sortField];
+                {[...searches]
+                  .sort((a, b) => {
+                    const aVal = (a as any)[sortField];
+                    const bVal = (b as any)[sortField];
 
-                  if (sortField === 'id') {
-                    const aNum = parseInt(aVal, 10) || 0;
-                    const bNum = parseInt(bVal, 10) || 0;
-                    return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
-                  }
-                  if (sortField === 'dr') {
-                    const aNum = Number(aVal) || 0;
-                    const bNum = Number(bVal) || 0;
-                    return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
-                  }
-                  if (sortField === 'daysLeft') {
-                    const aNum = parseInt(aVal, 10);
-                    const bNum = parseInt(bVal, 10);
-                    if (!isNaN(aNum) && !isNaN(bNum)) {
+                    if (sortField === 'id') {
+                      const aNum = parseInt(aVal, 10) || 0;
+                      const bNum = parseInt(bVal, 10) || 0;
                       return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
                     }
-                    return sortOrder === 'asc'
-                      ? String(aVal || '').localeCompare(String(bVal || ''))
-                      : String(bVal || '').localeCompare(String(aVal || ''));
-                  }
-                  if (sortField === 'createdAt') {
-                    const aTime = aVal ? new Date(aVal).getTime() : 0;
-                    const bTime = bVal ? new Date(bVal).getTime() : 0;
-                    return sortOrder === 'asc' ? aTime - bTime : bTime - aTime;
-                  }
-                  const aStr = String(aVal || '').toLowerCase();
-                  const bStr = String(bVal || '').toLowerCase();
-                  return sortOrder === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
-                }).map((row) => (
-                  <tr key={row.id} className="hover:bg-orange-50/20 transition-colors">
-                    <td className="py-3.5 px-4 text-center text-gray-400 text-xs font-mono">
-                      {row.id}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-md bg-gray-100 text-gray-500 flex items-center justify-center flex-shrink-0">
-                          <Globe className="w-3.5 h-3.5" />
+                    if (sortField === 'dr') {
+                      const aNum = Number(aVal) || 0;
+                      const bNum = Number(bVal) || 0;
+                      return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
+                    }
+                    if (sortField === 'daysLeft') {
+                      const aNum = parseInt(aVal, 10);
+                      const bNum = parseInt(bVal, 10);
+                      if (!isNaN(aNum) && !isNaN(bNum)) {
+                        return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
+                      }
+                      return sortOrder === 'asc'
+                        ? String(aVal || '').localeCompare(String(bVal || ''))
+                        : String(bVal || '').localeCompare(String(aVal || ''));
+                    }
+                    if (sortField === 'createdAt') {
+                      const aTime = aVal ? new Date(aVal).getTime() : 0;
+                      const bTime = bVal ? new Date(bVal).getTime() : 0;
+                      return sortOrder === 'asc' ? aTime - bTime : bTime - aTime;
+                    }
+                    const aStr = String(aVal || '').toLowerCase();
+                    const bStr = String(bVal || '').toLowerCase();
+                    return sortOrder === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
+                  })
+                  .slice(0, 3)
+                  .map((row, idx) => (
+                    <tr key={row.id + '-' + row.domain} className="hover:bg-orange-50/20 transition-colors">
+                      <td className="py-3.5 px-4 text-center text-gray-400 text-xs font-mono font-bold">
+                        {idx + 1}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-md bg-gray-100 text-gray-500 flex items-center justify-center flex-shrink-0">
+                            <Globe className="w-3.5 h-3.5" />
+                          </div>
+                          <span className="text-[#0d1b3e] font-semibold text-xs sm:text-sm">
+                            {row.domain}
+                          </span>
                         </div>
-                        <span className="text-[#0d1b3e] font-semibold text-xs sm:text-sm">
-                          {row.domain}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        {row.status === 'Available' ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            Available
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-orange-50 text-orange-700 border border-orange-200/60">
+                            <Lock className="w-3 h-3 text-[#FC6B17]" />
+                            <span>Registered</span>
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="text-emerald-700 font-semibold text-xs">
+                          ⚑ {row.daysLeft}
                         </span>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      {row.status === 'Available' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                          Available
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="inline-flex items-center gap-1 font-bold text-xs text-[#FC6B17] bg-orange-50 px-2 py-0.5 rounded-md border border-orange-100">
+                          {row.dr} <BarChart2 className="w-3.5 h-3.5 text-emerald-500 inline" />
                         </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-orange-50 text-orange-700 border border-orange-200/60">
-                          <Lock className="w-3 h-3 text-[#FC6B17]" />
-                          <span>Registered</span>
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="text-emerald-700 font-semibold text-xs">
-                        ⚑ {row.daysLeft}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="inline-flex items-center gap-1 font-bold text-xs text-[#FC6B17] bg-orange-50 px-2 py-0.5 rounded-md border border-orange-100">
-                        {row.dr} <BarChart2 className="w-3.5 h-3.5 text-emerald-500 inline" />
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-gray-500 font-medium text-xs">{row.registrar}</td>
-                    <td className="py-3.5 px-4 text-gray-400 font-medium text-xs whitespace-nowrap">
-                      {formatCheckDate(row.createdAt)}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="py-3.5 px-4 text-gray-500 font-medium text-xs">{row.registrar}</td>
+                      <td className="py-3.5 px-4 text-gray-400 font-medium text-xs whitespace-nowrap">
+                        {formatCheckDate(row.createdAt)}
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
+            {searches.length > 3 && (
+              <div className="p-3 bg-gray-50/80 border-t border-gray-100 text-center">
+                <Link
+                  href="/dashboard/previous-searches"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#FC6B17] hover:text-[#e05607] transition-colors"
+                >
+                  <span>View all {searches.length} domains in Previous Searches</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            )}
           </div>
         )}
       </div>
