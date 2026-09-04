@@ -287,6 +287,14 @@ export default function PreviousSearchesPage() {
     }
   };
 
+  const handleSearchAgain = (domainList: string[]) => {
+    if (!domainList || domainList.length === 0) return;
+    try {
+      sessionStorage.setItem('pending_domains', domainList.join('\n'));
+    } catch (e) {}
+    window.location.href = '/dashboard/results';
+  };
+
   return (
     <div className="space-y-6">
       {/* Breadcrumb */}
@@ -573,7 +581,19 @@ export default function PreviousSearchesPage() {
             <p className="text-xs text-gray-400 mt-0.5">Live log of your recent domain searches and SEO checks</p>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {filtered.length > 0 && (
+              <button
+                type="button"
+                onClick={() => handleSearchAgain(filtered.map((r) => r.domain))}
+                className="bg-orange-50 hover:bg-[#FC6B17] text-[#FC6B17] hover:text-white border border-orange-200 px-3.5 py-1.5 rounded-xl font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                title="Re-run search for current selection in Results tab"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Search Again ({filtered.length})</span>
+              </button>
+            )}
+
             {data.length > 0 && (
               <button
                 type="button"
@@ -834,6 +854,14 @@ export default function PreviousSearchesPage() {
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleSearchAgain([row.domain])}
+                            className="p-1.5 text-gray-400 hover:text-[#FC6B17] hover:bg-orange-50 rounded-lg transition-colors cursor-pointer"
+                            title="Search Again in Results"
+                          >
+                            <Search className="w-3.5 h-3.5" />
+                          </button>
                           <Link
                             href={`/dashboard/domain-analytics-result?domain=${encodeURIComponent(row.domain)}`}
                             className="p-1.5 text-gray-400 hover:text-[#FC6B17] hover:bg-orange-50 rounded-lg transition-colors"

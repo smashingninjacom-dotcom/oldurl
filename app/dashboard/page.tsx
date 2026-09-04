@@ -57,6 +57,8 @@ export default function DashboardHomePage() {
   const [userName, setUserName] = useState<string>('Member');
   const [loading, setLoading] = useState(false);
   const [searches, setSearches] = useState<SearchRecord[]>(() => getLocalSearchHistory());
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Available' | 'Registered'>('All');
+  const [searchQuery, setSearchQuery] = useState('');
   const [quickInput, setQuickInput] = useState('');
   const [isChecking, setIsChecking] = useState(false);
   const [sortField, setSortField] = useState<'id' | 'domain' | 'status' | 'daysLeft' | 'dr' | 'registrar' | 'createdAt'>('createdAt');
@@ -166,13 +168,13 @@ export default function DashboardHomePage() {
       saveLocalSearchHistory([newRecord as any]);
       syncToSupabase([newRecord as any]);
 
-      setSearches((prev) => [newRecord, ...prev.filter((s) => s.domain !== newRecord.domain)]);
-      setTotalChecked((prev) => prev + 1);
-      if (result.status === 'Available') {
-        setAvailableCount((prev) => prev + 1);
-      } else {
-        setRegisteredCount((prev) => prev + 1);
-      }
+      const updatedHistory = getLocalSearchHistory();
+      setSearches(updatedHistory);
+      setTotalChecked(updatedHistory.length);
+      const avail = updatedHistory.filter((s) => s.status === 'Available').length;
+      setAvailableCount(avail);
+      setRegisteredCount(updatedHistory.length - avail);
+      setAvgDr(Math.round(updatedHistory.reduce((acc, s) => acc + (s.dr || 0), 0) / updatedHistory.length));
       setQuickInput('');
     } catch (e) {
       console.error(e);
@@ -187,8 +189,25 @@ export default function DashboardHomePage() {
     await auditDomain(quickInput);
   };
 
+  const handleSearchAgain = (domain: string) => {
+    if (!domain) return;
+    try {
+      sessionStorage.setItem('pending_domains', domain);
+    } catch (e) {}
+    window.location.href = '/dashboard/results';
+  };
+
+  const filteredSearches = React.useMemo(() => {
+    return searches.filter((item) => {
+      if (statusFilter === 'Available' && item.status !== 'Available') return false;
+      if (statusFilter === 'Registered' && item.status === 'Available') return false;
+      if (searchQuery && !item.domain.toLowerCase().includes(searchQuery.toLowerCase().trim())) return false;
+      return true;
+    });
+  }, [searches, statusFilter, searchQuery]);
+
   const sortedSearches = React.useMemo(() => {
-    return [...searches].sort((a, b) => {
+    return [...filteredSearches].sort((a, b) => {
       const aVal = (a as any)[sortField];
       const bVal = (b as any)[sortField];
 
@@ -221,7 +240,7 @@ export default function DashboardHomePage() {
       const bStr = String(bVal || '').toLowerCase();
       return sortOrder === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
     });
-  }, [searches, sortField, sortOrder]);
+  }, [filteredSearches, sortField, sortOrder]);
 
   const totalPages = Math.ceil(sortedSearches.length / pageSize) || 1;
   const paginatedSearches = sortedSearches.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -451,22 +470,71 @@ export default function DashboardHomePage() {
 
       {/* Recent Searches Table Card */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
-        <div className="p-4 sm:p-5 border-b border-gray-100 bg-white flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-gray-100 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h3 className="text-base font-bold text-[#0d1b3e]">Your Recent Searches</h3>
             <p className="text-xs text-gray-400 mt-0.5">
-              Live log of domains audited under your Google account
+              Live log of domains audited under your workspace ({totalChecked} total domains)
             </p>
           </div>
           {searches.length > 0 && (
-            <Link
-              href="/dashboard/previous-searches"
-              className="text-xs font-bold text-[#FC6B17] hover:underline flex items-center gap-1"
-            >
-              View all &gt;
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/dashboard/previous-searches"
+                className="text-xs font-bold text-[#FC6B17] hover:underline flex items-center gap-1"
+              >
+                View all history &gt;
+              </Link>
+            </div>
           )}
         </div>
+
+        {/* Filter & Search Bar */}
+        {searches.length > 0 && (
+          <div className="p-3.5 sm:px-5 bg-gray-50/50 border-b border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            {/* Status Filter Tabs */}
+            <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-200 shadow-2xs font-bold self-start sm:self-auto">
+              {(['All', 'Available', 'Registered'] as const).map((st) => (
+                <button
+                  key={st}
+                  onClick={() => {
+                    setStatusFilter(st);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                    statusFilter === st
+                      ? 'bg-[#FC6B17] text-white shadow-2xs'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <span>{st}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      statusFilter === st ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    {st === 'All' ? totalChecked : st === 'Available' ? availableCount : registeredCount}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Search Input */}
+            <div className="relative w-full sm:w-64">
+              <Search className="w-3.5 h-3.5 text-gray-400 absolute top-2.5 left-3" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                placeholder="Filter domains..."
+                className="w-full pl-8 pr-3 py-1.5 bg-white border border-gray-200 rounded-xl text-xs outline-none focus:border-[#FC6B17]"
+              />
+            </div>
+          </div>
+        )}
 
         {searches.length === 0 ? (
           <div className="p-10 text-center space-y-3">
@@ -493,6 +561,29 @@ export default function DashboardHomePage() {
                 className="text-xs text-purple-700 bg-purple-50 hover:bg-purple-100 px-3.5 py-1.5 rounded-full font-bold transition-colors disabled:opacity-60"
               >
                 ⚡ Try sample: nichearchive-portal.org
+              </button>
+            </div>
+          </div>
+        ) : filteredSearches.length === 0 ? (
+          <div className="p-10 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-orange-50 text-[#FC6B17] flex items-center justify-center mx-auto">
+              <Search className="w-6 h-6" />
+            </div>
+            <h4 className="text-sm font-bold text-gray-800">No matching domains found</h4>
+            <p className="text-xs text-gray-400 max-w-sm mx-auto">
+              No domains match your current filter ({statusFilter}).
+            </p>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter('All');
+                  setSearchQuery('');
+                  setCurrentPage(1);
+                }}
+                className="inline-flex items-center gap-1.5 bg-[#FC6B17] hover:bg-[#e05607] text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                Reset Filter
               </button>
             </div>
           </div>
@@ -529,7 +620,7 @@ export default function DashboardHomePage() {
                   </th>
                   <th
                     onClick={() => handleSort('status')}
-                    className="py-3 px-4 w-36 cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                    className="py-3 px-4 w-32 cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className={sortField === 'status' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-700'}>Status</span>
@@ -542,7 +633,7 @@ export default function DashboardHomePage() {
                   </th>
                   <th
                     onClick={() => handleSort('daysLeft')}
-                    className="py-3 px-4 w-32 cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                    className="py-3 px-4 w-28 cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className={sortField === 'daysLeft' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-700'}>Days Left</span>
@@ -555,7 +646,7 @@ export default function DashboardHomePage() {
                   </th>
                   <th
                     onClick={() => handleSort('dr')}
-                    className="py-3 px-4 w-28 cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                    className="py-3 px-4 w-24 cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className={sortField === 'dr' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-700'}>DR</span>
@@ -568,7 +659,7 @@ export default function DashboardHomePage() {
                   </th>
                   <th
                     onClick={() => handleSort('registrar')}
-                    className="py-3 px-4 min-w-[160px] cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                    className="py-3 px-4 min-w-[150px] cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className={sortField === 'registrar' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-700'}>Registrar</span>
@@ -592,6 +683,7 @@ export default function DashboardHomePage() {
                       )}
                     </div>
                   </th>
+                  <th className="py-3 px-4 w-24 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -638,6 +730,25 @@ export default function DashboardHomePage() {
                       <td className="py-3.5 px-4 text-gray-500 font-medium text-xs">{row.registrar}</td>
                       <td className="py-3.5 px-4 text-gray-400 font-medium text-xs whitespace-nowrap">
                         {formatCheckDate(row.createdAt)}
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleSearchAgain(row.domain)}
+                            className="p-1.5 text-gray-400 hover:text-[#FC6B17] hover:bg-orange-50 rounded-lg transition-colors cursor-pointer"
+                            title="Search Again in Results"
+                          >
+                            <Search className="w-3.5 h-3.5" />
+                          </button>
+                          <Link
+                            href={`/dashboard/domain-analytics-result?domain=${encodeURIComponent(row.domain)}`}
+                            className="p-1.5 text-gray-400 hover:text-[#FC6B17] hover:bg-orange-50 rounded-lg transition-colors"
+                            title="Domain Analytics"
+                          >
+                            <Activity className="w-3.5 h-3.5" />
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   );
