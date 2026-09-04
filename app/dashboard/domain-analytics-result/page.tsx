@@ -147,13 +147,13 @@ function DomainAnalyticsResultContent() {
                       allMapped[globalIdx] = {
                         domain: r.domain,
                         dr,
-                        da: Math.max(10, dr - 5),
-                        traffic: `${Math.round(dr * 0.2)}K/mo`,
+                        da: r.da || Math.max(10, dr - 5),
+                        traffic: r.traffic || `${Math.round(dr * 0.2)}K/mo`,
                         refDomains: ref,
-                        backlinks: `${Math.round(ref * 3.2)}`,
-                        spamScore: Math.min(5, Math.max(1, Math.round(100 / dr))),
-                        tier1Count: Math.min(15, Math.max(1, Math.round(dr / 8))),
-                        topSources: ['Forbes', 'TechCrunch', 'Wikipedia'].slice(
+                        backlinks: typeof r.backlinks === 'number' ? r.backlinks.toLocaleString() : (r.backlinks || `${Math.round(ref * 3.2)}`),
+                        spamScore: r.spamScore || Math.min(5, Math.max(1, Math.round(100 / Math.max(dr, 1)))),
+                        tier1Count: r.tier1Count || Math.min(15, Math.max(1, Math.round(dr / 8))),
+                        topSources: r.topSources || ['Forbes', 'TechCrunch', 'Wikipedia'].slice(
                           0,
                           Math.min(3, Math.max(1, Math.round(dr / 20)))
                         ),
