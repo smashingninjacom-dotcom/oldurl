@@ -110,9 +110,9 @@ export function getLastScannedBatch(): StoredSearchItem[] {
   return [];
 }
 
-export function getLocalSearchHistory(): StoredSearchItem[] {
+export function getLocalSearchHistory(forceFresh = false): StoredSearchItem[] {
   if (typeof window === 'undefined') return [];
-  if (memoryCache && memoryCache.length > 0) {
+  if (!forceFresh && memoryCache && memoryCache.length > 0) {
     return memoryCache;
   }
 
@@ -199,10 +199,11 @@ export function getLocalSearchHistory(): StoredSearchItem[] {
 export function saveLocalSearchHistory(items: StoredSearchItem[], sessionLabel?: string): void {
   if (typeof window === 'undefined' || !items || !items.length) return;
   try {
+    lastCloudFetchTime = 0;
     // Also save search session for search-wise grouping
     saveSearchSession(sessionLabel || (items.length === 1 ? items[0].domain : `${items.length} Domains Check`), items);
 
-    const existing = getLocalSearchHistory();
+    const existing = getLocalSearchHistory(true);
     const existingMap = new Map<string, StoredSearchItem>();
     const nowIso = new Date().toISOString();
 
@@ -250,13 +251,17 @@ export function saveLocalSearchHistory(items: StoredSearchItem[], sessionLabel?:
         localStorage.setItem(STORAGE_KEY, JSON.stringify(merged.slice(0, 1000)));
       } catch (err) {}
     }
+
+    try {
+      window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: merged.length } }));
+    } catch (e) {}
   } catch (e) {}
 }
 
 export async function deleteHistoryItem(domain: string): Promise<void> {
   if (typeof window === 'undefined' || !domain) return;
   const lower = domain.toLowerCase().trim();
-  const current = getLocalSearchHistory();
+  const current = getLocalSearchHistory(true);
   const updated = current
     .filter((it) => it.domain.toLowerCase().trim() !== lower)
     .map((it, idx) => ({
@@ -279,6 +284,10 @@ export async function deleteHistoryItem(domain: string): Promise<void> {
   } catch (e) {}
 
   try {
+    window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: updated.length } }));
+  } catch (e) {}
+
+  try {
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user;
     if (user) {
@@ -294,6 +303,10 @@ export async function clearSearchHistory(): Promise<void> {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(SESSIONS_STORAGE_KEY);
     sessionStorage.removeItem('last_scanned_results');
+  } catch (e) {}
+
+  try {
+    window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: 0 } }));
   } catch (e) {}
 
   try {
@@ -330,7 +343,11 @@ export async function syncToSupabase(items: StoredSearchItem[]): Promise<void> {
         days_left: f.daysLeft || 'Active',
         registrar: f.registrar || (f.status === 'Available' ? '—' : 'Registered / Active'),
       }));
-      await supabase.from('search_history').insert(chunk);
+      try {
+        await supabase.from('search_history').upsert(chunk, { onConflict: 'user_id,domain' });
+      } catch (err) {
+        await supabase.from('search_history').insert(chunk);
+      }
     }
   } catch (e) {
     console.warn('Sync to Supabase note:', e);

@@ -89,16 +89,21 @@ export default function DashboardHomePage() {
   const [avgDr, setAvgDr] = useState(initAvg);
 
   useEffect(() => {
-    // Instant sync from local storage
-    const local = getLocalSearchHistory();
-    if (local && local.length > 0) {
-      setSearches(local);
-      setTotalChecked(local.length);
-      const avail = local.filter((s) => s.status === 'Available').length;
-      setAvailableCount(avail);
-      setRegisteredCount(local.length - avail);
-      setAvgDr(Math.round(local.reduce((acc, s) => acc + (s.dr || 0), 0) / local.length));
-    }
+    const refreshData = () => {
+      const local = getLocalSearchHistory(true);
+      if (local && local.length > 0) {
+        setSearches(local);
+        setTotalChecked(local.length);
+        const avail = local.filter((s) => s.status === 'Available').length;
+        setAvailableCount(avail);
+        setRegisteredCount(local.length - avail);
+        setAvgDr(Math.round(local.reduce((acc, s) => acc + (s.dr || 0), 0) / local.length));
+      }
+    };
+
+    refreshData();
+    window.addEventListener('oldurl_history_updated', refreshData);
+    window.addEventListener('storage', refreshData);
 
     async function loadUserData() {
       try {
@@ -117,7 +122,7 @@ export default function DashboardHomePage() {
       } catch (e) {}
 
       // Reconcile with cloud without blocking UI
-      fetchAllSearchHistory()
+      fetchAllSearchHistory(true)
         .then(({ items, totalChecked: tot, availableCount: avail, registeredCount: reg, avgDr: avg }) => {
           if (items && items.length > 0) {
             setTotalChecked(tot);
@@ -133,6 +138,11 @@ export default function DashboardHomePage() {
     }
 
     loadUserData();
+
+    return () => {
+      window.removeEventListener('oldurl_history_updated', refreshData);
+      window.removeEventListener('storage', refreshData);
+    };
   }, []);
 
   const auditDomain = async (domainToAudit: string) => {

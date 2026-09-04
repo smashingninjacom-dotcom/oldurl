@@ -75,18 +75,23 @@ export default function PreviousSearchesPage() {
   };
 
   useEffect(() => {
-    // Instant synchronous 0ms load
-    const local = getLocalSearchHistory();
-    if (local && local.length > 0) {
-      setData(local);
-    }
-    const localSessions = getSearchSessions();
-    if (localSessions && localSessions.length > 0) {
-      setSessions(localSessions);
-    }
+    const refreshData = () => {
+      const local = getLocalSearchHistory(true);
+      if (local && local.length > 0) {
+        setData(local);
+      }
+      const localSessions = getSearchSessions();
+      if (localSessions && localSessions.length > 0) {
+        setSessions(localSessions);
+      }
+    };
+
+    refreshData();
+    window.addEventListener('oldurl_history_updated', refreshData);
+    window.addEventListener('storage', refreshData);
 
     // Background cloud reconciliation without blocking UI
-    fetchAllSearchHistory()
+    fetchAllSearchHistory(true)
       .then(({ items }) => {
         if (items && items.length > 0) {
           setData(items);
@@ -96,6 +101,11 @@ export default function PreviousSearchesPage() {
       .catch((e) => {
         console.warn('History background sync note:', e);
       });
+
+    return () => {
+      window.removeEventListener('oldurl_history_updated', refreshData);
+      window.removeEventListener('storage', refreshData);
+    };
   }, []);
 
   const activeData = React.useMemo(() => {
