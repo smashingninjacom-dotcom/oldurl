@@ -29,7 +29,7 @@ export default function DomainAnalyticsPage() {
       return;
     }
     try {
-      sessionStorage.setItem('pending_analytics_domains', domainList.slice(0, 300).join('\n'));
+      sessionStorage.setItem('pending_analytics_domains', domainList.slice(0, 2500).join('\n'));
     } catch (e) {}
     // Navigate cleanly without query string to avoid URI_TOO_LONG (414)
     router.push('/dashboard/domain-analytics-result');
@@ -43,7 +43,7 @@ export default function DomainAnalyticsPage() {
     try {
       const domainList = await parseDomainsFromFile(file);
       if (domainList.length > 0) {
-        sessionStorage.setItem('pending_analytics_domains', domainList.slice(0, 300).join('\n'));
+        sessionStorage.setItem('pending_analytics_domains', domainList.slice(0, 2500).join('\n'));
         router.push('/dashboard/domain-analytics-result');
       } else {
         alert('No valid domain names found in the uploaded file (supports XML, CSV, and XLSX).');

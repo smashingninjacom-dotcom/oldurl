@@ -30,7 +30,7 @@ export default function DomainCheckerPage() {
     }
 
     try {
-      sessionStorage.setItem('pending_domains', domainList.slice(0, 100).join('\n'));
+      sessionStorage.setItem('pending_domains', domainList.slice(0, 2500).join('\n'));
     } catch (e) {
       console.error(e);
     }
@@ -47,7 +47,7 @@ export default function DomainCheckerPage() {
     try {
       const domainList = await parseDomainsFromFile(file);
       if (domainList.length > 0) {
-        sessionStorage.setItem('pending_domains', domainList.slice(0, 100).join('\n'));
+        sessionStorage.setItem('pending_domains', domainList.slice(0, 2500).join('\n'));
         router.push('/dashboard/results');
       } else {
         alert('No valid domain names found in the uploaded file. Please make sure the file contains domain names or URLs.');

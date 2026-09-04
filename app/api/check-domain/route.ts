@@ -104,104 +104,108 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Process up to 50 domains per batch
-    const domainList = domains.slice(0, 50);
+    // Process up to 2,000 domains per batch
+    const domainList = domains.slice(0, 2000);
 
-    const results = await Promise.all(
-      domainList.map(async (rawDomain: string) => {
-        let cleanDomain = rawDomain
-          .trim()
-          .toLowerCase()
-          .replace(/^(?:https?:\/\/)?(?:www\.)?/i, '')
-          .split('/')[0]
-          .split('?')[0]
-          .split('#')[0]
-          .replace(/[^a-z0-9.-]/g, '');
+    // Process in parallel chunks of 25 to optimize speed and avoid rate-limits
+    const chunkSize = 25;
+    const results: any[] = [];
 
-        if (!cleanDomain || !cleanDomain.includes('.')) {
-          cleanDomain = rawDomain.trim();
-        }
+    for (let i = 0; i < domainList.length; i += chunkSize) {
+      const chunk = domainList.slice(i, i + chunkSize);
+      const chunkResults = await Promise.all(
+        chunk.map(async (rawDomain: string) => {
+          let cleanDomain = rawDomain
+            .trim()
+            .toLowerCase()
+            .replace(/^(?:https?:\/\/)?(?:www\.)?/i, '')
+            .split('/')[0]
+            .split('?')[0]
+            .split('#')[0]
+            .replace(/[^a-z0-9.-]/g, '');
 
-        // Deterministic hash for authority metrics
-        let hash = 0;
-        for (let i = 0; i < cleanDomain.length; i++) {
-          hash = (hash << 5) - hash + cleanDomain.charCodeAt(i);
-          hash |= 0;
-        }
-        const absHash = Math.abs(hash);
-        const tld = cleanDomain.substring(cleanDomain.lastIndexOf('.'));
+          if (!cleanDomain || !cleanDomain.includes('.')) {
+            cleanDomain = rawDomain.trim();
+          }
 
-        // Well-known high-authority active domains
-        const knownActive = [
-          'google.com',
-          'apple.com',
-          'microsoft.com',
-          'amazon.com',
-          'wikipedia.org',
-          'github.com',
-          'meta.com',
-          'netflix.com',
-          'youtube.com',
-          'twitter.com',
-          'linkedin.com',
-          'reddit.com',
-        ];
-        const isKnownActive = knownActive.some((k) => cleanDomain.endsWith(k));
+          let hash = 0;
+          for (let k = 0; k < cleanDomain.length; k++) {
+            hash = (hash << 5) - hash + cleanDomain.charCodeAt(k);
+            hash |= 0;
+          }
+          const absHash = Math.abs(hash);
+          const tld = cleanDomain.substring(cleanDomain.lastIndexOf('.'));
 
-        let status: 'Available' | 'Expiring Soon' | 'Registered' = 'Registered';
-        let registrar = '—';
-        let daysLeft = '365d';
+          const knownActive = [
+            'google.com',
+            'apple.com',
+            'microsoft.com',
+            'amazon.com',
+            'wikipedia.org',
+            'github.com',
+            'meta.com',
+            'netflix.com',
+            'youtube.com',
+            'twitter.com',
+            'linkedin.com',
+            'reddit.com',
+          ];
+          const isKnownActive = knownActive.some((k) => cleanDomain.endsWith(k));
 
-        if (isKnownActive) {
-          status = 'Registered';
-          registrar = 'MarkMonitor Inc.';
-          daysLeft = '730d';
-        } else {
-          // Perform real live RDAP check
-          const rdapResult = await checkRDAP(cleanDomain);
+          let status: 'Available' | 'Expiring Soon' | 'Registered' = 'Registered';
+          let registrar = '—';
+          let daysLeft = '365d';
 
-          if (!rdapResult.registered) {
-            status = 'Available';
-            registrar = '—';
-            daysLeft = 'Dropped';
-          } else {
+          if (isKnownActive) {
             status = 'Registered';
-            registrar = rdapResult.registrar || 'Registered / Active';
+            registrar = 'MarkMonitor Inc.';
+            daysLeft = '730d';
+          } else {
+            const rdapResult = await checkRDAP(cleanDomain);
 
-            if (rdapResult.expirationDate) {
-              const diffTime = new Date(rdapResult.expirationDate).getTime() - Date.now();
-              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-              daysLeft = diffDays > 0 ? `${diffDays}d` : 'Expired';
-              if (diffDays <= 30 && diffDays > 0) status = 'Expiring Soon';
+            if (!rdapResult.registered) {
+              status = 'Available';
+              registrar = '—';
+              daysLeft = 'Dropped';
             } else {
-              daysLeft = 'Active';
+              status = 'Registered';
+              registrar = rdapResult.registrar || 'Registered / Active';
+
+              if (rdapResult.expirationDate) {
+                const diffTime = new Date(rdapResult.expirationDate).getTime() - Date.now();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                daysLeft = diffDays > 0 ? `${diffDays}d` : 'Expired';
+                if (diffDays <= 30 && diffDays > 0) status = 'Expiring Soon';
+              } else {
+                daysLeft = 'Active';
+              }
             }
           }
-        }
 
-        // Domain Rating estimation based on domain characteristics
-        const dr = isKnownActive
-          ? 90 + (absHash % 9)
-          : Math.min(85, Math.max(12, 25 + (absHash % 58)));
-        const refDomains = isKnownActive
-          ? 50000 + (absHash % 10000)
-          : Math.max(10, Math.round(dr * 2.8 + (absHash % 150)));
-        const backlinks = Math.round(refDomains * (3.5 + (absHash % 12)));
+          const dr = isKnownActive
+            ? 90 + (absHash % 9)
+            : Math.min(85, Math.max(12, 25 + (absHash % 58)));
+          const refDomains = isKnownActive
+            ? 50000 + (absHash % 10000)
+            : Math.max(10, Math.round(dr * 2.8 + (absHash % 150)));
+          const backlinks = Math.round(refDomains * (3.5 + (absHash % 12)));
 
-        return {
-          domain: cleanDomain,
-          status,
-          dr,
-          daysLeft,
-          registrar,
-          refDomains,
-          backlinks,
-          tld,
-          namecheapLink: `https://www.namecheap.com/domains/registration/results/?domain=${cleanDomain}`,
-          godaddyLink: `https://www.godaddy.com/domainsearch/find?domainToCheck=${cleanDomain}`,
-        };
-      })
-    );
+          return {
+            domain: cleanDomain,
+            status,
+            dr,
+            daysLeft,
+            registrar,
+            refDomains,
+            backlinks,
+            tld,
+            namecheapLink: `https://www.namecheap.com/domains/registration/results/?domain=${cleanDomain}`,
+            godaddyLink: `https://www.godaddy.com/domainsearch/find?domainToCheck=${cleanDomain}`,
+          };
+        })
+      );
+      results.push(...chunkResults);
+    }
 
     return NextResponse.json({
       success: true,
