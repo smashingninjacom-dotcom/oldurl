@@ -42,18 +42,23 @@ export function getLocalSearchHistory(): StoredSearchItem[] {
         parsed.forEach((item: any) => {
           if (item && item.domain) {
             const dom = String(item.domain).toLowerCase().trim();
-            if (dom && !map.has(dom)) {
-              map.set(dom, {
-                id: '01',
-                domain: item.domain,
-                status: item.status || 'Available',
-                daysLeft: item.daysLeft || item.days_left || (item.status === 'Available' ? 'Dropped' : '365d'),
-                dr: Number(item.dr) || 0,
-                registrar: item.registrar || (item.status === 'Available' ? '—' : 'Namecheap, Inc.'),
-                refDomains: item.refDomains || item.ref_domains || 0,
-                backlinks: item.backlinks || 0,
-                createdAt: item.createdAt || item.created_at || new Date().toISOString(),
-              });
+            if (dom) {
+              const existing = map.get(dom);
+              const itemDate = item.createdAt || item.created_at || new Date().toISOString();
+              // If not in map, or if this item is newer, store it
+              if (!existing) {
+                map.set(dom, {
+                  id: '01',
+                  domain: item.domain,
+                  status: item.status || 'Available',
+                  daysLeft: item.daysLeft || item.days_left || (item.status === 'Available' ? 'Dropped' : '365d'),
+                  dr: Number(item.dr) || 0,
+                  registrar: item.registrar || (item.status === 'Available' ? '—' : 'Namecheap, Inc.'),
+                  refDomains: item.refDomains || item.ref_domains || 0,
+                  backlinks: item.backlinks || 0,
+                  createdAt: itemDate,
+                });
+              }
             }
           }
         });
@@ -81,22 +86,32 @@ export function saveLocalSearchHistory(items: StoredSearchItem[]): void {
     const existingMap = new Map<string, StoredSearchItem>();
     const nowIso = new Date().toISOString();
 
-    // New items take precedence
-    items.forEach((it, idx) => {
-      existingMap.set(it.domain.toLowerCase(), {
-        ...it,
-        id: String(idx + 1).padStart(2, '0'),
-        createdAt: it.createdAt || nowIso,
-      });
-    });
-
-    existing.forEach((it) => {
-      if (!existingMap.has(it.domain.toLowerCase())) {
-        existingMap.set(it.domain.toLowerCase(), it);
+    // New items take precedence (updating the timestamp and metrics for that domain)
+    items.forEach((it) => {
+      if (it && it.domain) {
+        const dom = it.domain.toLowerCase().trim();
+        existingMap.set(dom, {
+          ...it,
+          domain: it.domain.trim(),
+          createdAt: it.createdAt || nowIso,
+        });
       }
     });
 
-    const merged = Array.from(existingMap.values());
+    // Older items added only if not already present
+    existing.forEach((it) => {
+      if (it && it.domain) {
+        const key = it.domain.toLowerCase().trim();
+        if (!existingMap.has(key)) {
+          existingMap.set(key, it);
+        }
+      }
+    });
+
+    const merged = Array.from(existingMap.values()).map((item, idx) => ({
+      ...item,
+      id: String(idx + 1).padStart(2, '0'),
+    }));
 
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
@@ -107,7 +122,7 @@ export function saveLocalSearchHistory(items: StoredSearchItem[]): void {
     }
 
     try {
-      sessionStorage.setItem('last_scanned_results', JSON.stringify(items));
+      sessionStorage.setItem('last_scanned_results', JSON.stringify(merged.slice(0, 1000)));
     } catch (e) {}
   } catch (e) {}
 }
@@ -117,11 +132,20 @@ export async function syncToSupabase(items: StoredSearchItem[]): Promise<void> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !items.length) return;
 
+    // Deduplicate input chunk by domain
+    const dedupedMap = new Map<string, StoredSearchItem>();
+    items.forEach((it) => {
+      if (it && it.domain) {
+        dedupedMap.set(it.domain.toLowerCase().trim(), it);
+      }
+    });
+    const uniqueList = Array.from(dedupedMap.values());
+
     const dbChunks = 50;
-    for (let i = 0; i < items.length; i += dbChunks) {
-      const chunk = items.slice(i, i + dbChunks).map((f) => ({
+    for (let i = 0; i < uniqueList.length; i += dbChunks) {
+      const chunk = uniqueList.slice(i, i + dbChunks).map((f) => ({
         user_id: user.id,
-        domain: f.domain,
+        domain: f.domain.trim(),
         status: f.status,
         dr: Number(f.dr) || 0,
         days_left: f.daysLeft || 'Active',
@@ -154,22 +178,46 @@ export async function fetchAllSearchHistory(): Promise<{
         .limit(100000);
 
       if (!error && cloudHistory && cloudHistory.length > 0) {
-        const cloudMapped: StoredSearchItem[] = cloudHistory.map((item, idx) => ({
+        // Strict deduplication of cloud history by domain
+        const uniqueCloudMap = new Map<string, StoredSearchItem>();
+        cloudHistory.forEach((item) => {
+          if (item && item.domain) {
+            const lower = item.domain.toLowerCase().trim();
+            if (!uniqueCloudMap.has(lower)) {
+              uniqueCloudMap.set(lower, {
+                id: '01',
+                domain: item.domain,
+                status: item.status || 'Available',
+                daysLeft: item.days_left || (item.status === 'Available' ? 'Dropped' : '365d'),
+                dr: Number(item.dr) || 0,
+                registrar: item.registrar || (item.status === 'Available' ? '—' : 'Namecheap, Inc.'),
+                createdAt: item.created_at,
+              });
+            }
+          }
+        });
+
+        // Master merge between cloud and local, strictly deduplicated by domain
+        const masterMap = new Map<string, StoredSearchItem>();
+        localItems.forEach((it) => {
+          if (it && it.domain) masterMap.set(it.domain.toLowerCase().trim(), it);
+        });
+        uniqueCloudMap.forEach((it, key) => {
+          if (!masterMap.has(key)) {
+            masterMap.set(key, it);
+          }
+        });
+
+        const finalItems = Array.from(masterMap.values()).map((item, idx) => ({
+          ...item,
           id: String(idx + 1).padStart(2, '0'),
-          domain: item.domain,
-          status: item.status || 'Available',
-          daysLeft: item.days_left || (item.status === 'Available' ? 'Dropped' : '365d'),
-          dr: Number(item.dr) || 0,
-          registrar: item.registrar || (item.status === 'Available' ? '—' : 'Namecheap, Inc.'),
-          createdAt: item.created_at,
         }));
 
-        const finalItems = cloudMapped.length >= localItems.length ? cloudMapped : localItems;
-        const total = count || finalItems.length;
+        const total = finalItems.length;
         const avail = finalItems.filter((s) => s.status === 'Available').length;
         const reg = total - avail;
         const avg = Math.round(
-          finalItems.reduce((acc, s) => acc + (s.dr || 0), 0) / (finalItems.length || 1)
+          finalItems.reduce((acc, s) => acc + (s.dr || 0), 0) / (total || 1)
         );
 
         return {

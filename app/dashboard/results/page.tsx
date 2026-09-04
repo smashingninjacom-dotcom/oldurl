@@ -141,10 +141,14 @@ function ResultsContent() {
 
     if (domainInput) {
       hasLoadedRef.current = true;
-      const rawDomains = domainInput
-        .split(/[\r\n,]+/)
-        .map(extractCleanDomain)
-        .filter((d) => d.length > 2 && d.includes('.'));
+      const rawDomains = Array.from(
+        new Set(
+          domainInput
+            .split(/[\r\n,]+/)
+            .map(extractCleanDomain)
+            .filter((d) => d.length > 2 && d.includes('.'))
+        )
+      );
 
       if (rawDomains.length > 0) {
         const initialCalculated = rawDomains.map((d, i) => evaluateDomain(d, i));
