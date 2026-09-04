@@ -318,9 +318,16 @@ function ResultsContent() {
                   <Pause className="w-3 h-3 fill-current" /> Paused
                 </span>
               )}
+              {!isScanning && progress === 100 && totalCount > 0 && (
+                <span className="text-xs text-emerald-700 font-bold flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Completed
+                </span>
+              )}
             </div>
             <p className="text-xs sm:text-sm text-gray-500 mt-1">
-              Checking... {completedCount} of {totalCount} — real-time WHOIS availability &amp; DR metrics
+              {isScanning
+                ? `Checking... ${completedCount} of ${totalCount} — real-time WHOIS availability & DR metrics`
+                : `Audit completed for all ${totalCount} domains — real-time WHOIS availability & DR metrics`}
             </p>
           </div>
 
@@ -330,41 +337,55 @@ function ResultsContent() {
               <span className="text-xs text-gray-400 ml-1 font-medium">({completedCount}/{totalCount})</span>
             </div>
 
-            {/* Pause Button */}
-            {isScanning && (
-              <button
-                type="button"
-                onClick={handleTogglePause}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-all ${
-                  isPaused
-                    ? 'bg-[#FC6B17] text-white border-[#FC6B17] shadow-xs'
-                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                }`}
-              >
-                {isPaused ? <Play className="w-3.5 h-3.5 fill-current" /> : <Pause className="w-3.5 h-3.5 fill-current" />}
-                <span>{isPaused ? 'Resume' : 'Pause'}</span>
-              </button>
-            )}
+            {/* Scanning Action Buttons */}
+            {isScanning ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleTogglePause}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-all ${
+                    isPaused
+                      ? 'bg-[#FC6B17] text-white border-[#FC6B17] shadow-xs'
+                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  {isPaused ? <Play className="w-3.5 h-3.5 fill-current" /> : <Pause className="w-3.5 h-3.5 fill-current" />}
+                  <span>{isPaused ? 'Resume' : 'Pause'}</span>
+                </button>
 
-            {/* Stop Button */}
-            {isScanning && (
-              <button
-                type="button"
-                onClick={handleStop}
-                className="px-3.5 py-2 border border-gray-200 hover:bg-gray-50 rounded-xl text-xs font-semibold text-gray-700 flex items-center gap-1.5 transition-colors"
-              >
-                <Square className="w-3.5 h-3.5 text-gray-500 fill-current" /> Stop
-              </button>
-            )}
+                <button
+                  type="button"
+                  onClick={handleStop}
+                  className="px-3.5 py-2 border border-gray-200 hover:bg-gray-50 rounded-xl text-xs font-semibold text-gray-700 flex items-center gap-1.5 transition-colors"
+                >
+                  <Square className="w-3.5 h-3.5 text-gray-500 fill-current" /> Stop
+                </button>
 
-            {/* Cancel Button */}
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="px-3.5 py-2 border border-gray-200 hover:bg-gray-50 rounded-xl text-xs font-semibold text-gray-700 flex items-center gap-1.5 transition-colors"
-            >
-              <X className="w-3.5 h-3.5 text-gray-400" /> Cancel
-            </button>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="px-3.5 py-2 border border-gray-200 hover:bg-gray-50 rounded-xl text-xs font-semibold text-gray-700 flex items-center gap-1.5 transition-colors"
+                >
+                  <X className="w-3.5 h-3.5 text-gray-400" /> Cancel
+                </button>
+              </>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportCSV}
+                  className="bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 px-3.5 py-2 rounded-xl font-semibold text-xs flex items-center gap-1.5 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5 text-gray-500" /> Export CSV
+                </button>
+                <Link
+                  href="/dashboard/domain-checker"
+                  className="bg-[#FC6B17] hover:bg-[#e05b10] text-white px-4 py-2 rounded-xl font-semibold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5" /> New Audit
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 
