@@ -361,11 +361,11 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
   registeredCount: number;
   avgDr: number;
 }> {
-  const localItems = getLocalSearchHistory();
+  const localItems = getLocalSearchHistory(forceRefresh);
 
   const now = Date.now();
-  // Return cached data immediately if queried within 30s
-  if (!forceRefresh && lastCloudFetchTime > 0 && now - lastCloudFetchTime < 30000 && memoryCache && memoryCache.length > 0) {
+  // Return cached data immediately if queried within 15s and not forceRefresh
+  if (!forceRefresh && lastCloudFetchTime > 0 && now - lastCloudFetchTime < 15000 && memoryCache && memoryCache.length > 0) {
     const total = memoryCache.length;
     const avail = memoryCache.filter((s) => s.status === 'Available').length;
     const reg = total - avail;
@@ -402,20 +402,38 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user;
     if (user) {
-      // Fetch all historical searches (up to 10,000)
-      const { data: cloudHistory, error } = await supabase
-        .from('search_history')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(10000);
+      // Fetch all historical searches using paginated ranges to bypass Supabase 1000 row REST limit
+      const allCloudHistory: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+
+      while (true) {
+        const { data, error } = await supabase
+          .from('search_history')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .range(from, from + batchSize - 1);
+
+        if (error || !data || data.length === 0) {
+          break;
+        }
+
+        allCloudHistory.push(...data);
+
+        if (data.length < batchSize || allCloudHistory.length >= 50000) {
+          break;
+        }
+
+        from += batchSize;
+      }
 
       lastCloudFetchTime = Date.now();
 
-      if (!error && cloudHistory && cloudHistory.length > 0) {
+      if (allCloudHistory.length > 0) {
         // Strict deduplication of cloud history by domain
         const uniqueCloudMap = new Map<string, StoredSearchItem>();
-        cloudHistory.forEach((item) => {
+        allCloudHistory.forEach((item) => {
           if (item && item.domain) {
             const lower = item.domain.toLowerCase().trim();
             if (!uniqueCloudMap.has(lower)) {
@@ -456,12 +474,25 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
 
         memoryCache = finalItems;
 
+        // Persist to local storage (up to 5,000 for local cache)
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(finalItems.slice(0, 5000)));
+        } catch (e) {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(finalItems.slice(0, 1000)));
+          } catch (err) {}
+        }
+
         const total = finalItems.length;
         const avail = finalItems.filter((s) => s.status === 'Available').length;
         const reg = total - avail;
         const avg = Math.round(
           finalItems.reduce((acc, s) => acc + (s.dr || 0), 0) / (total || 1)
         );
+
+        try {
+          window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: total } }));
+        } catch (e) {}
 
         return {
           items: finalItems,
@@ -477,7 +508,7 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
     isCloudFetching = false;
   }
 
-  // Fallback to local storage (works for both guests and authenticated users)
+  // Fallback to local storage
   const total = localItems.length;
   const avail = localItems.filter((s) => s.status === 'Available').length;
   const reg = total - avail;
