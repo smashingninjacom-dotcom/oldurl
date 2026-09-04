@@ -186,10 +186,9 @@ function ResultsContent() {
                   user_id: user.id,
                   domain: f.domain,
                   status: f.status,
-                  dr: f.dr,
+                  dr: Number(f.dr) || 0,
                   days_left: f.daysLeft,
-                  registrar: f.registrar,
-                  ref_domains: f.refDomains || 0,
+                  registrar: f.registrar || (f.status === 'Available' ? '—' : 'Registered / Active'),
                 }));
                 await supabase.from('search_history').insert(batch);
               }

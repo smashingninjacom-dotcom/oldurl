@@ -153,9 +153,8 @@ export default function DashboardHomePage() {
           user_id: user.id,
           domain: result.domain,
           status: result.status,
-          dr: result.dr,
-          ref_domains: result.refDomains || 0,
-          registrar: result.registrar || '—',
+          dr: Number(result.dr) || 0,
+          registrar: result.registrar || (result.status === 'Available' ? '—' : 'Registered / Active'),
           days_left: result.status === 'Available' ? 'Dropped' : '365d',
         });
       }

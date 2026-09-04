@@ -81,10 +81,9 @@ export default function BacklinkExplorerPage() {
               user_id: user.id,
               domain: g.targetDomain,
               status: g.status,
-              dr: g.dr,
+              dr: Number(g.dr) || 0,
               days_left: g.status === 'Available' ? 'Dropped' : '30d',
               registrar: g.status === 'Available' ? '—' : 'Namecheap, Inc.',
-              ref_domains: 85,
             }));
             supabase.from('search_history').insert(toInsert).then(() => {});
           }

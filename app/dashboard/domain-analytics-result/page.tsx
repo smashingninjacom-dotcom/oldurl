@@ -165,10 +165,9 @@ function DomainAnalyticsResultContent() {
                 user_id: user.id,
                 domain: m.domain,
                 status: m.status,
-                dr: m.dr,
+                dr: Number(m.dr) || 0,
                 days_left: m.status === 'Available' ? 'Dropped' : '365d',
                 registrar: m.status === 'Available' ? '—' : 'Namecheap, Inc.',
-                ref_domains: m.refDomains,
               }));
               await supabase.from('search_history').insert(toInsert);
             }
