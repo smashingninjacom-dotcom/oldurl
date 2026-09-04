@@ -45,10 +45,21 @@ interface ResultItem {
 
 function ResultsContent() {
   const searchParams = useSearchParams();
-  const [results, setResults] = useState<ResultItem[]>([]);
+  const [results, setResults] = useState<ResultItem[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const lastScanned = sessionStorage.getItem('last_scanned_results');
+        if (lastScanned) {
+          const parsed = JSON.parse(lastScanned);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {}
+    }
+    return getLocalSearchHistory() as any;
+  });
   const [isScanning, setIsScanning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState(100);
   const [statusFilter, setStatusFilter] = useState<'All' | 'Available' | 'Registered'>('All');
   const [extensionFilter, setExtensionFilter] = useState<string>('All');
   const [minDr, setMinDr] = useState<string>('');
@@ -231,13 +242,18 @@ function ResultsContent() {
       setIsScanning(false);
       setProgress(100);
 
+      // 0ms instant display from local storage
+      const localItems = getLocalSearchHistory();
+      if (localItems && localItems.length > 0) {
+        setResults(localItems as any);
+      }
+
+      // Background cloud reconciliation
       fetchAllSearchHistory().then(({ items }) => {
         if (items && items.length > 0) {
           setResults(items as any);
-        } else {
-          setResults([]);
         }
-      }).catch(() => setResults([]));
+      }).catch(() => {});
     }
   }, [searchParams]);
 
