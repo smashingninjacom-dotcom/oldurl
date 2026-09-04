@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
-import { signInWithGoogle } from '../lib/supabaseClient';
-import { X, Sparkles, AlertCircle, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { signInWithGoogle, signInWithGoogleIdToken, GOOGLE_CLIENT_ID } from '../lib/supabaseClient';
+import { X, Sparkles, AlertCircle, ArrowRight, Zap } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -13,8 +13,52 @@ interface AuthModalProps {
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const gsiRef = useRef<HTMLDivElement>(null);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    if (!isOpen || typeof window === 'undefined') return;
+
+    const initGsi = () => {
+      const google = (window as any).google;
+      if (google?.accounts?.id) {
+        try {
+          google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: async (response: any) => {
+              if (response?.credential) {
+                setLoading(true);
+                try {
+                  await signInWithGoogleIdToken(response.credential);
+                  window.location.href = '/dashboard';
+                } catch (err: any) {
+                  setErrorMsg(err.message || 'Google sign-in failed.');
+                  setLoading(false);
+                }
+              }
+            },
+          });
+
+          if (gsiRef.current) {
+            google.accounts.id.renderButton(gsiRef.current, {
+              theme: 'outline',
+              size: 'large',
+              type: 'standard',
+              shape: 'pill',
+              text: 'continue_with',
+              logo_alignment: 'left',
+              width: 320,
+            });
+          }
+        } catch (e) {
+          console.warn('GSI init notice:', e);
+        }
+      }
+    };
+
+    initGsi();
+    const timer = setTimeout(initGsi, 500);
+    return () => clearTimeout(timer);
+  }, [isOpen]);
 
   const handleGoogleLogin = async () => {
     setLoading(true);

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -47,6 +48,10 @@ export default function RootLayout({
     <html lang="en" className="scroll-smooth">
       <body className="antialiased selection:bg-[#FC6B17] selection:text-white bg-[#fdf5ee]">
         {children}
+        <Script
+          src="https://accounts.google.com/gsi/client"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );

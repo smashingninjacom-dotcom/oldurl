@@ -11,6 +11,23 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
+export const GOOGLE_CLIENT_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+  '12118986043-76plu35da6utclphjkv263usqigb4hgt.apps.googleusercontent.com';
+
+export async function signInWithGoogleIdToken(idToken: string) {
+  const { data, error } = await supabase.auth.signInWithIdToken({
+    provider: 'google',
+    token: idToken,
+  });
+
+  if (error) {
+    console.error('Supabase ID Token Error:', error.message);
+    throw error;
+  }
+  return data;
+}
+
 export async function signInWithGoogle(redirectTo?: string) {
   const redirectUrl =
     redirectTo ||
