@@ -84,6 +84,22 @@ export default function PreviousSearchesPage() {
   const registeredCount = totalCount - availableCount;
   const avgDr = totalCount > 0 ? Math.round(data.reduce((acc, it) => acc + (Number(it.dr) || 0), 0) / totalCount) : 0;
 
+  const availableExtensions = React.useMemo(() => {
+    const map = new Map<string, number>();
+    data.forEach((item) => {
+      if (!item.domain) return;
+      const clean = item.domain.trim().toLowerCase();
+      const lastDot = clean.lastIndexOf('.');
+      if (lastDot !== -1 && lastDot < clean.length - 1) {
+        const ext = clean.slice(lastDot);
+        map.set(ext, (map.get(ext) || 0) + 1);
+      }
+    });
+    return Array.from(map.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([ext, count]) => ({ ext, count }));
+  }, [data]);
+
   const filtered = data
     .filter((item) => {
       if (statusFilter !== 'All' && item.status !== statusFilter) return false;
@@ -270,18 +286,12 @@ export default function PreviousSearchesPage() {
               }}
               className="bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl font-bold text-gray-700 outline-none cursor-pointer focus:border-[#FC6B17]"
             >
-              <option value="All">All Extensions</option>
-              <option value=".com">.com</option>
-              <option value=".org">.org</option>
-              <option value=".net">.net</option>
-              <option value=".io">.io</option>
-              <option value=".co">.co</option>
-              <option value=".ai">.ai</option>
-              <option value=".gov">.gov</option>
-              <option value=".edu">.edu</option>
-              <option value=".info">.info</option>
-              <option value=".biz">.biz</option>
-              <option value=".xyz">.xyz</option>
+              <option value="All">All Extensions ({data.length})</option>
+              {availableExtensions.map(({ ext, count }) => (
+                <option key={ext} value={ext}>
+                  {ext} ({count})
+                </option>
+              ))}
             </select>
           </div>
 

@@ -309,6 +309,22 @@ function ResultsContent() {
   const availableCount = results.filter((r) => r.status === 'Available').length;
   const registeredCount = results.filter((r) => r.status !== 'Available').length;
 
+  const availableExtensions = useMemo(() => {
+    const map = new Map<string, number>();
+    results.forEach((item) => {
+      if (!item.domain) return;
+      const clean = item.domain.trim().toLowerCase();
+      const lastDot = clean.lastIndexOf('.');
+      if (lastDot !== -1 && lastDot < clean.length - 1) {
+        const ext = clean.slice(lastDot);
+        map.set(ext, (map.get(ext) || 0) + 1);
+      }
+    });
+    return Array.from(map.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([ext, count]) => ({ ext, count }));
+  }, [results]);
+
   const filtered = useMemo(() => {
     const list = results.filter((item) => {
       if (statusFilter === 'Available' && item.status !== 'Available') return false;
@@ -555,16 +571,18 @@ function ResultsContent() {
             <span className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Extension:</span>
             <select
               value={extensionFilter}
-              onChange={(e) => setExtensionFilter(e.target.value)}
+              onChange={(e) => {
+                setExtensionFilter(e.target.value);
+                setCurrentPage(1);
+              }}
               className="bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl font-medium text-gray-700 outline-none cursor-pointer focus:border-[#FC6B17]"
             >
-              <option value="All">All Extensions</option>
-              <option value=".com">.com</option>
-              <option value=".org">.org</option>
-              <option value=".net">.net</option>
-              <option value=".io">.io</option>
-              <option value=".co">.co</option>
-              <option value=".gov">.gov</option>
+              <option value="All">All Extensions ({results.length})</option>
+              {availableExtensions.map(({ ext, count }) => (
+                <option key={ext} value={ext}>
+                  {ext} ({count})
+                </option>
+              ))}
             </select>
           </div>
 
