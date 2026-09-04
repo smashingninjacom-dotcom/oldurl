@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../../lib/supabaseClient';
-import { fetchAllSearchHistory, formatCheckDate } from '../../../lib/searchHistory';
+import { fetchAllSearchHistory, getLocalSearchHistory, formatCheckDate } from '../../../lib/searchHistory';
 import {
   Search,
   Download,
@@ -13,11 +13,14 @@ import {
   ChevronDown,
   Globe,
   Lock,
+  CheckCircle2,
+  Activity,
+  Sparkles,
 } from 'lucide-react';
 
 export default function PreviousSearchesPage() {
-  const [data, setData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<any[]>(() => getLocalSearchHistory());
+  const [loading, setLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'All' | 'Available' | 'Registered'>('All');
   const [daysFilter, setDaysFilter] = useState<'Any' | '< 30d' | '30-90d' | '> 90d'>('Any');
   const [minDrInput, setMinDrInput] = useState('');
@@ -25,19 +28,28 @@ export default function PreviousSearchesPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    async function loadHistory() {
-      try {
-        const { items } = await fetchAllSearchHistory();
-        setData(items || []);
-      } catch (e) {
-        console.warn('History load note:', e);
-        setData([]);
-      } finally {
-        setLoading(false);
-      }
+    // Instant synchronous 0ms load
+    const local = getLocalSearchHistory();
+    if (local && local.length > 0) {
+      setData(local);
     }
-    loadHistory();
+
+    // Background cloud reconciliation without blocking UI
+    fetchAllSearchHistory()
+      .then(({ items }) => {
+        if (items && items.length > 0) {
+          setData(items);
+        }
+      })
+      .catch((e) => {
+        console.warn('History background sync note:', e);
+      });
   }, []);
+
+  const totalCount = data.length;
+  const availableCount = data.filter((item) => item.status === 'Available').length;
+  const registeredCount = totalCount - availableCount;
+  const avgDr = totalCount > 0 ? Math.round(data.reduce((acc, it) => acc + (Number(it.dr) || 0), 0) / totalCount) : 0;
 
   const filtered = data.filter((item) => {
     if (statusFilter !== 'All' && item.status !== statusFilter) return false;
@@ -73,6 +85,77 @@ export default function PreviousSearchesPage() {
       <div>
         <h1 className="text-2xl font-bold text-[#0d1b3e]">Previous Searches</h1>
         <p className="text-xs text-gray-500 mt-0.5">All domains you have ever checked — most recent first.</p>
+      </div>
+
+      {/* Summary Stat Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-xs flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0">
+              <Search className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-xl sm:text-2xl font-bold text-[#0d1b3e] tracking-tight leading-none">
+                {totalCount}
+              </div>
+              <div className="text-xs font-medium text-gray-400 mt-1">Total Checked</div>
+            </div>
+          </div>
+          <span className="text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-100 px-2 py-0.5 rounded-full hidden sm:inline-block">
+            History
+          </span>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-xs flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-xl sm:text-2xl font-bold text-emerald-600 tracking-tight leading-none">
+                {availableCount}
+              </div>
+              <div className="text-xs font-medium text-emerald-600/80 mt-1">Available to Register</div>
+            </div>
+          </div>
+          <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full hidden sm:inline-block">
+            Available
+          </span>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-xs flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-orange-50 text-[#FC6B17] flex items-center justify-center flex-shrink-0">
+              <Lock className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-xl sm:text-2xl font-bold text-[#0d1b3e] tracking-tight leading-none">
+                {registeredCount}
+              </div>
+              <div className="text-xs font-medium text-gray-400 mt-1">Registered / Active</div>
+            </div>
+          </div>
+          <span className="text-[10px] font-semibold text-orange-700 bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-full hidden sm:inline-block">
+            Taken
+          </span>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-xs flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+              <Activity className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-xl sm:text-2xl font-bold text-[#0d1b3e] tracking-tight leading-none">
+                {avgDr} <span className="text-xs font-semibold text-gray-400">/ 100</span>
+              </div>
+              <div className="text-xs font-medium text-gray-400 mt-1">Avg. Domain Rating</div>
+            </div>
+          </div>
+          <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full hidden sm:inline-block">
+            SEO DR
+          </span>
+        </div>
       </div>
 
       {/* Filter Row */}

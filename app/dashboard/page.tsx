@@ -7,6 +7,7 @@ import {
   fetchAllSearchHistory,
   saveLocalSearchHistory,
   syncToSupabase,
+  getLocalSearchHistory,
   formatCheckDate,
 } from '../../lib/searchHistory';
 import {
@@ -37,16 +38,35 @@ interface SearchRecord {
 export default function DashboardHomePage() {
   const [user, setUser] = useState<any>(null);
   const [userName, setUserName] = useState<string>('Member');
-  const [loading, setLoading] = useState(true);
-  const [searches, setSearches] = useState<SearchRecord[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searches, setSearches] = useState<SearchRecord[]>(() => getLocalSearchHistory());
   const [quickInput, setQuickInput] = useState('');
   const [isChecking, setIsChecking] = useState(false);
-  const [totalChecked, setTotalChecked] = useState(0);
-  const [availableCount, setAvailableCount] = useState(0);
-  const [registeredCount, setRegisteredCount] = useState(0);
-  const [avgDr, setAvgDr] = useState(0);
+
+  // Compute immediate 0ms local metrics
+  const initialLocal = getLocalSearchHistory();
+  const initTotal = initialLocal.length;
+  const initAvail = initialLocal.filter((s) => s.status === 'Available').length;
+  const initReg = initTotal - initAvail;
+  const initAvg = initTotal > 0 ? Math.round(initialLocal.reduce((acc, s) => acc + (s.dr || 0), 0) / initTotal) : 0;
+
+  const [totalChecked, setTotalChecked] = useState(initTotal);
+  const [availableCount, setAvailableCount] = useState(initAvail);
+  const [registeredCount, setRegisteredCount] = useState(initReg);
+  const [avgDr, setAvgDr] = useState(initAvg);
 
   useEffect(() => {
+    // Instant sync from local storage
+    const local = getLocalSearchHistory();
+    if (local && local.length > 0) {
+      setSearches(local);
+      setTotalChecked(local.length);
+      const avail = local.filter((s) => s.status === 'Available').length;
+      setAvailableCount(avail);
+      setRegisteredCount(local.length - avail);
+      setAvgDr(Math.round(local.reduce((acc, s) => acc + (s.dr || 0), 0) / local.length));
+    }
+
     async function loadUserData() {
       try {
         const {
@@ -62,20 +82,20 @@ export default function DashboardHomePage() {
         }
       } catch (e) {}
 
-      try {
-        const { items, totalChecked: tot, availableCount: avail, registeredCount: reg, avgDr: avg } =
-          await fetchAllSearchHistory();
-
-        setTotalChecked(tot);
-        setAvailableCount(avail);
-        setRegisteredCount(reg);
-        setAvgDr(avg);
-        setSearches(items);
-      } catch (err) {
-        console.warn('Dashboard data fetch note:', err);
-      } finally {
-        setLoading(false);
-      }
+      // Reconcile with cloud without blocking UI
+      fetchAllSearchHistory()
+        .then(({ items, totalChecked: tot, availableCount: avail, registeredCount: reg, avgDr: avg }) => {
+          if (items && items.length > 0) {
+            setTotalChecked(tot);
+            setAvailableCount(avail);
+            setRegisteredCount(reg);
+            setAvgDr(avg);
+            setSearches(items);
+          }
+        })
+        .catch((err) => {
+          console.warn('Dashboard data fetch note:', err);
+        });
     }
 
     loadUserData();
