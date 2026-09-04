@@ -346,8 +346,8 @@ function ResultsContent() {
             </div>
             <p className="text-xs sm:text-sm text-gray-500 mt-1">
               {isScanning
-                ? `Checking... ${completedCount} of ${totalCount} — real-time WHOIS availability & DR metrics`
-                : `Audit completed for all ${totalCount} domains — real-time WHOIS availability & DR metrics`}
+                ? `Checking... ${completedCount} of ${totalCount}`
+                : `Audit completed for all ${totalCount} domains`}
             </p>
           </div>
 
