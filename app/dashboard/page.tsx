@@ -4,6 +4,11 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../lib/supabaseClient';
 import {
+  fetchAllSearchHistory,
+  saveLocalSearchHistory,
+  syncToSupabase,
+} from '../../lib/searchHistory';
+import {
   Search,
   CheckCircle2,
   Lock,
@@ -42,36 +47,6 @@ export default function DashboardHomePage() {
 
   useEffect(() => {
     async function loadUserData() {
-      // 1. First check local cached scans for instant accurate counts
-      let localRecords: SearchRecord[] = [];
-      try {
-        const cached = localStorage.getItem('oldurl_cached_history') || sessionStorage.getItem('last_scanned_results');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            localRecords = parsed.map((item: any, idx: number) => ({
-              id: String(idx + 1).padStart(2, '0'),
-              domain: item.domain,
-              status: item.status || 'Available',
-              daysLeft: item.daysLeft || (item.status === 'Available' ? 'Dropped' : '365d'),
-              dr: Number(item.dr) || 0,
-              registrar: item.registrar || (item.status === 'Available' ? '—' : 'Namecheap, Inc.'),
-              createdAt: 'Recent',
-            }));
-            const lTotal = localRecords.length;
-            const lAvail = localRecords.filter((s) => s.status === 'Available').length;
-            const lReg = lTotal - lAvail;
-            const lAvgDr = Math.round(localRecords.reduce((acc, s) => acc + (s.dr || 0), 0) / (lTotal || 1));
-
-            setTotalChecked(lTotal);
-            setAvailableCount(lAvail);
-            setRegisteredCount(lReg);
-            setAvgDr(lAvgDr);
-            setSearches(localRecords.slice(0, 15));
-          }
-        }
-      } catch (e) {}
-
       try {
         const {
           data: { user: currentUser },
@@ -83,40 +58,18 @@ export default function DashboardHomePage() {
             currentUser.user_metadata?.full_name ||
             (currentUser.email ? currentUser.email.split('@')[0] : 'Member');
           setUserName(name);
-
-          // Fetch all user searches from Supabase with exact count
-          const { data: cloudHistory, count, error } = await supabase
-            .from('search_history')
-            .select('*', { count: 'exact' })
-            .eq('user_id', currentUser.id)
-            .order('created_at', { ascending: false })
-            .limit(2000);
-
-          if (!error && cloudHistory && cloudHistory.length > 0) {
-            const mapped: SearchRecord[] = cloudHistory.map((item, idx) => ({
-              id: String(idx + 1).padStart(2, '0'),
-              domain: item.domain,
-              status: item.status || 'Available',
-              daysLeft: item.days_left || (item.status === 'Available' ? 'Dropped' : '365d'),
-              dr: Number(item.dr) || 0,
-              registrar: item.registrar || (item.status === 'Available' ? '—' : 'Namecheap, Inc.'),
-              createdAt: item.created_at,
-            }));
-
-            const dbTotal = count || mapped.length;
-            const dbAvail = mapped.filter((s) => s.status === 'Available').length;
-            const dbReg = dbTotal - dbAvail;
-            const dbAvg = Math.round(mapped.reduce((acc, s) => acc + (s.dr || 0), 0) / (mapped.length || 1));
-
-            if (dbTotal >= localRecords.length) {
-              setTotalChecked(dbTotal);
-              setAvailableCount(dbAvail);
-              setRegisteredCount(dbReg);
-              setAvgDr(dbAvg);
-              setSearches(mapped.slice(0, 15));
-            }
-          }
         }
+      } catch (e) {}
+
+      try {
+        const { items, totalChecked: tot, availableCount: avail, registeredCount: reg, avgDr: avg } =
+          await fetchAllSearchHistory();
+
+        setTotalChecked(tot);
+        setAvailableCount(avail);
+        setRegisteredCount(reg);
+        setAvgDr(avg);
+        setSearches(items.slice(0, 15));
       } catch (err) {
         console.warn('Dashboard data fetch note:', err);
       } finally {
@@ -148,27 +101,19 @@ export default function DashboardHomePage() {
         registrar: '—',
       };
 
-      if (user) {
-        await supabase.from('search_history').insert({
-          user_id: user.id,
-          domain: result.domain,
-          status: result.status,
-          dr: Number(result.dr) || 0,
-          registrar: result.registrar || (result.status === 'Available' ? '—' : 'Registered / Active'),
-          days_left: result.status === 'Available' ? 'Dropped' : '365d',
-        });
-      }
-
       const newRecord: SearchRecord = {
-        id: String(searches.length + 1).padStart(2, '0'),
+        id: '01',
         domain: result.domain,
         status: result.status,
         daysLeft: result.status === 'Available' ? 'Dropped' : '365d',
-        dr: result.dr,
-        registrar: result.registrar || '—',
+        dr: Number(result.dr) || 0,
+        registrar: result.registrar || (result.status === 'Available' ? '—' : 'Registered / Active'),
       };
 
-      setSearches([newRecord, ...searches]);
+      saveLocalSearchHistory([newRecord as any]);
+      syncToSupabase([newRecord as any]);
+
+      setSearches((prev) => [newRecord, ...prev.filter((s) => s.domain !== newRecord.domain)].slice(0, 15));
       setTotalChecked((prev) => prev + 1);
       if (result.status === 'Available') {
         setAvailableCount((prev) => prev + 1);

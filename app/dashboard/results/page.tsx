@@ -5,6 +5,11 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import {
+  saveLocalSearchHistory,
+  syncToSupabase,
+  fetchAllSearchHistory,
+} from '../../../lib/searchHistory';
+import {
   FileText,
   Clock,
   CheckCircle2,
@@ -170,32 +175,10 @@ function ResultsContent() {
           setIsScanning(false);
 
           // Save completed results to session & local storage
-          try {
-            sessionStorage.setItem('last_scanned_results', JSON.stringify(allFormatted));
-            localStorage.setItem('oldurl_cached_history', JSON.stringify(allFormatted));
-            localStorage.setItem('oldurl_total_domains_count', String(allFormatted.length));
-          } catch (e) {}
+          saveLocalSearchHistory(allFormatted as any);
 
-          // Persist all results to Supabase in chunks of 50
-          try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-              const dbChunks = 50;
-              for (let ci = 0; ci < allFormatted.length; ci += dbChunks) {
-                const batch = allFormatted.slice(ci, ci + dbChunks).map((f) => ({
-                  user_id: user.id,
-                  domain: f.domain,
-                  status: f.status,
-                  dr: Number(f.dr) || 0,
-                  days_left: f.daysLeft,
-                  registrar: f.registrar || (f.status === 'Available' ? '—' : 'Registered / Active'),
-                }));
-                await supabase.from('search_history').insert(batch);
-              }
-            }
-          } catch (e) {
-            console.warn('Supabase persist error:', e);
-          }
+          // Persist to Supabase if logged in
+          syncToSupabase(allFormatted as any);
         };
 
         runAllChunks();
@@ -205,42 +188,9 @@ function ResultsContent() {
       setIsScanning(false);
       setProgress(100);
 
-      // Check last active results in session or local storage first
-      try {
-        const cached = sessionStorage.getItem('last_scanned_results') || localStorage.getItem('oldurl_cached_history');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setResults(parsed);
-            return;
-          }
-        }
-      } catch (e) {}
-
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        if (user) {
-          supabase
-            .from('search_history')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false })
-            .limit(500)
-            .then(({ data: cloudHistory, error }) => {
-              if (!error && cloudHistory && cloudHistory.length > 0) {
-                const formatted: ResultItem[] = cloudHistory.map((r: any, idx: number) => ({
-                  id: String(idx + 1).padStart(2, '0'),
-                  domain: r.domain,
-                  status: r.status === 'Expiring Soon' ? 'Expiring Soon' : (r.status || 'Available'),
-                  daysLeft: r.days_left || (r.status === 'Available' ? 'Dropped' : '30d'),
-                  dr: r.dr || 0,
-                  registrar: r.registrar || (r.status === 'Available' ? '—' : 'Namecheap, Inc.'),
-                  refDomains: r.ref_domains || 0,
-                }));
-                setResults(formatted);
-                return;
-              }
-              setResults([]);
-            });
+      fetchAllSearchHistory().then(({ items }) => {
+        if (items && items.length > 0) {
+          setResults(items as any);
         } else {
           setResults([]);
         }

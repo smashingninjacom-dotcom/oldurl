@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../../lib/supabaseClient';
+import { fetchAllSearchHistory } from '../../../lib/searchHistory';
 import {
   Search,
   Download,
@@ -25,60 +26,12 @@ export default function PreviousSearchesPage() {
 
   useEffect(() => {
     async function loadHistory() {
-      let localList: any[] = [];
       try {
-        const cached = localStorage.getItem('oldurl_cached_history') || sessionStorage.getItem('last_scanned_results');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            localList = parsed.map((item: any, idx: number) => ({
-              id: String(idx + 1).padStart(2, '0'),
-              domain: item.domain,
-              status: item.status || 'Available',
-              daysLeft: item.daysLeft || (item.status === 'Available' ? 'Dropped' : '30d'),
-              dr: Number(item.dr) || 0,
-              registrar: item.registrar || (item.status === 'Available' ? '—' : 'Namecheap, Inc.'),
-            }));
-            setData(localList);
-          }
-        }
-      } catch (e) {}
-
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: cloudHistory, error } = await supabase
-            .from('search_history')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false })
-            .limit(2000);
-
-          if (!error && cloudHistory && cloudHistory.length > 0) {
-            const mapped = cloudHistory.map((item, idx) => ({
-              id: String(idx + 1).padStart(2, '0'),
-              domain: item.domain,
-              status: item.status || 'Available',
-              daysLeft: item.days_left || (item.status === 'Available' ? 'Dropped' : '30d'),
-              dr: Number(item.dr) || 0,
-              registrar: item.registrar || (item.status === 'Available' ? '—' : 'Namecheap, Inc.'),
-            }));
-            if (mapped.length >= localList.length) {
-              setData(mapped);
-            }
-            setLoading(false);
-            return;
-          }
-        }
-        if (localList.length > 0) {
-          setData(localList);
-        } else {
-          setData([]);
-        }
+        const { items } = await fetchAllSearchHistory();
+        setData(items || []);
       } catch (e) {
         console.warn('History load note:', e);
-        if (localList.length > 0) setData(localList);
-        else setData([]);
+        setData([]);
       } finally {
         setLoading(false);
       }
