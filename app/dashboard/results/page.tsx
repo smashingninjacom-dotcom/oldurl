@@ -14,6 +14,7 @@ import {
   getPendingDomainsToScan,
   setLastScannedBatch,
 } from '../../../lib/searchHistory';
+import { consumeLookups } from '../../../lib/plans';
 import {
   FileText,
   Clock,
@@ -266,6 +267,7 @@ function ResultsContent() {
                   setLastScannedBatch(allFormatted as any);
                   saveLocalSearchHistory(allFormatted as any);
                   syncToSupabase(allFormatted.slice(i, i + CHUNK_SIZE) as any);
+                  consumeLookups(chunk.length);
                 }
               }
             } catch (err) {

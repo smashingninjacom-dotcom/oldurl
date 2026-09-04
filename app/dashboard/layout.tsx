@@ -23,6 +23,7 @@ import {
   LogIn,
   ArrowRight,
 } from 'lucide-react';
+import { getUserQuotaData } from '../../lib/plans';
 
 export default function DashboardLayout({
   children,
@@ -160,9 +161,21 @@ export default function DashboardLayout({
       }
     });
 
+    const handleQuotaUpdated = (e: any) => {
+      if (e?.detail) {
+        setUserProfile((prev: any) => ({ ...(prev || {}), ...e.detail }));
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('oldurl_quota_updated', handleQuotaUpdated);
+    }
+
     return () => {
       isMounted = false;
       subscription.unsubscribe();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('oldurl_quota_updated', handleQuotaUpdated);
+      }
     };
   }, []);
 
@@ -190,12 +203,13 @@ export default function DashboardLayout({
     window.location.href = '/';
   };
 
+  const quota = getUserQuotaData(userProfile);
   const displayName =
     userProfile?.full_name ||
     user?.user_metadata?.full_name ||
     (user?.email ? user.email.split('@')[0] : isGuestMode ? 'Guest Member' : 'Member');
   const displayEmail = user?.email || (isGuestMode ? 'guest@oldurl.domains' : '');
-  const planName = userProfile?.plan || (isGuestMode ? 'Guest Preview' : 'Free Plan');
+  const planName = quota.planName || (isGuestMode ? 'Guest Preview' : 'Free Plan');
   const initial = displayName ? displayName.charAt(0).toUpperCase() : 'M';
 
   // Prevent flash of login screen while validating session
@@ -418,20 +432,27 @@ export default function DashboardLayout({
           <div className="bg-[#fff7f2] p-3.5 rounded-2xl border border-orange-100 text-center space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#FC6B17] uppercase tracking-wider">
-                <Sparkles className="w-3.5 h-3.5" /> {planName}
+                <Sparkles className="w-3.5 h-3.5" /> {quota.planName}
               </span>
-              <span className="text-[11px] font-medium text-gray-400">50K/mo</span>
+              <span className="text-[11px] font-medium text-gray-400">
+                {quota.lookupsLimit >= 1000 ? `${(quota.lookupsLimit / 1000).toFixed(quota.lookupsLimit % 1000 === 0 ? 0 : 1)}K/mo` : `${quota.lookupsLimit}/mo`}
+              </span>
             </div>
 
             <div>
-              <div className="text-xs font-semibold text-gray-800 text-left">14,390 / 50,000 checked</div>
+              <div className="text-xs font-semibold text-gray-800 text-left">
+                {quota.lookupsUsed.toLocaleString()} / {quota.lookupsLimit.toLocaleString()} checked
+              </div>
               <div className="w-full bg-white h-2 rounded-full overflow-hidden mt-1 border border-orange-100">
-                <div className="bg-[#FC6B17] h-full rounded-full w-[28.7%]" />
+                <div
+                  className="bg-[#FC6B17] h-full rounded-full transition-all duration-300"
+                  style={{ width: `${Math.min(100, quota.lookupsPercent)}%` }}
+                />
               </div>
             </div>
 
             <Link
-              href="/dashboard/profile"
+              href="/dashboard/billing"
               className="block w-full py-1.5 px-3 border border-[#FC6B17] text-[#FC6B17] hover:bg-[#FC6B17] hover:text-white rounded-xl text-xs font-bold transition-colors shadow-2xs"
             >
               Manage Plan →

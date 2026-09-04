@@ -10,6 +10,7 @@ import {
   Bell,
   Sparkles,
 } from 'lucide-react';
+import { getUserQuotaData } from '../../../lib/plans';
 
 const getInitialProfileData = () => {
   if (typeof window !== 'undefined') {
@@ -60,11 +61,21 @@ export default function ProfilePage() {
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const [user, setUser] = useState<any>(() => getInitialProfileData().user);
-  const [fullName, setFullName] = useState<string>(() => getInitialProfileData().fullName);
-  const [email, setEmail] = useState<string>(() => getInitialProfileData().email);
-  const [accountId, setAccountId] = useState<string>(() => getInitialProfileData().accountId);
-  const [memberSince, setMemberSince] = useState<string>(() => getInitialProfileData().memberSince);
+  const initial = getInitialProfileData();
+  const [user, setUser] = useState<any>(() => initial.user);
+  const [fullName, setFullName] = useState<string>(() => initial.fullName);
+  const [email, setEmail] = useState<string>(() => initial.email);
+  const [accountId, setAccountId] = useState<string>(() => initial.accountId);
+  const [memberSince, setMemberSince] = useState<string>(() => initial.memberSince);
+  const [profileData, setProfileData] = useState<any>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('oldurl_cached_profile');
+        if (raw) return JSON.parse(raw);
+      } catch (e) {}
+    }
+    return null;
+  });
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -95,6 +106,7 @@ export default function ProfilePage() {
           .single()
           .then(({ data }) => {
             if (data) {
+              setProfileData(data);
               try {
                 localStorage.setItem('oldurl_cached_profile', JSON.stringify(data));
               } catch (e) {}
@@ -105,6 +117,20 @@ export default function ProfilePage() {
           });
       }
     });
+
+    const handleQuotaUpdated = (e: any) => {
+      if (e?.detail) {
+        setProfileData((prev: any) => ({ ...(prev || {}), ...e.detail }));
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('oldurl_quota_updated', handleQuotaUpdated);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('oldurl_quota_updated', handleQuotaUpdated);
+      }
+    };
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -193,48 +219,66 @@ export default function ProfilePage() {
           </div>
 
           {/* Current Plan Quota */}
-          <div className="bg-gradient-to-br from-[#0d1b3e] to-[#1a2c5a] text-white p-6 rounded-2xl shadow-md space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="inline-flex items-center gap-1.5 bg-[#FC6B17] px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
-                <Sparkles className="w-3 h-3" /> Growth Plan
-              </div>
-              <span className="text-xs font-semibold text-gray-300">Renews Oct 01</span>
-            </div>
+          {(() => {
+            const quota = getUserQuotaData(profileData);
+            return (
+              <div className="bg-gradient-to-br from-[#0d1b3e] to-[#1a2c5a] text-white p-6 rounded-2xl shadow-md space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="inline-flex items-center gap-1.5 bg-[#FC6B17] px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                    <Sparkles className="w-3 h-3" /> {quota.planName}
+                  </div>
+                  <span className="text-xs font-semibold text-gray-300">Renews Next Month</span>
+                </div>
 
-            <div>
-              <div className="text-3xl font-black tracking-tight">$79<span className="text-sm font-normal text-gray-300">/mo</span></div>
-              <p className="text-xs text-gray-300 mt-1">Unlimited bulk checks &amp; priority WHOIS crawling</p>
-            </div>
+                <div>
+                  <div className="text-3xl font-black tracking-tight">
+                    ${quota.plan.monthlyPrice}
+                    <span className="text-sm font-normal text-gray-300">/mo</span>
+                  </div>
+                  <p className="text-xs text-gray-300 mt-1">{quota.plan.description}</p>
+                </div>
 
-            {/* Quota Progress 1 */}
-            <div className="space-y-1.5 pt-2">
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-300">Bulk Domain Checks</span>
-                <span className="font-bold text-white">14,390 / 50,000</span>
-              </div>
-              <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-                <div className="h-full bg-[#FC6B17] rounded-full" style={{ width: '28.7%' }} />
-              </div>
-            </div>
+                {/* Quota Progress 1: Lookups */}
+                <div className="space-y-1.5 pt-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-300">Domain Lookups</span>
+                    <span className="font-bold text-white">
+                      {quota.lookupsUsed.toLocaleString()} / {quota.lookupsLimit.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-[#FC6B17] rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, quota.lookupsPercent)}%` }}
+                    />
+                  </div>
+                </div>
 
-            {/* Quota Progress 2 */}
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-300">Deep Analytics Runs</span>
-                <span className="font-bold text-white">420 / 2,000</span>
-              </div>
-              <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-400 rounded-full" style={{ width: '21%' }} />
-              </div>
-            </div>
+                {/* Quota Progress 2: Deep Analytics */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-300">Deep Domain Analytics</span>
+                    <span className="font-bold text-white">
+                      {quota.analyticsUsed.toLocaleString()} / {quota.analyticsLimit.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-400 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, quota.analyticsPercent)}%` }}
+                    />
+                  </div>
+                </div>
 
-            <button
-              onClick={() => alert('Redirecting to Stripe Customer Portal...')}
-              className="w-full mt-4 bg-white/10 hover:bg-white/20 border border-white/30 text-white font-bold text-xs py-2.5 rounded-xl transition-colors text-center block"
-            >
-              Upgrade / Manage Billing
-            </button>
-          </div>
+                <Link
+                  href="/dashboard/billing"
+                  className="w-full mt-4 bg-white/10 hover:bg-white/20 border border-white/30 text-white font-bold text-xs py-2.5 rounded-xl transition-colors text-center block"
+                >
+                  Upgrade / Manage Billing
+                </Link>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Right Column: Settings & API */}

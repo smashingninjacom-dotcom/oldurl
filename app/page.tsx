@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import AuthModal from '../components/AuthModal';
-import { signInWithGoogle } from '../lib/supabaseClient';
+import { supabase, signInWithGoogle } from '../lib/supabaseClient';
 import {
   Search,
   UploadCloud,
@@ -110,7 +110,14 @@ export default function HomePage() {
   const [scanMessage, setScanMessage] = useState<string | null>(null);
   const [isBlurred, setIsBlurred] = useState(true);
 
-  const openAuthModal = () => {
+  const openAuthModal = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        window.location.href = '/dashboard/billing';
+        return;
+      }
+    } catch (e) {}
     setIsAuthOpen(true);
   };
 

@@ -22,6 +22,7 @@ import {
 import { supabase } from '../../../lib/supabaseClient';
 
 import { getLocalSearchHistory, saveLocalSearchHistory, getPendingAnalyticsDomains } from '../../../lib/searchHistory';
+import { consumeAnalytics } from '../../../lib/plans';
 
 interface AnalyzedDomain {
   domain: string;
@@ -173,6 +174,7 @@ function DomainAnalyticsResultContent() {
                     }
                   });
                   setDomains([...allMapped]);
+                  consumeAnalytics(chunk.length);
                 }
               }
             } catch (err) {
