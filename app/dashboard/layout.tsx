@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { supabase } from '../../lib/supabaseClient';
+import { supabase, signInWithGoogle } from '../../lib/supabaseClient';
 import AuthModal from '../../components/AuthModal';
 import {
   LayoutDashboard,
@@ -347,10 +347,16 @@ export default function DashboardLayout({
             ) : (
               <button
                 type="button"
-                onClick={() => setIsAuthModalOpen(true)}
+                onClick={async () => {
+                  try {
+                    await signInWithGoogle();
+                  } catch (e) {
+                    setIsAuthModalOpen(true);
+                  }
+                }}
                 className="inline-flex items-center gap-1.5 bg-[#0d1b3e] hover:bg-[#1a2c5a] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xs transition-colors"
               >
-                <LogIn className="w-3.5 h-3.5" /> Sign In
+                <LogIn className="w-3.5 h-3.5" /> Sign In with Google
               </button>
             )}
           </div>
@@ -366,7 +372,6 @@ export default function DashboardLayout({
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
-        defaultMode="login"
       />
     </div>
   );
