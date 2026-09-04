@@ -199,8 +199,9 @@ function DomainAnalyticsResultContent() {
     async function loadData() {
       try {
         const {
-          data: { user },
-        } = await supabase.auth.getUser();
+          data: { session },
+        } = await supabase.auth.getSession();
+        const user = session?.user;
         if (user) {
           const { data, error } = await supabase
             .from('search_history')

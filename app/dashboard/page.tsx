@@ -84,8 +84,9 @@ export default function DashboardHomePage() {
     async function loadUserData() {
       try {
         const {
-          data: { user: currentUser },
-        } = await supabase.auth.getUser();
+          data: { session },
+        } = await supabase.auth.getSession();
+        const currentUser = session?.user;
 
         if (currentUser) {
           setUser(currentUser);

@@ -14,6 +14,11 @@ export interface StoredSearchItem {
 
 const STORAGE_KEY = 'oldurl_local_search_history';
 
+// In-memory memory cache for instantaneous 0ms tab switching
+let memoryCache: StoredSearchItem[] | null = null;
+let lastCloudFetchTime = 0;
+let isCloudFetching = false;
+
 export function formatCheckDate(dateStr?: string): string {
   if (!dateStr || dateStr === 'Just now' || dateStr === 'Recent') return 'Just now';
   try {
@@ -32,6 +37,10 @@ export function formatCheckDate(dateStr?: string): string {
 
 export function getLocalSearchHistory(): StoredSearchItem[] {
   if (typeof window === 'undefined') return [];
+  if (memoryCache && memoryCache.length > 0) {
+    return memoryCache;
+  }
+
   const map = new Map<string, StoredSearchItem>();
 
   const loadFromRaw = (raw: string | null) => {
@@ -45,7 +54,6 @@ export function getLocalSearchHistory(): StoredSearchItem[] {
             if (dom) {
               const existing = map.get(dom);
               const itemDate = item.createdAt || item.created_at || new Date().toISOString();
-              // If not in map, or if this item is newer, store it
               if (!existing) {
                 map.set(dom, {
                   id: '01',
@@ -69,14 +77,15 @@ export function getLocalSearchHistory(): StoredSearchItem[] {
   try {
     loadFromRaw(localStorage.getItem(STORAGE_KEY));
     loadFromRaw(sessionStorage.getItem('last_scanned_results'));
-    loadFromRaw(localStorage.getItem('search_history'));
-    loadFromRaw(localStorage.getItem('oldurl_search_history'));
   } catch (e) {}
 
-  return Array.from(map.values()).map((item, idx) => ({
+  const result = Array.from(map.values()).map((item, idx) => ({
     ...item,
     id: String(idx + 1).padStart(2, '0'),
   }));
+
+  memoryCache = result;
+  return result;
 }
 
 export function saveLocalSearchHistory(items: StoredSearchItem[]): void {
@@ -113,6 +122,8 @@ export function saveLocalSearchHistory(items: StoredSearchItem[]): void {
       id: String(idx + 1).padStart(2, '0'),
     }));
 
+    memoryCache = merged;
+
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
     } catch (e) {
@@ -129,7 +140,8 @@ export function saveLocalSearchHistory(items: StoredSearchItem[]): void {
 
 export async function syncToSupabase(items: StoredSearchItem[]): Promise<void> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user || !items.length) return;
 
     // Deduplicate input chunk by domain
@@ -158,7 +170,7 @@ export async function syncToSupabase(items: StoredSearchItem[]): Promise<void> {
   }
 }
 
-export async function fetchAllSearchHistory(): Promise<{
+export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
   items: StoredSearchItem[];
   totalChecked: number;
   availableCount: number;
@@ -167,15 +179,53 @@ export async function fetchAllSearchHistory(): Promise<{
 }> {
   const localItems = getLocalSearchHistory();
 
+  const now = Date.now();
+  // Return cached data immediately if queried within 30s
+  if (!forceRefresh && lastCloudFetchTime > 0 && now - lastCloudFetchTime < 30000 && memoryCache && memoryCache.length > 0) {
+    const total = memoryCache.length;
+    const avail = memoryCache.filter((s) => s.status === 'Available').length;
+    const reg = total - avail;
+    const avg = Math.round(
+      memoryCache.reduce((acc, s) => acc + (s.dr || 0), 0) / (total || 1)
+    );
+    return {
+      items: memoryCache,
+      totalChecked: total,
+      availableCount: avail,
+      registeredCount: reg,
+      avgDr: avg,
+    };
+  }
+
+  if (isCloudFetching) {
+    const total = localItems.length;
+    const avail = localItems.filter((s) => s.status === 'Available').length;
+    const reg = total - avail;
+    const avg = Math.round(
+      localItems.reduce((acc, s) => acc + (s.dr || 0), 0) / (total || 1)
+    );
+    return {
+      items: localItems,
+      totalChecked: total,
+      availableCount: avail,
+      registeredCount: reg,
+      avgDr: avg,
+    };
+  }
+
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    isCloudFetching = true;
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user;
     if (user) {
-      const { data: cloudHistory, count, error } = await supabase
+      const { data: cloudHistory, error } = await supabase
         .from('search_history')
-        .select('*', { count: 'exact' })
+        .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(100000);
+
+      lastCloudFetchTime = Date.now();
 
       if (!error && cloudHistory && cloudHistory.length > 0) {
         // Strict deduplication of cloud history by domain
@@ -213,6 +263,8 @@ export async function fetchAllSearchHistory(): Promise<{
           id: String(idx + 1).padStart(2, '0'),
         }));
 
+        memoryCache = finalItems;
+
         const total = finalItems.length;
         const avail = finalItems.filter((s) => s.status === 'Available').length;
         const reg = total - avail;
@@ -229,7 +281,10 @@ export async function fetchAllSearchHistory(): Promise<{
         };
       }
     }
-  } catch (e) {}
+  } catch (e) {
+  } finally {
+    isCloudFetching = false;
+  }
 
   // Fallback to local storage (works for both guests and authenticated users)
   const total = localItems.length;

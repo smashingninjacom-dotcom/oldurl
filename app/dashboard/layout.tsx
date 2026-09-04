@@ -31,9 +31,23 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<any>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const key = Object.keys(localStorage).find((k) => k.startsWith('sb-') && k.endsWith('-auth-token'));
+        if (key) {
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed?.user) return parsed.user;
+          }
+        }
+      } catch (e) {}
+    }
+    return null;
+  });
   const [userProfile, setUserProfile] = useState<any>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [isGuestMode, setIsGuestMode] = useState(false);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
@@ -59,7 +73,6 @@ export default function DashboardLayout({
             if (!error && data?.session?.user) {
               setUser(data.session.user);
               fetchProfile(data.session.user.id);
-              setAuthLoading(false);
               window.history.replaceState({}, document.title, window.location.pathname);
               return;
             }
@@ -69,14 +82,12 @@ export default function DashboardLayout({
         const {
           data: { session },
         } = await supabase.auth.getSession();
-        setUser(session?.user ?? null);
         if (session?.user) {
+          setUser(session.user);
           fetchProfile(session.user.id);
         }
       } catch (e) {
         console.warn('Auth init note:', e);
-      } finally {
-        setAuthLoading(false);
       }
     }
 
@@ -93,7 +104,6 @@ export default function DashboardLayout({
       } else {
         setUserProfile(null);
       }
-      setAuthLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -109,9 +119,7 @@ export default function DashboardLayout({
       if (!error && data) {
         setUserProfile(data);
       }
-    } catch (e) {
-      console.warn('Profile fetch note:', e);
-    }
+    } catch (e) {}
   };
 
   const handleSignOut = async () => {
@@ -129,17 +137,6 @@ export default function DashboardLayout({
   const displayEmail = user?.email || (isGuestMode ? 'guest@oldurl.domains' : '');
   const planName = userProfile?.plan || (isGuestMode ? 'Guest Preview' : 'Free Plan');
   const initial = displayName ? displayName.charAt(0).toUpperCase() : 'M';
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-[#faf9f8] flex items-center justify-center p-4 font-sans">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-3 border-[#FC6B17] border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs font-bold text-gray-500">Checking authentication...</span>
-        </div>
-      </div>
-    );
-  }
 
   if (!user && !isGuestMode) {
     return (
@@ -274,6 +271,7 @@ export default function DashboardLayout({
       <Link
         key={item.name}
         href={item.href}
+        prefetch={true}
         onClick={() => setIsMobileMenuOpen(false)}
         className={`group flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-[13px] font-semibold transition-all ${
           isActive
