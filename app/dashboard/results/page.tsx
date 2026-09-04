@@ -842,11 +842,11 @@ function ResultsContent() {
 
             {/* Number-wise Pagination Bar */}
             {Math.ceil(filtered.length / pageSize) > 1 && (
-              <div className="px-4 py-3 bg-white border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-                <div className="text-gray-500 font-medium">
-                  Showing <span className="font-bold text-gray-800">{(currentPage - 1) * pageSize + 1}</span> to{' '}
-                  <span className="font-bold text-gray-800">{Math.min(currentPage * pageSize, filtered.length)}</span> of{' '}
-                  <span className="font-bold text-gray-800">{filtered.length}</span> domains
+              <div className="px-5 py-4 bg-white border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-xs text-gray-500 font-medium">
+                  Showing <span className="font-bold text-[#0d1b3e]">{(currentPage - 1) * pageSize + 1}</span> to{' '}
+                  <span className="font-bold text-[#0d1b3e]">{Math.min(currentPage * pageSize, filtered.length)}</span> of{' '}
+                  <span className="font-bold text-[#0d1b3e]">{filtered.length}</span> domains
                 </div>
 
                 <div className="flex items-center gap-1.5 flex-wrap justify-center">
@@ -854,36 +854,40 @@ function ResultsContent() {
                     type="button"
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                    className="px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 hover:text-gray-900 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all flex items-center gap-1 shadow-2xs"
                   >
                     <ChevronLeft className="w-3.5 h-3.5" />
                     <span>Prev</span>
                   </button>
 
-                  {getPaginationRange(currentPage, Math.ceil(filtered.length / pageSize)).map((num, i) =>
-                    num === '...' ? (
-                      <span key={`dots-${i}`} className="px-2 py-1 text-gray-400 font-bold">...</span>
-                    ) : (
-                      <button
-                        type="button"
-                        key={num}
-                        onClick={() => setCurrentPage(Number(num))}
-                        className={`w-7.5 h-7.5 rounded-lg font-bold text-xs flex items-center justify-center transition-all ${
-                          currentPage === num
-                            ? 'bg-[#FC6B17] text-white shadow-xs'
-                            : 'border border-gray-200 text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        {num}
-                      </button>
-                    )
-                  )}
+                  <div className="flex items-center gap-1">
+                    {getPaginationRange(currentPage, Math.ceil(filtered.length / pageSize)).map((num, i) =>
+                      num === '...' ? (
+                        <span key={`dots-${i}`} className="w-8 h-8 flex items-center justify-center text-gray-400 font-bold text-xs select-none">
+                          ...
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          key={num}
+                          onClick={() => setCurrentPage(Number(num))}
+                          className={`min-w-[34px] h-[34px] px-2 rounded-xl text-xs font-bold flex items-center justify-center transition-all ${
+                            currentPage === num
+                              ? 'bg-[#FC6B17] text-white shadow-[0_2px_8px_rgba(252,107,23,0.35)] scale-105'
+                              : 'bg-white border border-gray-200 text-gray-700 hover:border-[#FC6B17] hover:text-[#FC6B17] hover:bg-orange-50/40 shadow-2xs'
+                          }`}
+                        >
+                          {num}
+                        </button>
+                      )
+                    )}
+                  </div>
 
                   <button
                     type="button"
                     onClick={() => setCurrentPage((p) => Math.min(Math.ceil(filtered.length / pageSize), p + 1))}
                     disabled={currentPage === Math.ceil(filtered.length / pageSize)}
-                    className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                    className="px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 hover:text-gray-900 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all flex items-center gap-1 shadow-2xs"
                   >
                     <span>Next</span>
                     <ChevronRight className="w-3.5 h-3.5" />
