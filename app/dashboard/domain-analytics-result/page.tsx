@@ -648,7 +648,6 @@ function DomainAnalyticsResultContent() {
                       )}
                     </div>
                   </th>
-                  <th className="py-3.5 px-3">Tier-1 Authority Links</th>
                   <th
                     onClick={() => handleSort('spamScore')}
                     className="py-3.5 px-3 text-center cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
@@ -707,18 +706,6 @@ function DomainAnalyticsResultContent() {
                     <td className="py-3.5 px-3 font-semibold text-gray-800">
                       {row.refDomains.toLocaleString()}{' '}
                       <span className="text-gray-400 font-normal">({row.backlinks})</span>
-                    </td>
-                    <td className="py-3.5 px-3">
-                      <div className="flex flex-wrap gap-1">
-                        {row.topSources.map((source) => (
-                          <span
-                            key={source}
-                            className="bg-blue-50 text-blue-700 font-semibold px-1.5 py-0.5 rounded text-[10px] border border-blue-100"
-                          >
-                            {source}
-                          </span>
-                        ))}
-                      </div>
                     </td>
                     <td className="py-3.5 px-3 text-center">
                       <span
