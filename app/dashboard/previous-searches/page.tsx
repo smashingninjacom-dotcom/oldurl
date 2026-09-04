@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '../../../lib/supabaseClient';
-import { fetchAllSearchHistory } from '../../../lib/searchHistory';
+import { fetchAllSearchHistory, formatCheckDate } from '../../../lib/searchHistory';
 import {
   Search,
   Download,
@@ -48,8 +48,8 @@ export default function PreviousSearchesPage() {
   });
 
   const handleExport = () => {
-    const headers = ['#', 'Domain', 'Status', 'Days Left', 'DR', 'Registrar'];
-    const rows = filtered.map((r) => [r.id, r.domain, r.status, r.daysLeft, r.dr, r.registrar]);
+    const headers = ['#', 'Domain', 'Status', 'Days Left', 'DR', 'Registrar', 'Date Checked'];
+    const rows = filtered.map((r) => [r.id, r.domain, r.status, r.daysLeft, r.dr, r.registrar, formatCheckDate(r.createdAt)]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
@@ -213,11 +213,12 @@ export default function PreviousSearchesPage() {
               <thead>
                 <tr className="bg-[#f8fafc] border-b border-gray-100 text-gray-400 font-bold uppercase tracking-wider text-[11px]">
                   <th className="py-3 px-4 w-12 text-center">#</th>
-                  <th className="py-3 px-4 min-w-[220px]">Domain</th>
-                  <th className="py-3 px-4 w-36">Status</th>
-                  <th className="py-3 px-4 w-32">Days Left</th>
-                  <th className="py-3 px-4 w-28">DR</th>
-                  <th className="py-3 px-4 min-w-[180px]">Registrar</th>
+                  <th className="py-3 px-4 min-w-[200px]">Domain</th>
+                  <th className="py-3 px-4 w-32">Status</th>
+                  <th className="py-3 px-4 w-28">Days Left</th>
+                  <th className="py-3 px-4 w-24">DR</th>
+                  <th className="py-3 px-4 min-w-[150px]">Registrar</th>
+                  <th className="py-3 px-4 w-36">Date Checked</th>
                   <th className="py-3 px-4 w-16 text-right">More</th>
                 </tr>
               </thead>
@@ -255,6 +256,9 @@ export default function PreviousSearchesPage() {
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-gray-500 font-medium text-xs">{row.registrar}</td>
+                    <td className="py-3.5 px-4 text-gray-400 font-medium text-xs whitespace-nowrap">
+                      {formatCheckDate(row.createdAt)}
+                    </td>
                     <td className="py-3.5 px-4 text-right">
                       <button className="text-gray-400 hover:text-gray-700 p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
                         <MoreHorizontal className="w-4 h-4" />

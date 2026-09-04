@@ -8,6 +8,7 @@ import {
   saveLocalSearchHistory,
   syncToSupabase,
   fetchAllSearchHistory,
+  formatCheckDate,
 } from '../../../lib/searchHistory';
 import {
   FileText,
@@ -38,6 +39,7 @@ interface ResultItem {
   registrar: string;
   refDomains?: number;
   backlinks?: number;
+  createdAt?: string;
 }
 
 function ResultsContent() {
@@ -112,6 +114,7 @@ function ResultsContent() {
         registrar: ['GoDaddy.com, LLC', 'Namecheap, Inc.', 'MarkMonitor Inc.', 'SafeNames Ltd.'][absHash % 4],
         refDomains: 30 + (absHash % 450),
         backlinks: (30 + (absHash % 450)) * (2 + (absHash % 8)),
+        createdAt: new Date().toISOString(),
       };
     }
 
@@ -158,6 +161,7 @@ function ResultsContent() {
                         registrar: r.status === 'Available' ? '—' : (r.registrar || 'Namecheap, Inc.'),
                         refDomains: r.refDomains,
                         backlinks: r.backlinks,
+                        createdAt: new Date().toISOString(),
                       };
                     }
                   });
@@ -242,8 +246,8 @@ function ResultsContent() {
   }, [results, statusFilter, extensionFilter, minDr, maxDr, daysFilter, searchQuery]);
 
   const handleExportCSV = () => {
-    const headers = ['#', 'Domain', 'Status', 'Days Left', 'Domain Rating (DR)', 'Registrar'];
-    const rows = filtered.map((r) => [r.id, r.domain, r.status, r.daysLeft, r.dr, r.registrar]);
+    const headers = ['#', 'Domain', 'Status', 'Days Left', 'Domain Rating (DR)', 'Registrar', 'Date Checked'];
+    const rows = filtered.map((r) => [r.id, r.domain, r.status, r.daysLeft, r.dr, r.registrar, formatCheckDate(r.createdAt)]);
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
@@ -534,11 +538,12 @@ function ResultsContent() {
               <thead>
                 <tr className="bg-[#f8fafc] border-b border-gray-100 text-gray-400 font-bold uppercase tracking-wider text-[11px]">
                   <th className="py-3 px-4 w-12 text-center">#</th>
-                  <th className="py-3 px-4 min-w-[220px]">Domain</th>
-                  <th className="py-3 px-4 w-36">Status</th>
-                  <th className="py-3 px-4 w-32">Days Left</th>
-                  <th className="py-3 px-4 w-28">DR</th>
-                  <th className="py-3 px-4 min-w-[180px]">Registrar</th>
+                  <th className="py-3 px-4 min-w-[200px]">Domain</th>
+                  <th className="py-3 px-4 w-32">Status</th>
+                  <th className="py-3 px-4 w-28">Days Left</th>
+                  <th className="py-3 px-4 w-24">DR</th>
+                  <th className="py-3 px-4 min-w-[150px]">Registrar</th>
+                  <th className="py-3 px-4 w-36">Date Checked</th>
                   <th className="py-3 px-4 w-28 text-right">Action</th>
                 </tr>
               </thead>
@@ -578,6 +583,9 @@ function ResultsContent() {
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-gray-500 font-medium text-xs">{row.registrar}</td>
+                    <td className="py-3.5 px-4 text-gray-400 font-medium text-xs whitespace-nowrap">
+                      {formatCheckDate(row.createdAt)}
+                    </td>
                     <td className="py-3.5 px-4 text-right">
                       {row.status === 'Available' ? (
                         <a

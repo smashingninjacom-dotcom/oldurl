@@ -7,6 +7,7 @@ import {
   fetchAllSearchHistory,
   saveLocalSearchHistory,
   syncToSupabase,
+  formatCheckDate,
 } from '../../lib/searchHistory';
 import {
   Search,
@@ -108,6 +109,7 @@ export default function DashboardHomePage() {
         daysLeft: result.status === 'Available' ? 'Dropped' : '365d',
         dr: Number(result.dr) || 0,
         registrar: result.registrar || (result.status === 'Available' ? '—' : 'Registered / Active'),
+        createdAt: new Date().toISOString(),
       };
 
       saveLocalSearchHistory([newRecord as any]);
@@ -398,7 +400,8 @@ export default function DashboardHomePage() {
                   <th className="py-3 px-4 w-36">Status</th>
                   <th className="py-3 px-4 w-32">Days Left</th>
                   <th className="py-3 px-4 w-28">DR</th>
-                  <th className="py-3 px-4 min-w-[180px]">Registrar</th>
+                  <th className="py-3 px-4 min-w-[160px]">Registrar</th>
+                  <th className="py-3 px-4 w-36">Date Checked</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -441,6 +444,9 @@ export default function DashboardHomePage() {
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-gray-500 font-medium text-xs">{row.registrar}</td>
+                    <td className="py-3.5 px-4 text-gray-400 font-medium text-xs whitespace-nowrap">
+                      {formatCheckDate(row.createdAt)}
+                    </td>
                   </tr>
                 ))}
               </tbody>

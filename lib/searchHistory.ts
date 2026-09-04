@@ -14,6 +14,22 @@ export interface StoredSearchItem {
 
 const STORAGE_KEY = 'oldurl_local_search_history';
 
+export function formatCheckDate(dateStr?: string): string {
+  if (!dateStr || dateStr === 'Just now' || dateStr === 'Recent') return 'Just now';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    if (isToday) {
+      return `Today, ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch (e) {
+    return 'Recently';
+  }
+}
+
 export function getLocalSearchHistory(): StoredSearchItem[] {
   if (typeof window === 'undefined') return [];
   try {
@@ -43,12 +59,14 @@ export function saveLocalSearchHistory(items: StoredSearchItem[]): void {
   try {
     const existing = getLocalSearchHistory();
     const existingMap = new Map<string, StoredSearchItem>();
+    const nowIso = new Date().toISOString();
 
     // New items take precedence
     items.forEach((it, idx) => {
       existingMap.set(it.domain.toLowerCase(), {
         ...it,
         id: String(idx + 1).padStart(2, '0'),
+        createdAt: it.createdAt || nowIso,
       });
     });
 
