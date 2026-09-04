@@ -11,6 +11,7 @@ import {
   getLocalSearchHistory,
   formatCheckDate,
   getCachedHistoryStats,
+  loadFromIndexedDB,
 } from '../../lib/searchHistory';
 import {
   Search,
@@ -104,6 +105,21 @@ export default function DashboardHomePage() {
     refreshData();
     window.addEventListener('oldurl_history_updated', refreshData);
     window.addEventListener('storage', refreshData);
+
+    // Bootstrap directly from IndexedDB without any flash
+    loadFromIndexedDB().then((idbItems) => {
+      if (idbItems && idbItems.length > 0) {
+        setSearches(idbItems);
+        const total = idbItems.length;
+        const avail = idbItems.filter((s) => s.status === 'Available').length;
+        const reg = total - avail;
+        const avg = total > 0 ? Math.round(idbItems.reduce((acc, s) => acc + (s.dr || 0), 0) / total) : 0;
+        setTotalChecked(total);
+        setAvailableCount(avail);
+        setRegisteredCount(reg);
+        setAvgDr(avg);
+      }
+    }).catch(() => {});
 
     async function loadUserData() {
       try {

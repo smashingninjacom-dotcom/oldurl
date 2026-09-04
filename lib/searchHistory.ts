@@ -626,17 +626,13 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
   registeredCount: number;
   avgDr: number;
 }> {
-  const localItems = getLocalSearchHistory(forceRefresh);
-
   const now = Date.now();
-  // Return cached data immediately if queried within 5 minutes and not forceRefresh
-  if (!forceRefresh && lastCloudFetchTime > 0 && now - lastCloudFetchTime < 300000 && memoryCache && memoryCache.length > 0) {
+  // Return cached data immediately if queried within 10 minutes and not forceRefresh
+  if (!forceRefresh && lastCloudFetchTime > 0 && now - lastCloudFetchTime < 600000 && memoryCache && memoryCache.length > 0) {
     const total = memoryCache.length;
     const avail = memoryCache.filter((s) => s.status === 'Available').length;
     const reg = total - avail;
-    const avg = Math.round(
-      memoryCache.reduce((acc, s) => acc + (s.dr || 0), 0) / (total || 1)
-    );
+    const avg = total > 0 ? Math.round(memoryCache.reduce((acc, s) => acc + (s.dr || 0), 0) / total) : 0;
     return {
       items: memoryCache,
       totalChecked: total,
@@ -647,13 +643,11 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
   }
 
   if (isCloudFetching) {
-    const active = (memoryCache && memoryCache.length > 0) ? memoryCache : localItems;
+    const active = (memoryCache && memoryCache.length > 0) ? memoryCache : getLocalSearchHistory(false);
     const total = active.length;
     const avail = active.filter((s) => s.status === 'Available').length;
     const reg = total - avail;
-    const avg = Math.round(
-      active.reduce((acc, s) => acc + (s.dr || 0), 0) / (total || 1)
-    );
+    const avg = total > 0 ? Math.round(active.reduce((acc, s) => acc + (s.dr || 0), 0) / total) : 0;
     return {
       items: active,
       totalChecked: total,
@@ -665,10 +659,61 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
 
   try {
     isCloudFetching = true;
+
+    // Load from IndexedDB, Local Storage, Sessions, and Memory Cache
+    const idbItems = await loadFromIndexedDB();
+    const localItems = getLocalSearchHistory(false);
+    const sessionItems = getSearchSessions().flatMap((s) => s.items || []);
+
+    const masterMap = new Map<string, StoredSearchItem>();
+
+    // Priority 1: In-memory cache
+    if (memoryCache && Array.isArray(memoryCache)) {
+      memoryCache.forEach((it) => {
+        if (it && it.domain) masterMap.set(it.domain.toLowerCase().trim(), it);
+      });
+    }
+
+    // Priority 2: IndexedDB (contains complete all-time domains)
+    if (idbItems && Array.isArray(idbItems)) {
+      idbItems.forEach((it) => {
+        if (it && it.domain) {
+          const k = it.domain.toLowerCase().trim();
+          if (!masterMap.has(k) || (it.createdAt && !masterMap.get(k)?.createdAt)) {
+            masterMap.set(k, it);
+          }
+        }
+      });
+    }
+
+    // Priority 3: Local storage items
+    if (localItems && Array.isArray(localItems)) {
+      localItems.forEach((it) => {
+        if (it && it.domain) {
+          const k = it.domain.toLowerCase().trim();
+          if (!masterMap.has(k)) {
+            masterMap.set(k, it);
+          }
+        }
+      });
+    }
+
+    // Priority 4: Search sessions
+    if (sessionItems && Array.isArray(sessionItems)) {
+      sessionItems.forEach((it) => {
+        if (it && it.domain) {
+          const k = it.domain.toLowerCase().trim();
+          if (!masterMap.has(k)) {
+            masterMap.set(k, it);
+          }
+        }
+      });
+    }
+
+    // Priority 5: Supabase Cloud History
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user;
     if (user) {
-      // Fetch all historical searches using paginated ranges to bypass Supabase 1000 row REST limit
       const allCloudHistory: any[] = [];
       let from = 0;
       const batchSize = 1000;
@@ -694,16 +739,12 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
         from += batchSize;
       }
 
-      lastCloudFetchTime = Date.now();
-
       if (allCloudHistory.length > 0) {
-        // Strict deduplication of cloud history by domain
-        const uniqueCloudMap = new Map<string, StoredSearchItem>();
         allCloudHistory.forEach((item) => {
           if (item && item.domain) {
             const lower = item.domain.toLowerCase().trim();
-            if (!uniqueCloudMap.has(lower)) {
-              uniqueCloudMap.set(lower, {
+            if (!masterMap.has(lower)) {
+              masterMap.set(lower, {
                 id: '01',
                 domain: item.domain,
                 status: item.status || 'Available',
@@ -715,73 +756,64 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
             }
           }
         });
-
-        // Master merge between cloud and local, strictly deduplicated by domain
-        const masterMap = new Map<string, StoredSearchItem>();
-        localItems.forEach((it) => {
-          if (it && it.domain) masterMap.set(it.domain.toLowerCase().trim(), it);
-        });
-        uniqueCloudMap.forEach((it, key) => {
-          if (!masterMap.has(key)) {
-            masterMap.set(key, it);
-          }
-        });
-
-        const finalItems = Array.from(masterMap.values())
-          .sort((a, b) => {
-            const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-            const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-            return bTime - aTime;
-          })
-          .map((item, idx) => ({
-            ...item,
-            id: String(idx + 1).padStart(2, '0'),
-          }));
-
-        memoryCache = finalItems;
-        saveToIndexedDB(finalItems);
-
-        // Persist to local storage (up to 1,000 for local sync bootstrap)
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(finalItems.slice(0, 1000)));
-        } catch (e) {}
-
-        const total = finalItems.length;
-        const avail = finalItems.filter((s) => s.status === 'Available').length;
-        const reg = total - avail;
-        const avg = Math.round(
-          finalItems.reduce((acc, s) => acc + (s.dr || 0), 0) / (total || 1)
-        );
-        saveCachedHistoryStats({ totalChecked: total, availableCount: avail, registeredCount: reg, avgDr: avg });
-
-        try {
-          window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: total } }));
-        } catch (e) {}
-
-        return {
-          items: finalItems,
-          totalChecked: total,
-          availableCount: avail,
-          registeredCount: reg,
-          avgDr: avg,
-        };
       }
     }
+
+    lastCloudFetchTime = Date.now();
+
+    const finalItems = Array.from(masterMap.values())
+      .sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bTime - aTime;
+      })
+      .map((item, idx) => ({
+        ...item,
+        id: String(idx + 1).padStart(2, '0'),
+      }));
+
+    if (finalItems.length > 0) {
+      memoryCache = finalItems;
+      await saveToIndexedDB(finalItems);
+
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(finalItems.slice(0, 1000)));
+      } catch (e) {}
+
+      const total = finalItems.length;
+      const avail = finalItems.filter((s) => s.status === 'Available').length;
+      const reg = total - avail;
+      const avg = total > 0 ? Math.round(finalItems.reduce((acc, s) => acc + (s.dr || 0), 0) / total) : 0;
+      const stats = { totalChecked: total, availableCount: avail, registeredCount: reg, avgDr: avg };
+      saveCachedHistoryStats(stats);
+
+      try {
+        window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: total } }));
+      } catch (e) {}
+
+      return {
+        items: finalItems,
+        totalChecked: total,
+        availableCount: avail,
+        registeredCount: reg,
+        avgDr: avg,
+      };
+    }
   } catch (e) {
+    console.warn('fetchAllSearchHistory error:', e);
   } finally {
     isCloudFetching = false;
   }
 
-  // Fallback to local storage
-  const total = localItems.length;
-  const avail = localItems.filter((s) => s.status === 'Available').length;
+  // Fallback
+  const fallback = memoryCache || getLocalSearchHistory(false);
+  const total = fallback.length;
+  const avail = fallback.filter((s) => s.status === 'Available').length;
   const reg = total - avail;
-  const avg = Math.round(
-    localItems.reduce((acc, s) => acc + (s.dr || 0), 0) / (total || 1)
-  );
+  const avg = total > 0 ? Math.round(fallback.reduce((acc, s) => acc + (s.dr || 0), 0) / total) : 0;
 
   return {
-    items: localItems,
+    items: fallback,
     totalChecked: total,
     availableCount: avail,
     registeredCount: reg,

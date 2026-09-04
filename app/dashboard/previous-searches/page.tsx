@@ -14,6 +14,7 @@ import {
   deleteSearchSession,
   SearchSession,
   getCachedHistoryStats,
+  loadFromIndexedDB,
 } from '../../../lib/searchHistory';
 import {
   Search,
@@ -94,6 +95,13 @@ export default function PreviousSearchesPage() {
     window.addEventListener('oldurl_history_updated', refreshData);
     window.addEventListener('storage', refreshData);
 
+    // Bootstrap directly from IndexedDB without delay
+    loadFromIndexedDB().then((idbItems) => {
+      if (idbItems && idbItems.length > 0) {
+        setData(idbItems);
+      }
+    }).catch(() => {});
+
     // Background cloud reconciliation without blocking UI
     fetchAllSearchHistory(false)
       .then(({ items }) => {
@@ -118,12 +126,10 @@ export default function PreviousSearchesPage() {
     return sess ? sess.items : data;
   }, [data, selectedSessionId, sessions]);
 
-  const cachedStats = getCachedHistoryStats();
-  const isAll = selectedSessionId === 'all';
-  const totalCount = isAll && cachedStats.totalChecked > activeData.length ? cachedStats.totalChecked : activeData.length;
-  const availableCount = isAll && cachedStats.totalChecked > activeData.length ? cachedStats.availableCount : activeData.filter((item) => item.status === 'Available').length;
-  const registeredCount = isAll && cachedStats.totalChecked > activeData.length ? cachedStats.registeredCount : (totalCount - availableCount);
-  const avgDr = isAll && cachedStats.totalChecked > activeData.length ? cachedStats.avgDr : (totalCount > 0 ? Math.round(activeData.reduce((acc, it) => acc + (Number(it.dr) || 0), 0) / totalCount) : 0);
+  const totalCount = activeData.length;
+  const availableCount = activeData.filter((item) => item.status === 'Available').length;
+  const registeredCount = totalCount - availableCount;
+  const avgDr = totalCount > 0 ? Math.round(activeData.reduce((acc, it) => acc + (Number(it.dr) || 0), 0) / totalCount) : 0;
 
   const scopedTotalCount = statusFilter === 'All'
     ? activeData.length
@@ -428,7 +434,7 @@ export default function PreviousSearchesPage() {
                 className="text-xs bg-gray-50 hover:bg-gray-100/80 border border-gray-200 text-gray-700 font-semibold px-3 py-1.5 rounded-xl outline-none focus:border-[#FC6B17] transition-colors cursor-pointer"
               >
                 <option value="all">
-                  All Searches ({Math.max(data.length, cachedStats.totalChecked).toLocaleString()} domains)
+                  All Searches ({data.length.toLocaleString()} domains)
                 </option>
                 {sessions.map((sess, idx) => (
                   <option key={sess.id} value={sess.id}>
@@ -462,7 +468,7 @@ export default function PreviousSearchesPage() {
                     : 'bg-gray-100 text-gray-700 group-hover:bg-gray-200'
                 }`}
               >
-                {Math.max(data.length, cachedStats.totalChecked).toLocaleString()}
+                {data.length.toLocaleString()}
               </span>
             </button>
 
