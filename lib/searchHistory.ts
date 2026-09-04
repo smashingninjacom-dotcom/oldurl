@@ -22,11 +22,61 @@ export interface SearchSession {
 
 const STORAGE_KEY = 'oldurl_local_search_history';
 const SESSIONS_STORAGE_KEY = 'oldurl_search_sessions';
+const STATS_STORAGE_KEY = 'oldurl_search_history_stats';
+
+export interface HistoryStats {
+  totalChecked: number;
+  availableCount: number;
+  registeredCount: number;
+  avgDr: number;
+}
 
 // In-memory cache for instantaneous 0ms tab switching
 let memoryCache: StoredSearchItem[] | null = null;
+let cachedStatsMemory: HistoryStats | null = null;
 let lastCloudFetchTime = 0;
 let isCloudFetching = false;
+
+export function getCachedHistoryStats(): HistoryStats {
+  if (cachedStatsMemory && cachedStatsMemory.totalChecked > 0) {
+    return cachedStatsMemory;
+  }
+  if (typeof window === 'undefined') {
+    return { totalChecked: 0, availableCount: 0, registeredCount: 0, avgDr: 0 };
+  }
+  try {
+    const raw = localStorage.getItem(STATS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.totalChecked === 'number' && parsed.totalChecked > 0) {
+        cachedStatsMemory = parsed;
+        return parsed;
+      }
+    }
+  } catch (e) {}
+
+  const local = getLocalSearchHistory();
+  const total = local.length;
+  const avail = local.filter((s) => s.status === 'Available').length;
+  const reg = total - avail;
+  const avg = total > 0 ? Math.round(local.reduce((acc, s) => acc + (s.dr || 0), 0) / total) : 0;
+  const stats = { totalChecked: total, availableCount: avail, registeredCount: reg, avgDr: avg };
+  if (total > 0) {
+    cachedStatsMemory = stats;
+    try {
+      localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(stats));
+    } catch (e) {}
+  }
+  return stats;
+}
+
+export function saveCachedHistoryStats(stats: HistoryStats): void {
+  cachedStatsMemory = stats;
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STATS_STORAGE_KEY, JSON.stringify(stats));
+  } catch (e) {}
+}
 
 export function formatCheckDate(dateStr?: string): string {
   if (!dateStr || dateStr === 'Just now' || dateStr === 'Recent') return 'Just now';
@@ -243,6 +293,11 @@ export function saveLocalSearchHistory(items: StoredSearchItem[], sessionLabel?:
       }));
 
     memoryCache = merged;
+    const total = merged.length;
+    const avail = merged.filter((s) => s.status === 'Available').length;
+    const reg = total - avail;
+    const avg = total > 0 ? Math.round(merged.reduce((acc, s) => acc + (s.dr || 0), 0) / total) : 0;
+    saveCachedHistoryStats({ totalChecked: total, availableCount: avail, registeredCount: reg, avgDr: avg });
 
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
@@ -269,6 +324,12 @@ export async function deleteHistoryItem(domain: string): Promise<void> {
       id: String(idx + 1).padStart(2, '0'),
     }));
   memoryCache = updated;
+  const total = updated.length;
+  const avail = updated.filter((s) => s.status === 'Available').length;
+  const reg = total - avail;
+  const avg = total > 0 ? Math.round(updated.reduce((acc, s) => acc + (s.dr || 0), 0) / total) : 0;
+  saveCachedHistoryStats({ totalChecked: total, availableCount: avail, registeredCount: reg, avgDr: avg });
+
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   } catch (e) {}
@@ -299,6 +360,7 @@ export async function deleteHistoryItem(domain: string): Promise<void> {
 export async function clearSearchHistory(): Promise<void> {
   if (typeof window === 'undefined') return;
   memoryCache = [];
+  saveCachedHistoryStats({ totalChecked: 0, availableCount: 0, registeredCount: 0, avgDr: 0 });
   try {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(SESSIONS_STORAGE_KEY);
@@ -489,6 +551,7 @@ export async function fetchAllSearchHistory(forceRefresh = false): Promise<{
         const avg = Math.round(
           finalItems.reduce((acc, s) => acc + (s.dr || 0), 0) / (total || 1)
         );
+        saveCachedHistoryStats({ totalChecked: total, availableCount: avail, registeredCount: reg, avgDr: avg });
 
         try {
           window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: total } }));

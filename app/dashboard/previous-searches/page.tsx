@@ -12,6 +12,7 @@ import {
   getSearchSessions,
   deleteSearchSession,
   SearchSession,
+  getCachedHistoryStats,
 } from '../../../lib/searchHistory';
 import {
   Search,
@@ -114,10 +115,12 @@ export default function PreviousSearchesPage() {
     return sess ? sess.items : data;
   }, [data, selectedSessionId, sessions]);
 
-  const totalCount = activeData.length;
-  const availableCount = activeData.filter((item) => item.status === 'Available').length;
-  const registeredCount = totalCount - availableCount;
-  const avgDr = totalCount > 0 ? Math.round(activeData.reduce((acc, it) => acc + (Number(it.dr) || 0), 0) / totalCount) : 0;
+  const cachedStats = getCachedHistoryStats();
+  const isAll = selectedSessionId === 'all';
+  const totalCount = isAll && cachedStats.totalChecked > activeData.length ? cachedStats.totalChecked : activeData.length;
+  const availableCount = isAll && cachedStats.totalChecked > activeData.length ? cachedStats.availableCount : activeData.filter((item) => item.status === 'Available').length;
+  const registeredCount = isAll && cachedStats.totalChecked > activeData.length ? cachedStats.registeredCount : (totalCount - availableCount);
+  const avgDr = isAll && cachedStats.totalChecked > activeData.length ? cachedStats.avgDr : (totalCount > 0 ? Math.round(activeData.reduce((acc, it) => acc + (Number(it.dr) || 0), 0) / totalCount) : 0);
 
   const scopedTotalCount = statusFilter === 'All'
     ? activeData.length
@@ -425,7 +428,7 @@ export default function PreviousSearchesPage() {
                   selectedSessionId === 'all' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-700'
                 }`}
               >
-                {data.length}
+                {Math.max(data.length, cachedStats.totalChecked)}
               </span>
             </button>
 

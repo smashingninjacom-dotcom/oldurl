@@ -9,6 +9,7 @@ import {
   syncToSupabase,
   getLocalSearchHistory,
   formatCheckDate,
+  getCachedHistoryStats,
 } from '../../lib/searchHistory';
 import {
   Search,
@@ -76,28 +77,25 @@ export default function DashboardHomePage() {
     setCurrentPage(1);
   };
 
-  // Compute immediate 0ms local metrics
-  const initialLocal = getLocalSearchHistory();
-  const initTotal = initialLocal.length;
-  const initAvail = initialLocal.filter((s) => s.status === 'Available').length;
-  const initReg = initTotal - initAvail;
-  const initAvg = initTotal > 0 ? Math.round(initialLocal.reduce((acc, s) => acc + (s.dr || 0), 0) / initTotal) : 0;
-
-  const [totalChecked, setTotalChecked] = useState(initTotal);
-  const [availableCount, setAvailableCount] = useState(initAvail);
-  const [registeredCount, setRegisteredCount] = useState(initReg);
-  const [avgDr, setAvgDr] = useState(initAvg);
+  // Instant 0ms cached metrics without any flash or delay
+  const cachedStats = getCachedHistoryStats();
+  const [totalChecked, setTotalChecked] = useState(cachedStats.totalChecked);
+  const [availableCount, setAvailableCount] = useState(cachedStats.availableCount);
+  const [registeredCount, setRegisteredCount] = useState(cachedStats.registeredCount);
+  const [avgDr, setAvgDr] = useState(cachedStats.avgDr);
 
   useEffect(() => {
     const refreshData = () => {
-      const local = getLocalSearchHistory(true);
+      const stats = getCachedHistoryStats();
+      if (stats && stats.totalChecked > 0) {
+        setTotalChecked(stats.totalChecked);
+        setAvailableCount(stats.availableCount);
+        setRegisteredCount(stats.registeredCount);
+        setAvgDr(stats.avgDr);
+      }
+      const local = getLocalSearchHistory();
       if (local && local.length > 0) {
         setSearches(local);
-        setTotalChecked(local.length);
-        const avail = local.filter((s) => s.status === 'Available').length;
-        setAvailableCount(avail);
-        setRegisteredCount(local.length - avail);
-        setAvgDr(Math.round(local.reduce((acc, s) => acc + (s.dr || 0), 0) / local.length));
       }
     };
 
