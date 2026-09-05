@@ -142,7 +142,23 @@ function ResultsContent() {
     existingHistory.forEach((h) => historyMap.set(h.domain.toLowerCase(), h));
 
     function evaluateDomain(domain: string, idx: number): ResultItem {
-      const lower = domain.toLowerCase();
+      const lower = domain.toLowerCase().trim();
+
+      // If domain already exists in history, preserve its verified data accurately
+      if (historyMap.has(lower)) {
+        const prev = historyMap.get(lower);
+        return {
+          id: String(idx + 1).padStart(2, '0'),
+          domain: prev.domain || domain,
+          status: prev.status || 'Registered',
+          daysLeft: prev.daysLeft || (prev.status === 'Available' ? 'Dropped' : '365d'),
+          dr: Number(prev.dr) || 0,
+          registrar: prev.registrar || (prev.status === 'Available' ? '—' : 'Registered / Active'),
+          refDomains: prev.refDomains || 0,
+          backlinks: prev.backlinks || 0,
+          createdAt: prev.createdAt || new Date().toISOString(),
+        };
+      }
 
       let hash = 0;
       for (let i = 0; i < domain.length; i++) {
@@ -166,10 +182,10 @@ function ResultsContent() {
         domain,
         status: isKnownActive ? 'Registered' : 'Registered',
         daysLeft: isKnownActive ? '730d' : 'Verifying...',
-        dr: isKnownActive ? 92 + (absHash % 7) : 25 + (absHash % 45),
+        dr: isKnownActive ? 92 + (absHash % 7) : 0,
         registrar: isKnownActive ? 'MarkMonitor Inc.' : 'Verifying...',
-        refDomains: 15 + (absHash % 120),
-        backlinks: (15 + (absHash % 120)) * (2 + (absHash % 6)),
+        refDomains: isKnownActive ? 120000 : 0,
+        backlinks: isKnownActive ? 960000 : 0,
         createdAt: new Date().toISOString(),
       };
     }
@@ -195,9 +211,6 @@ function ResultsContent() {
         setIsScanning(true);
         setIsPaused(false);
         setProgress(20);
-
-        // Immediate snapshot so data is never 0 even if user leaves early
-        saveLocalSearchHistory(initialCalculated as any);
 
         const CHUNK_SIZE = 50;
         const totalChunks = Math.ceil(rawDomains.length / CHUNK_SIZE);
