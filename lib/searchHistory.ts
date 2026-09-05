@@ -205,31 +205,60 @@ export async function loadFromIndexedDB(userId?: string): Promise<StoredSearchIt
       }
     });
 
-    if (userItems && userItems.length > 0) {
-      return userItems;
-    }
-
-    // If this is the primary account (jaysathwara96@gmail.com) and v2 store was empty, migrate from legacy v1 database
+    // If this is the primary account (jaysathwara96@gmail.com), union merge with legacy v1 database
+    // so all historical domains (~8,632+) are permanently preserved in v2 and not dropped to 6,334
     if (isPrimaryAccount() && uid !== 'guest') {
       const legacy = await loadLegacyIndexedDB();
       if (legacy && legacy.length > 0) {
-        const migrated = legacy.map((item, idx) => ({
-          ...item,
-          id: String(idx + 1).padStart(2, '0'),
-          userId: uid,
-          recordKey: `${uid}___${item.domain.toLowerCase().trim()}`,
-        }));
-        await saveToIndexedDB(migrated, uid);
-        try {
-          localStorage.setItem(getStorageKey(uid), JSON.stringify(migrated.slice(0, 1000)));
-        } catch (e) {}
-        const total = migrated.length;
-        const avail = migrated.filter((s) => s.status === 'Available').length;
-        const reg = total - avail;
-        const avg = total > 0 ? Math.round(migrated.reduce((acc, s) => acc + (s.dr || 0), 0) / total) : 0;
-        saveCachedHistoryStats({ totalChecked: total, availableCount: avail, registeredCount: reg, avgDr: avg }, uid);
-        return migrated;
+        const map = new Map<string, StoredSearchItem>();
+        // First put legacy items
+        legacy.forEach((item, idx) => {
+          if (item && item.domain) {
+            const dom = item.domain.toLowerCase().trim();
+            map.set(dom, {
+              ...item,
+              id: String(idx + 1).padStart(2, '0'),
+              userId: uid,
+              recordKey: `${uid}___${dom}`,
+            });
+          }
+        });
+        // Then layer in v2 userItems
+        if (userItems && userItems.length > 0) {
+          userItems.forEach((it) => {
+            if (it && it.domain) {
+              const dom = it.domain.toLowerCase().trim();
+              map.set(dom, {
+                ...it,
+                userId: uid,
+                recordKey: `${uid}___${dom}`,
+              });
+            }
+          });
+        }
+        const merged = Array.from(map.values()).sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bTime - aTime;
+        }).map((item, idx) => ({ ...item, id: String(idx + 1).padStart(2, '0'), userId: uid }));
+
+        if (merged.length > userItems.length) {
+          await saveToIndexedDB(merged, uid);
+          try {
+            localStorage.setItem(getStorageKey(uid), JSON.stringify(merged.slice(0, 1000)));
+          } catch (e) {}
+          const total = merged.length;
+          const avail = merged.filter((s) => s.status === 'Available').length;
+          const reg = total - avail;
+          const avg = total > 0 ? Math.round(merged.reduce((acc, s) => acc + (s.dr || 0), 0) / total) : 0;
+          saveCachedHistoryStats({ totalChecked: total, availableCount: avail, registeredCount: reg, avgDr: avg }, uid);
+        }
+        return merged;
       }
+    }
+
+    if (userItems && userItems.length > 0) {
+      return userItems;
     }
 
     return [];
@@ -630,25 +659,6 @@ export function saveLocalSearchHistory(items: StoredSearchItem[], sessionLabel?:
 
     try {
       window.dispatchEvent(new CustomEvent('oldurl_history_updated', { detail: { count: merged.length, userId: uid } }));
-    } catch (e) {}
-
-    try {
-      const cached = localStorage.getItem(`oldurl_cached_profile_${uid}`) || localStorage.getItem('oldurl_cached_profile');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        const newUsed = Math.max(Number(parsed.quota_used) || 0, total);
-        if (newUsed !== parsed.quota_used) {
-          parsed.quota_used = newUsed;
-          localStorage.setItem(`oldurl_cached_profile_${uid}`, JSON.stringify(parsed));
-          localStorage.setItem('oldurl_cached_profile', JSON.stringify(parsed));
-          window.dispatchEvent(new CustomEvent('oldurl_quota_updated', { detail: parsed }));
-          supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session?.user && session.user.id === uid) {
-              supabase.from('profiles').update({ quota_used: newUsed }).eq('id', uid).then(() => {});
-            }
-          });
-        }
-      }
     } catch (e) {}
   } catch (e) {}
 }
