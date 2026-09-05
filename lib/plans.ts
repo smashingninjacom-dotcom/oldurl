@@ -120,9 +120,24 @@ export function getUserQuotaData(profile?: any): UserQuotaData {
   const plan = PLANS[planId] || PLANS.free;
 
   const lookupsLimit = p?.quota_limit ?? plan.monthlyLookups;
-  const lookupsUsed = Math.max(0, Number(p?.quota_used) || 0);
+  const rawUsed = Math.max(0, Number(p?.quota_used) || 0);
+  // Auto-heal contaminated legacy quota_used if it was accidentally set to all-time domain history (> lookupsLimit on free plan)
+  const lookupsUsed = (rawUsed > lookupsLimit && planId === 'free') ? 0 : rawUsed;
   const lookupsRemaining = Math.max(0, lookupsLimit - lookupsUsed);
   const lookupsPercent = lookupsLimit > 0 ? Math.min(100, Math.round((lookupsUsed / lookupsLimit) * 100)) : 0;
+
+  if (typeof window !== 'undefined' && p && rawUsed > lookupsLimit && planId === 'free') {
+    try {
+      p.quota_used = 0;
+      const cachedUser = localStorage.getItem('oldurl_cached_user');
+      const uid = cachedUser ? JSON.parse(cachedUser)?.id : null;
+      if (uid) {
+        localStorage.setItem(`oldurl_cached_profile_${uid}`, JSON.stringify(p));
+        localStorage.setItem('oldurl_cached_profile', JSON.stringify(p));
+        supabase.from('profiles').update({ quota_used: 0 }).eq('id', uid).then(() => {});
+      }
+    } catch (e) {}
+  }
 
   const analyticsLimit = p?.analytics_limit ?? plan.monthlyAnalytics;
   const analyticsUsed = Math.max(0, Number(p?.analytics_used) || 0);

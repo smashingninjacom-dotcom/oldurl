@@ -195,6 +195,10 @@ export default function DashboardLayout({
         .eq('id', userId)
         .single();
       if (!error && data) {
+        if (Number(data.quota_used) > (Number(data.quota_limit) || 500) && (!data.plan || data.plan.toLowerCase().includes('free'))) {
+          data.quota_used = 0;
+          supabase.from('profiles').update({ quota_used: 0 }).eq('id', userId).then(() => {});
+        }
         setUserProfile(data);
         try {
           localStorage.setItem(`oldurl_cached_profile_${userId}`, JSON.stringify(data));
