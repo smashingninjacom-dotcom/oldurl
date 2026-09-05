@@ -80,7 +80,7 @@ export async function fetchAhrefsDomainRating(domain: string): Promise<AhrefsDrR
           dr: roundedDr,
           domain: cleanDomain,
           source: 'ahrefs',
-          license: data?.license || 'https://ahrefs.com/legal/domain-rating-license',
+          license: data?.domain_rating?.license || data?.license || 'https://ahrefs.com/legal/domain-rating-license',
         };
       }
     }
