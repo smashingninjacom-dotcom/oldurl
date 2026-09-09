@@ -100,6 +100,13 @@ function DomainAnalyticsResultContent() {
 
     if (domainInput) {
       hasLoadedRef.current = true;
+      if (typeof window !== 'undefined' && window.location.search) {
+        window.history.replaceState({}, '', '/dashboard/domain-analytics-result');
+      }
+      try {
+        sessionStorage.removeItem('pending_analytics_domains');
+      } catch (e) {}
+
       const rawDomains = domainInput
         .split(/[\r\n,]+/)
         .map(extractCleanDomain)

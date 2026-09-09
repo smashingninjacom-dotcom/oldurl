@@ -192,6 +192,14 @@ function ResultsContent() {
 
     if (domainInput) {
       hasLoadedRef.current = true;
+      // Immediately clear the URL search query so navigating between tabs does not restart the scan
+      if (typeof window !== 'undefined' && window.location.search) {
+        window.history.replaceState({}, '', '/dashboard/results');
+      }
+      try {
+        sessionStorage.removeItem('pending_domains');
+      } catch (e) {}
+
       const rawDomains = Array.from(
         new Set(
           domainInput
