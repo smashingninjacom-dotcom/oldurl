@@ -364,6 +364,12 @@ export default function DashboardLayout({
       badge: null,
     },
     {
+      name: 'Bulk Scanner',
+      href: '/dashboard/bulk-scanner',
+      icon: Layers,
+      badge: 'File',
+    },
+    {
       name: 'Results',
       href: '/dashboard/results',
       icon: BarChart2,
@@ -391,19 +397,19 @@ export default function DashboardLayout({
       badge: null,
     },
     {
-      name: 'Domain A. Result',
+      name: 'Analytics Results',
       href: '/dashboard/domain-analytics-result',
       icon: FileCheck2,
       badge: null,
     },
     {
-      name: 'Domain A. Scanned',
+      name: 'Scanned History',
       href: '/dashboard/domain-analytics-scanned',
       icon: Layers,
       badge: null,
     },
     {
-      name: 'Profile',
+      name: 'Account & Profile',
       href: '/dashboard/profile',
       icon: User,
       badge: null,
@@ -422,27 +428,33 @@ export default function DashboardLayout({
         href={item.href}
         prefetch={true}
         onClick={() => setIsMobileMenuOpen(false)}
-        className={`group flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-[13px] font-semibold transition-all ${
+        className={`group flex items-center justify-between px-4 py-3 rounded-xl text-[13.5px] font-semibold transition-all ${
           isActive
-            ? 'bg-[#fff0e8] text-[#FC6B17] font-bold shadow-2xs'
-            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+            ? 'bg-[#fff0e8] text-[#FC6B17] font-bold shadow-2xs border border-orange-200/50'
+            : 'text-gray-600 hover:bg-orange-50/50 hover:text-gray-900'
         }`}
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3.5">
           <div
-            className={`w-7.5 h-7.5 rounded-lg flex items-center justify-center transition-colors ${
+            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0 ${
               isActive
                 ? 'bg-[#FC6B17] text-white shadow-2xs'
-                : 'bg-gray-100 text-gray-400 group-hover:bg-orange-50 group-hover:text-[#FC6B17]'
+                : 'bg-gray-100/80 text-gray-500 group-hover:bg-orange-100 group-hover:text-[#FC6B17]'
             }`}
           >
-            <Icon className="w-4 h-4" />
+            <Icon className="w-4.5 h-4.5" />
           </div>
-          <span>{item.name}</span>
+          <span className="truncate">{item.name}</span>
         </div>
 
         {item.badge ? (
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider bg-emerald-100 text-emerald-800">
+          <span className={`text-[10.5px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
+            item.badge === 'Live'
+              ? 'bg-emerald-100 text-emerald-800'
+              : item.badge === 'File'
+              ? 'bg-amber-100 text-amber-800'
+              : 'bg-[#FC6B17] text-white shadow-2xs'
+          }`}>
             {item.badge}
           </span>
         ) : isActive ? (
@@ -454,34 +466,35 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-[#faf9f8] text-[#1e1e2d] flex font-sans antialiased">
-      {/* -------------------- SIDEBAR (STANDARD NORMAL SIZE) -------------------- */}
-      <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-gray-200/80 fixed top-0 bottom-0 z-40">
+      {/* -------------------- SIDEBAR (SPACIOUS & PROPER SIZE) -------------------- */}
+      <aside className="hidden lg:flex flex-col w-72 bg-white border-r border-gray-200/80 fixed top-0 bottom-0 z-40">
         {/* Logo Header */}
-        <div className="h-16 flex items-center px-6 border-b border-gray-100">
-          <Link href="/" className="flex items-center gap-2.5 text-xl font-black text-[#0d1b3e] tracking-tight">
-            <div className="w-8 h-8 rounded-lg bg-[#FC6B17] flex items-center justify-center text-white font-black text-sm shadow-xs">
+        <div className="h-16 flex items-center px-6 border-b border-gray-100 shrink-0">
+          <Link href="/" className="flex items-center gap-3 text-xl font-black text-[#0d1b3e] tracking-tight">
+            <div className="w-8 h-8 rounded-xl bg-[#FC6B17] flex items-center justify-center text-white font-black text-base shadow-xs">
               O
             </div>
             <div className="flex items-baseline">
-              <span className="text-[#FC6B17]">Old</span>Url
-              <span className="text-[11px] text-gray-400 font-medium font-mono ml-1">.domains</span>
+              <span className="text-[#FC6B17] font-extrabold text-lg">Old</span>
+              <span className="text-gray-900 font-extrabold text-lg">Url</span>
+              <span className="text-[11px] text-gray-400 font-semibold font-mono ml-1">.domains</span>
             </div>
           </Link>
         </div>
 
         {/* Nav Items Container */}
-        <div className="flex-1 py-5 px-3.5 space-y-5 overflow-y-auto">
+        <div className="flex-1 py-6 px-4 space-y-6 overflow-y-auto">
           {/* Main Section */}
-          <div className="space-y-1">
-            <div className="px-3 text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+          <div className="space-y-1.5">
+            <div className="px-3 text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
               Domain Audit
             </div>
             {mainNav.map(renderNavLink)}
           </div>
 
           {/* Analytics Section */}
-          <div className="space-y-1 pt-3 border-t border-gray-100">
-            <div className="px-3 text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+          <div className="space-y-1.5 pt-4 border-t border-gray-100">
+            <div className="px-3 text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
               Analytics &amp; Data
             </div>
             {analyticsNav.map(renderNavLink)}
@@ -489,22 +502,23 @@ export default function DashboardLayout({
         </div>
 
         {/* Bottom Plan Box */}
-        <div className="p-4 border-t border-gray-100">
-          <div className="bg-[#fff7f2] p-3.5 rounded-2xl border border-orange-100 text-center space-y-2.5">
+        <div className="p-4 border-t border-gray-100 shrink-0">
+          <div className="bg-gradient-to-br from-[#fff7f2] to-[#fff3ea] p-4 rounded-2xl border border-orange-200/70 text-center space-y-3 shadow-2xs">
             <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#FC6B17] uppercase tracking-wider">
+              <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-[#FC6B17] uppercase tracking-wider">
                 <Sparkles className="w-3.5 h-3.5" /> {quota.planName}
               </span>
-              <span className="text-[11px] font-medium text-gray-400">
+              <span className="text-xs font-semibold text-gray-500">
                 {quota.lookupsLimit >= 1000 ? `${(quota.lookupsLimit / 1000).toFixed(quota.lookupsLimit % 1000 === 0 ? 0 : 1)}K/mo` : `${quota.lookupsLimit}/mo`}
               </span>
             </div>
 
             <div>
-              <div className="text-xs font-semibold text-gray-800 text-left">
-                {quota.lookupsUsed.toLocaleString()} / {quota.lookupsLimit.toLocaleString()} checked
+              <div className="text-xs font-semibold text-gray-700 text-left flex items-center justify-between">
+                <span>Domain Checks</span>
+                <span className="font-bold text-gray-900">{quota.lookupsUsed.toLocaleString()} / {quota.lookupsLimit.toLocaleString()}</span>
               </div>
-              <div className="w-full bg-white h-2 rounded-full overflow-hidden mt-1 border border-orange-100">
+              <div className="w-full bg-orange-100/60 h-2.5 rounded-full overflow-hidden mt-1.5 border border-orange-200/40">
                 <div
                   className="bg-[#FC6B17] h-full rounded-full transition-all duration-300"
                   style={{ width: `${Math.min(100, quota.lookupsPercent)}%` }}
@@ -514,7 +528,7 @@ export default function DashboardLayout({
 
             <Link
               href="/dashboard/billing"
-              className="block w-full py-1.5 px-3 border border-[#FC6B17] text-[#FC6B17] hover:bg-[#FC6B17] hover:text-white rounded-xl text-xs font-bold transition-colors shadow-2xs"
+              className="block w-full py-2 px-3 bg-white hover:bg-[#FC6B17] text-[#FC6B17] hover:text-white border border-orange-200 hover:border-transparent rounded-xl text-xs font-bold transition-all shadow-2xs"
             >
               Manage Plan →
             </Link>
@@ -529,7 +543,7 @@ export default function DashboardLayout({
             className="fixed inset-0 bg-black/40 backdrop-blur-xs"
             onClick={() => setIsMobileMenuOpen(false)}
           />
-          <div className="relative w-64 bg-white h-full flex flex-col z-10 shadow-2xl p-4">
+          <div className="relative w-72 bg-white h-full flex flex-col z-10 shadow-2xl p-4">
             <div className="h-16 flex items-center justify-between px-2 border-b border-gray-100">
               <Link href="/" className="flex items-center gap-2 text-xl font-black text-[#0d1b3e]">
                 <span className="text-[#FC6B17]">Old</span>Url
@@ -542,15 +556,15 @@ export default function DashboardLayout({
               </button>
             </div>
             <div className="flex-1 py-4 space-y-4 overflow-y-auto">
-              <div className="space-y-1">{mainNav.map(renderNavLink)}</div>
-              <div className="space-y-1 pt-2 border-t border-gray-100">{analyticsNav.map(renderNavLink)}</div>
+              <div className="space-y-1.5">{mainNav.map(renderNavLink)}</div>
+              <div className="space-y-1.5 pt-3 border-t border-gray-100">{analyticsNav.map(renderNavLink)}</div>
             </div>
           </div>
         </div>
       )}
 
       {/* -------------------- MAIN CONTENT WRAPPER -------------------- */}
-      <div className="flex-1 lg:pl-64 flex flex-col min-w-0">
+      <div className="flex-1 lg:pl-72 flex flex-col min-w-0">
         {/* Top Header Bar */}
         <header className="h-16 bg-white border-b border-gray-200/80 sticky top-0 z-30 px-6 sm:px-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -664,7 +678,7 @@ export default function DashboardLayout({
         </header>
 
         {/* Page Inner Content */}
-        <main className="flex-1 p-6 sm:p-8 max-w-[1400px] w-full mx-auto">
+        <main className="flex-1 p-5 sm:p-7 lg:p-8 max-w-[1500px] w-full mx-auto">
           {children}
         </main>
       </div>
