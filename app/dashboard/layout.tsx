@@ -364,12 +364,6 @@ export default function DashboardLayout({
       badge: null,
     },
     {
-      name: 'Bulk Scanner',
-      href: '/dashboard/bulk-scanner',
-      icon: Layers,
-      badge: 'File',
-    },
-    {
       name: 'Results',
       href: '/dashboard/results',
       icon: BarChart2,
@@ -409,7 +403,7 @@ export default function DashboardLayout({
       badge: null,
     },
     {
-      name: 'Profile & Plan',
+      name: 'Profile',
       href: '/dashboard/profile',
       icon: User,
       badge: null,
@@ -460,7 +454,7 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-[#faf9f8] text-[#1e1e2d] flex font-sans antialiased">
-      {/* -------------------- SIDEBAR (CLASSIC CLEAN SIZE) -------------------- */}
+      {/* -------------------- SIDEBAR (STANDARD NORMAL SIZE) -------------------- */}
       <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-gray-200/80 fixed top-0 bottom-0 z-40">
         {/* Logo Header */}
         <div className="h-16 flex items-center px-6 border-b border-gray-100">
@@ -555,7 +549,7 @@ export default function DashboardLayout({
         </div>
       )}
 
-      {/* -------------------- MAIN CONTENT WRAPPER (EXPANDED TO FULL FLUID WIDTH) -------------------- */}
+      {/* -------------------- MAIN CONTENT WRAPPER -------------------- */}
       <div className="flex-1 lg:pl-64 flex flex-col min-w-0">
         {/* Top Header Bar */}
         <header className="h-16 bg-white border-b border-gray-200/80 sticky top-0 z-30 px-6 sm:px-8 flex items-center justify-between">
@@ -669,8 +663,8 @@ export default function DashboardLayout({
           </div>
         </header>
 
-        {/* Page Inner Content (Full Fluid Width) */}
-        <main className="flex-1 p-5 sm:p-7 lg:p-8 w-full">
+        {/* Page Inner Content */}
+        <main className="flex-1 p-6 sm:p-8 max-w-[1400px] w-full mx-auto">
           {children}
         </main>
       </div>

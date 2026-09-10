@@ -308,7 +308,7 @@ export default function DashboardHomePage() {
   const paginatedSearches = sortedSearches.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
-    <div className="space-y-6 w-full font-sans">
+    <div className="space-y-6 max-w-7xl mx-auto font-sans">
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-xs text-gray-400">
         <span className="hover:text-gray-600">🏠 Home</span>
