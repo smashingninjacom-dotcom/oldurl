@@ -840,7 +840,7 @@ export default function PreviousSearchesPage() {
                 <tr className="bg-[#f8fafc] border-b border-gray-100 text-gray-400 font-bold uppercase tracking-wider text-[11px]">
                   <th
                     onClick={() => handleSort('id')}
-                    className="py-3 px-4 w-14 text-center cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                    className="py-3 px-3 w-12 text-center cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
                   >
                     <div className="flex items-center justify-center gap-1">
                       <span className={sortField === 'id' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-700'}>#</span>
@@ -853,7 +853,7 @@ export default function PreviousSearchesPage() {
                   </th>
                   <th
                     onClick={() => handleSort('domain')}
-                    className="py-3 px-4 min-w-[200px] cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                    className="py-3 px-4 w-[28%] min-w-[200px] cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className={sortField === 'domain' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-700'}>Domain</span>
@@ -866,7 +866,7 @@ export default function PreviousSearchesPage() {
                   </th>
                   <th
                     onClick={() => handleSort('status')}
-                    className="py-3 px-4 w-32 cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                    className="py-3 px-4 w-[15%] min-w-[130px] cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className={sortField === 'status' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-700'}>Status</span>
@@ -879,7 +879,7 @@ export default function PreviousSearchesPage() {
                   </th>
                   <th
                     onClick={() => handleSort('daysLeft')}
-                    className="py-3 px-4 w-28 cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                    className="py-3 px-4 w-[12%] min-w-[110px] cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className={sortField === 'daysLeft' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-700'}>Days Left</span>
@@ -892,7 +892,7 @@ export default function PreviousSearchesPage() {
                   </th>
                   <th
                     onClick={() => handleSort('dr')}
-                    className="py-3 px-4 w-24 cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                    className="py-3 px-4 w-[10%] min-w-[85px] cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className={sortField === 'dr' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-700'}>DR</span>
@@ -905,7 +905,7 @@ export default function PreviousSearchesPage() {
                   </th>
                   <th
                     onClick={() => handleSort('registrar')}
-                    className="py-3 px-4 min-w-[150px] cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                    className="py-3 px-4 w-[17%] min-w-[140px] cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className={sortField === 'registrar' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-700'}>Registrar</span>
@@ -918,7 +918,7 @@ export default function PreviousSearchesPage() {
                   </th>
                   <th
                     onClick={() => handleSort('createdAt')}
-                    className="py-3 px-4 w-36 cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
+                    className="py-3 px-4 w-[13%] min-w-[120px] cursor-pointer select-none hover:bg-gray-100/70 transition-colors group"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className={sortField === 'createdAt' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-700'}>Date Checked</span>
@@ -929,7 +929,7 @@ export default function PreviousSearchesPage() {
                       )}
                     </div>
                   </th>
-                  <th className="py-3 px-4 w-20 text-right">Action</th>
+                  <th className="py-3 px-4 w-[5%] min-w-[70px] text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">

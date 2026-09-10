@@ -366,10 +366,10 @@ export default function WatchlistPage() {
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-[#f8f9fa] border-b border-gray-200 text-gray-500 font-bold uppercase tracking-wider text-[11px]">
-                  <th className="py-3 pl-4 pr-2 w-10 text-center">#</th>
+                  <th className="py-3 px-3 w-12 text-center">#</th>
                   <th
                     onClick={() => handleSort('domain')}
-                    className="py-3 px-4 cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
+                    className="py-3 px-4 w-[30%] min-w-[200px] cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className={sortField === 'domain' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>Domain Name</span>
@@ -382,7 +382,7 @@ export default function WatchlistPage() {
                   </th>
                   <th
                     onClick={() => handleSort('status')}
-                    className="py-3 px-3 cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
+                    className="py-3 px-3 w-[15%] min-w-[130px] cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className={sortField === 'status' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>Availability</span>
@@ -395,7 +395,7 @@ export default function WatchlistPage() {
                   </th>
                   <th
                     onClick={() => handleSort('dr')}
-                    className="py-3 px-3 cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
+                    className="py-3 px-3 w-[12%] min-w-[90px] cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className={sortField === 'dr' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>DR (Ahrefs)</span>
@@ -406,10 +406,10 @@ export default function WatchlistPage() {
                       )}
                     </div>
                   </th>
-                  <th className="py-3 px-3">Registrar / Expiry</th>
+                  <th className="py-3 px-3 w-[20%] min-w-[150px]">Registrar / Expiry</th>
                   <th
                     onClick={() => handleSort('createdAt')}
-                    className="py-3 px-3 cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
+                    className="py-3 px-3 w-[15%] min-w-[120px] cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className={sortField === 'createdAt' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>Saved Date</span>
@@ -420,7 +420,7 @@ export default function WatchlistPage() {
                       )}
                     </div>
                   </th>
-                  <th className="py-3 pr-4 text-right">Actions</th>
+                  <th className="py-3 pr-4 w-[8%] min-w-[80px] text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 font-medium text-gray-800">
