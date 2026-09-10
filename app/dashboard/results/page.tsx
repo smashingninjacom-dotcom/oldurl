@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import {
   saveLocalSearchHistory,
@@ -71,6 +71,7 @@ function getPaginationRange(currentPage: number, totalPages: number): (number | 
 }
 
 function ResultsContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [results, setResults] = useState<ResultItem[]>(() => {
     const recent = getLastScannedBatch();
@@ -232,13 +233,21 @@ function ResultsContent() {
 
     if (domainInput) {
       hasLoadedRef.current = true;
-      // Immediately clear the URL search query so navigating between tabs does not restart the scan
-      if (typeof window !== 'undefined' && window.location.search) {
-        window.history.replaceState({}, '', '/dashboard/results');
+      // Immediately clear the URL search query in both Next.js router and browser history
+      if (typeof window !== 'undefined') {
+        try {
+          if (window.location.search) {
+            window.history.replaceState({}, '', '/dashboard/results');
+          }
+          sessionStorage.removeItem('pending_domains');
+          sessionStorage.removeItem('pending_domains_guest');
+        } catch (e) {}
       }
-      try {
-        sessionStorage.removeItem('pending_domains');
-      } catch (e) {}
+      if (searchParams.get('domains')) {
+        try {
+          router.replace('/dashboard/results');
+        } catch (e) {}
+      }
 
       const rawDomains = Array.from(
         new Set(

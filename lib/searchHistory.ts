@@ -399,10 +399,12 @@ export function resetMemoryCacheForUser(newUserId?: string): void {
 export function setPendingDomainsToScan(domains: string[], userId?: string): void {
   if (!domains || !domains.length) return;
   const uid = userId || getActiveUserId();
-  pendingDomainsMemory = domains;
+  pendingDomainsMemory = [...domains];
+  cachedUserId = uid;
   if (typeof window !== 'undefined') {
     try {
       sessionStorage.setItem(`pending_domains_${uid}`, domains.join('\n'));
+      sessionStorage.setItem('pending_domains', domains.join('\n'));
     } catch (e) {
       try {
         sessionStorage.setItem(`pending_domains_${uid}`, domains.slice(0, 3000).join('\n'));
@@ -413,17 +415,26 @@ export function setPendingDomainsToScan(domains: string[], userId?: string): voi
 
 export function getPendingDomainsToScan(userId?: string): string[] {
   const uid = userId || getActiveUserId();
-  if (cachedUserId === uid && pendingDomainsMemory && pendingDomainsMemory.length > 0) {
+  // If memory has pending domains, consume once and immediately clear
+  if (pendingDomainsMemory && pendingDomainsMemory.length > 0) {
     const list = [...pendingDomainsMemory];
     pendingDomainsMemory = null;
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem(`pending_domains_${uid}`);
+        sessionStorage.removeItem('pending_domains');
+      } catch (e) {}
+    }
     return list;
   }
+
   if (typeof window === 'undefined') return [];
   try {
     const raw = sessionStorage.getItem(`pending_domains_${uid}`) || sessionStorage.getItem('pending_domains');
     if (raw) {
       sessionStorage.removeItem(`pending_domains_${uid}`);
       sessionStorage.removeItem('pending_domains');
+      pendingDomainsMemory = null;
       const list = raw.split(/[\r\n,]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
       if (list.length > 0) return list;
     }
@@ -434,10 +445,12 @@ export function getPendingDomainsToScan(userId?: string): string[] {
 export function setPendingAnalyticsDomains(domains: string[], userId?: string): void {
   if (!domains || !domains.length) return;
   const uid = userId || getActiveUserId();
-  pendingAnalyticsMemory = domains;
+  pendingAnalyticsMemory = [...domains];
+  cachedUserId = uid;
   if (typeof window !== 'undefined') {
     try {
       sessionStorage.setItem(`pending_analytics_domains_${uid}`, domains.join('\n'));
+      sessionStorage.setItem('pending_analytics_domains', domains.join('\n'));
     } catch (e) {
       try {
         sessionStorage.setItem(`pending_analytics_domains_${uid}`, domains.slice(0, 3000).join('\n'));
@@ -448,17 +461,26 @@ export function setPendingAnalyticsDomains(domains: string[], userId?: string): 
 
 export function getPendingAnalyticsDomains(userId?: string): string[] {
   const uid = userId || getActiveUserId();
-  if (cachedUserId === uid && pendingAnalyticsMemory && pendingAnalyticsMemory.length > 0) {
+  // If memory has pending analytics domains, consume once and immediately clear
+  if (pendingAnalyticsMemory && pendingAnalyticsMemory.length > 0) {
     const list = [...pendingAnalyticsMemory];
     pendingAnalyticsMemory = null;
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem(`pending_analytics_domains_${uid}`);
+        sessionStorage.removeItem('pending_analytics_domains');
+      } catch (e) {}
+    }
     return list;
   }
+
   if (typeof window === 'undefined') return [];
   try {
     const raw = sessionStorage.getItem(`pending_analytics_domains_${uid}`) || sessionStorage.getItem('pending_analytics_domains');
     if (raw) {
       sessionStorage.removeItem(`pending_analytics_domains_${uid}`);
       sessionStorage.removeItem('pending_analytics_domains');
+      pendingAnalyticsMemory = null;
       const list = raw.split(/[\r\n,]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
       if (list.length > 0) return list;
     }
