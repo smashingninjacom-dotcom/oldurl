@@ -96,7 +96,7 @@ export default function BillingPage() {
   const planKeys: PlanId[] = ['free', 'starter', 'growth', 'agency'];
 
   return (
-    <div className="space-y-8 max-w-6xl">
+    <div className="space-y-8 w-full">
       {/* -------------------- HEADER -------------------- */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0d1b3e] tracking-tight">

@@ -120,7 +120,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 w-full">
       {/* -------------------- HEADER -------------------- */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0d1b3e] tracking-tight">
