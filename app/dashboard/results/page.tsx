@@ -40,8 +40,10 @@ import {
   ArrowDown,
   FileSpreadsheet,
   Code,
+  Bookmark,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { getLocalWishlist, toggleDomainWishlist } from '../../../lib/watchlist';
 
 interface ResultItem {
   id: string;
@@ -88,6 +90,13 @@ function ResultsContent() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 25;
+  const [wishlistDomains, setWishlistDomains] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const list = getLocalWishlist();
+      return new Set(list.map((it) => it.domain.toLowerCase().trim()));
+    }
+    return new Set();
+  });
 
   const handleSort = (field: 'id' | 'domain' | 'status' | 'daysLeft' | 'dr' | 'registrar' | 'createdAt') => {
     if (sortField === field) {
@@ -99,10 +108,41 @@ function ResultsContent() {
     setCurrentPage(1);
   };
 
+  const handleToggleWishlist = async (item: ResultItem) => {
+    const isAdded = await toggleDomainWishlist({
+      domain: item.domain,
+      dr: item.dr,
+      status: item.status,
+      daysLeft: item.daysLeft,
+      registrar: item.registrar,
+      refDomains: item.refDomains,
+      backlinks: item.backlinks,
+    });
+    setWishlistDomains((prev) => {
+      const next = new Set(prev);
+      const lower = item.domain.toLowerCase().trim();
+      if (isAdded) next.add(lower);
+      else next.delete(lower);
+      return next;
+    });
+  };
+
   const hasLoadedRef = useRef(false);
   const isPausedRef = useRef(false);
   const isCancelledRef = useRef(false);
   const isStoppedRef = useRef(false);
+
+  useEffect(() => {
+    const handleWishlistUpdated = () => {
+      const list = getLocalWishlist();
+      setWishlistDomains(new Set(list.map((it) => it.domain.toLowerCase().trim())));
+    };
+
+    window.addEventListener('oldurl_wishlist_updated', handleWishlistUpdated);
+    return () => {
+      window.removeEventListener('oldurl_wishlist_updated', handleWishlistUpdated);
+    };
+  }, []);
 
   useEffect(() => {
     if (hasLoadedRef.current) return;
@@ -1067,7 +1107,22 @@ function ResultsContent() {
                     <tr key={row.id + '-' + row.domain} className="hover:bg-orange-50/20 transition-colors">
                       <td className="py-3.5 px-4 text-center text-gray-400 text-xs font-mono font-bold">{itemIndex}</td>
                       <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleWishlist(row);
+                            }}
+                            className="p-1 rounded-md text-gray-300 hover:text-[#FC6B17] hover:bg-orange-50 transition-all"
+                            title={wishlistDomains.has(row.domain.toLowerCase().trim()) ? 'Remove from Wishlist' : 'Add to Wishlist & Favourites'}
+                          >
+                            <Bookmark className={`w-4 h-4 transition-all ${
+                              wishlistDomains.has(row.domain.toLowerCase().trim())
+                                ? 'text-[#FC6B17] fill-[#FC6B17]'
+                                : 'text-gray-300 hover:text-[#FC6B17]'
+                            }`} />
+                          </button>
                           <div className="w-6 h-6 rounded-md bg-gray-100 text-gray-500 flex items-center justify-center flex-shrink-0">
                             <Globe className="w-3.5 h-3.5" />
                           </div>

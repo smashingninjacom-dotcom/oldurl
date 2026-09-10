@@ -1,104 +1,119 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import {
+  WishlistItem,
+  getLocalWishlist,
+  saveLocalWishlist,
+  fetchCloudWishlist,
+  removeFromWishlist,
+  toggleDomainWishlist,
+} from '../../../lib/watchlist';
+import { formatCheckDate, setPendingDomainsToScan } from '../../../lib/searchHistory';
+import {
   Bookmark,
-  Bell,
   Trash2,
   Plus,
   ExternalLink,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Search,
+  Download,
+  FileSpreadsheet,
+  Globe,
+  CheckCircle2,
+  Copy,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  RefreshCw,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
-interface WatchlistItem {
-  id: string;
-  domain: string;
-  dr: number;
-  refDomains: number;
-  citations: string[];
-  dropDate: string;
-  alertEmail: boolean;
-  status: 'Available' | 'Pending Delete' | 'In Redemption';
-  notes: string;
+function getPaginationRange(currentPage: number, totalPages: number): (number | string)[] {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  if (currentPage <= 4) {
+    return [1, 2, 3, 4, 5, '...', totalPages];
+  }
+  if (currentPage >= totalPages - 3) {
+    return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+  }
+  return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
 }
 
 export default function WatchlistPage() {
-  const [items, setItems] = useState<WatchlistItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const [items, setItems] = useState<WishlistItem[]>(() => getLocalWishlist());
+  const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Available' | 'Registered'>('All');
   const [newDomain, setNewDomain] = useState('');
   const [newNotes, setNewNotes] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [sortField, setSortField] = useState<'domain' | 'dr' | 'refDomains' | 'status'>('dr');
+  const [sortField, setSortField] = useState<'domain' | 'dr' | 'status' | 'createdAt'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [copiedDomain, setCopiedDomain] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 20;
 
-  const handleSort = (field: 'domain' | 'dr' | 'refDomains' | 'status') => {
+  const handleSort = (field: 'domain' | 'dr' | 'status' | 'createdAt') => {
     if (sortField === field) {
       setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortField(field);
-      setSortOrder('desc');
+      setSortOrder(field === 'domain' ? 'asc' : 'desc');
     }
+    setCurrentPage(1);
   };
 
   useEffect(() => {
-    async function loadWatchlist() {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        const user = session?.user;
+    const handleUpdate = () => {
+      setItems(getLocalWishlist());
+    };
 
-        if (user) {
-          const { data, error } = await supabase
-            .from('watchlists')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
+    window.addEventListener('oldurl_wishlist_updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
 
-          if (!error && data && data.length > 0) {
-            const mapped: WatchlistItem[] = data.map((it) => ({
-              id: it.id,
-              domain: it.domain,
-              dr: Number(it.target_dr) || 50,
-              refDomains: 120,
-              citations: ['Forbes', 'Wikipedia'],
-              dropDate: 'Pending Check',
-              alertEmail: true,
-              status: 'Pending Delete',
-              notes: it.notes || 'Saved domain',
-            }));
-            setItems(mapped);
-            setLoading(false);
-            return;
-          }
-        }
-        setItems([]);
-      } catch (err) {
-        console.warn('Watchlist fetch note:', err);
-        setItems([]);
-      } finally {
-        setLoading(false);
+    fetchCloudWishlist().then((list) => {
+      if (list && list.length > 0) {
+        setItems(list);
       }
-    }
+    });
 
-    loadWatchlist();
+    return () => {
+      window.removeEventListener('oldurl_wishlist_updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
   }, []);
 
-  const toggleAlert = (id: string) => {
-    setItems(
-      items.map((it) => (it.id === id ? { ...it, alertEmail: !it.alertEmail } : it))
-    );
+  const handleCopy = (domain: string) => {
+    navigator.clipboard.writeText(domain);
+    setCopiedDomain(domain);
+    setTimeout(() => setCopiedDomain(null), 2000);
   };
 
-  const deleteItem = async (id: string) => {
-    try {
-      await supabase.from('watchlists').delete().eq('id', id);
-    } catch (e) {}
-    setItems(items.filter((it) => it.id !== id));
+  const handleDelete = async (domain: string) => {
+    await removeFromWishlist(domain);
+    setItems(getLocalWishlist());
+  };
+
+  const handleSearchAgain = (domain: string) => {
+    setPendingDomainsToScan([domain]);
+    router.push('/dashboard/results');
+  };
+
+  const handleSearchAllWishlist = () => {
+    const domainsToScan = items.map((i) => i.domain);
+    if (domainsToScan.length > 0) {
+      setPendingDomainsToScan(domainsToScan);
+      router.push('/dashboard/results');
+    }
   };
 
   const handleAddItem = async (e: React.FormEvent) => {
@@ -111,46 +126,96 @@ export default function WatchlistPage() {
       .replace(/^(?:https?:\/\/)?(?:www\.)?/i, '')
       .split('/')[0];
 
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    if (!clean || !clean.includes('.')) {
+      alert('Please enter a valid domain name (e.g. example.com)');
+      return;
+    }
 
-      let createdId = `w-${Date.now()}`;
-      if (user) {
-        const { data } = await supabase
-          .from('watchlists')
-          .insert({
-            user_id: user.id,
-            domain: clean,
-            target_dr: 50,
-            notes: newNotes.trim() || 'Added from dashboard',
-          })
-          .select()
-          .single();
-        if (data) createdId = data.id;
-      }
+    await toggleDomainWishlist({
+      domain: clean,
+      dr: 0,
+      status: 'Available',
+      daysLeft: 'Active',
+      registrar: '—',
+      notes: newNotes.trim() || 'Added to Wishlist',
+    });
 
-      const newItem: WatchlistItem = {
-        id: createdId,
-        domain: clean,
-        dr: 50,
-        refDomains: 80,
-        citations: ['Forbes', 'Wikipedia'],
-        dropDate: 'Active Monitoring',
-        alertEmail: true,
-        status: 'Pending Delete',
-        notes: newNotes.trim() || 'Added from dashboard',
-      };
+    setItems(getLocalWishlist());
+    setNewDomain('');
+    setNewNotes('');
+    setShowAddModal(false);
+  };
 
-      setItems([newItem, ...items]);
-      setNewDomain('');
-      setNewNotes('');
-      setShowAddModal(false);
-    } catch (e) {
-      console.error(e);
+  const handleExport = (format: 'csv' | 'xlsx') => {
+    const exportList = filteredItems;
+    if (exportList.length === 0) return;
+
+    const rows = exportList.map((it, idx) => ({
+      '#': idx + 1,
+      Domain: it.domain,
+      Status: it.status,
+      DR: it.dr,
+      'Days Left': it.daysLeft,
+      Registrar: it.registrar,
+      'Date Added': formatCheckDate(it.createdAt),
+      Notes: it.notes || '',
+    }));
+
+    if (format === 'csv') {
+      const headers = ['#', 'Domain', 'Status', 'DR', 'Days Left', 'Registrar', 'Date Added', 'Notes'];
+      const csvContent =
+        'data:text/csv;charset=utf-8,' +
+        [headers.join(','), ...rows.map((r) => Object.values(r).map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `OldUrl_Wishlist_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Wishlist');
+      XLSX.writeFile(wb, `OldUrl_Wishlist_${new Date().toISOString().split('T')[0]}.xlsx`);
     }
   };
+
+  const filteredItems = useMemo(() => {
+    return items.filter((it) => {
+      if (statusFilter === 'Available' && it.status !== 'Available') return false;
+      if (statusFilter === 'Registered' && it.status === 'Available') return false;
+      if (searchQuery && !it.domain.toLowerCase().includes(searchQuery.toLowerCase().trim())) return false;
+      return true;
+    });
+  }, [items, statusFilter, searchQuery]);
+
+  const sortedItems = useMemo(() => {
+    return [...filteredItems].sort((a, b) => {
+      const aVal = (a as any)[sortField];
+      const bVal = (b as any)[sortField];
+
+      if (sortField === 'dr') {
+        const aNum = Number(aVal) || 0;
+        const bNum = Number(bVal) || 0;
+        return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
+      }
+      if (sortField === 'createdAt') {
+        const aTime = aVal ? new Date(aVal).getTime() : 0;
+        const bTime = bVal ? new Date(bVal).getTime() : 0;
+        return sortOrder === 'asc' ? aTime - bTime : bTime - aTime;
+      }
+      const aStr = String(aVal || '').toLowerCase();
+      const bStr = String(bVal || '').toLowerCase();
+      return sortOrder === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
+    });
+  }, [filteredItems, sortField, sortOrder]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedItems.length / pageSize));
+  const paginatedItems = sortedItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const availableCount = items.filter((i) => i.status === 'Available').length;
+  const registeredCount = items.length - availableCount;
 
   return (
     <div className="space-y-6">
@@ -160,40 +225,128 @@ export default function WatchlistPage() {
           🏠 Home
         </Link>
         <span>›</span>
-        <span className="text-[#FC6B17] font-semibold">Watchlist</span>
+        <span className="text-[#FC6B17] font-semibold">Wishlist &amp; Favourites</span>
       </div>
 
       {/* -------------------- HEADER -------------------- */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0d1b3e] tracking-tight">
-            Saved Watchlist &amp; Drop Alerts
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0d1b3e] tracking-tight flex items-center gap-2.5">
+            <Bookmark className="w-6 h-6 text-[#FC6B17] fill-current" />
+            Wishlist &amp; Favourites
           </h1>
           <p className="text-xs sm:text-sm text-gray-500 mt-1">
-            Track high-priority expiring domains and receive real-time notifications when they drop.
+            Keep track of high-value expired domains you like and audit them anytime with 1 click.
           </p>
         </div>
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="bg-[#FC6B17] hover:bg-[#e05b10] text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition-transform hover:-translate-y-0.5 inline-flex items-center gap-1.5 self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" /> Add Domain to Watchlist
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {items.length > 0 && (
+            <button
+              onClick={handleSearchAllWishlist}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs px-3.5 py-2.5 rounded-xl transition-colors inline-flex items-center gap-1.5"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-[#FC6B17]" /> Scan All Saved ({items.length})
+            </button>
+          )}
+
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="bg-[#FC6B17] hover:bg-[#e05b10] text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition-transform hover:-translate-y-0.5 inline-flex items-center gap-1.5"
+          >
+            <Plus className="w-4 h-4" /> Add Domain
+          </button>
+        </div>
       </div>
 
-      {/* -------------------- WATCHLIST TABLE -------------------- */}
+      {/* -------------------- STATS CARDS -------------------- */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
+          <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Total Saved</div>
+          <div className="text-xl sm:text-2xl font-black text-[#0d1b3e] mt-1">{items.length}</div>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
+          <div className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Available to Register</div>
+          <div className="text-xl sm:text-2xl font-black text-emerald-700 mt-1">{availableCount}</div>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs col-span-2 sm:col-span-1">
+          <div className="text-[11px] font-bold text-amber-600 uppercase tracking-wider">Registered / Taken</div>
+          <div className="text-xl sm:text-2xl font-black text-amber-700 mt-1">{registeredCount}</div>
+        </div>
+      </div>
+
+      {/* -------------------- SEARCH & FILTER BAR -------------------- */}
+      <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-3">
+        <div className="flex items-center gap-2 w-full md:w-auto">
+          {/* Status Tabs */}
+          <div className="flex items-center bg-gray-100 p-1 rounded-xl text-xs font-bold">
+            {(['All', 'Available', 'Registered'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => {
+                  setStatusFilter(tab);
+                  setCurrentPage(1);
+                }}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  statusFilter === tab
+                    ? 'bg-white text-[#FC6B17] shadow-xs'
+                    : 'text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          {/* Export buttons */}
+          {items.length > 0 && (
+            <div className="flex items-center gap-1.5 ml-auto md:ml-2">
+              <button
+                onClick={() => handleExport('csv')}
+                className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors inline-flex items-center gap-1"
+                title="Export to CSV"
+              >
+                <Download className="w-3.5 h-3.5" /> CSV
+              </button>
+              <button
+                onClick={() => handleExport('xlsx')}
+                className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors inline-flex items-center gap-1"
+                title="Export to Excel"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" /> Excel
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Search Input */}
+        <div className="relative w-full md:w-72">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search saved domains..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 outline-none focus:border-[#FC6B17] focus:bg-white transition-all font-medium"
+          />
+        </div>
+      </div>
+
+      {/* -------------------- WISHLIST TABLE -------------------- */}
       <div className="bg-white rounded-2xl border border-gray-200/90 shadow-sm overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-xs text-gray-400">Loading watchlist...</div>
+          <div className="p-12 text-center text-xs text-gray-400">Loading your wishlist...</div>
         ) : items.length === 0 ? (
           <div className="p-12 text-center space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-orange-50 text-[#FC6B17] flex items-center justify-center mx-auto">
               <Bookmark className="w-6 h-6" />
             </div>
-            <h4 className="text-sm font-bold text-gray-800">Your watchlist is empty</h4>
+            <h4 className="text-sm font-bold text-gray-800">Your wishlist is empty</h4>
             <p className="text-xs text-gray-400 max-w-sm mx-auto">
-              Save high-value expiring domains here to track their drop status and receive instant alerts.
+              Click the bookmark / star icon next to any domain in search results to save it here for quick access.
             </p>
             <div className="pt-2">
               <button
@@ -204,11 +357,16 @@ export default function WatchlistPage() {
               </button>
             </div>
           </div>
+        ) : paginatedItems.length === 0 ? (
+          <div className="p-12 text-center text-xs text-gray-400">
+            No wishlisted domains match your filter.
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-[#f8f9fa] border-b border-gray-200 text-gray-500 font-bold uppercase tracking-wider text-[11px]">
+                  <th className="py-3 pl-4 pr-2 w-10 text-center">#</th>
                   <th
                     onClick={() => handleSort('domain')}
                     className="py-3 px-4 cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
@@ -223,37 +381,11 @@ export default function WatchlistPage() {
                     </div>
                   </th>
                   <th
-                    onClick={() => handleSort('dr')}
-                    className="py-3 px-3 cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <span className={sortField === 'dr' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>DR Score</span>
-                      {sortField === 'dr' ? (
-                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
-                      ) : (
-                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
-                      )}
-                    </div>
-                  </th>
-                  <th
-                    onClick={() => handleSort('refDomains')}
-                    className="py-3 px-3 cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
-                  >
-                    <div className="flex items-center gap-1.5">
-                      <span className={sortField === 'refDomains' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>Ref. Domains</span>
-                      {sortField === 'refDomains' ? (
-                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
-                      ) : (
-                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
-                      )}
-                    </div>
-                  </th>
-                  <th
                     onClick={() => handleSort('status')}
                     className="py-3 px-3 cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
                   >
                     <div className="flex items-center gap-1.5">
-                      <span className={sortField === 'status' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>Drop Status</span>
+                      <span className={sortField === 'status' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>Availability</span>
                       {sortField === 'status' ? (
                         sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
                       ) : (
@@ -261,96 +393,133 @@ export default function WatchlistPage() {
                       )}
                     </div>
                   </th>
-                  <th className="py-3 px-3">Email Drop Alert</th>
-                  <th className="py-3 px-3">Notes &amp; Target Niche</th>
-                  <th className="py-3 pr-4 text-right">Action</th>
+                  <th
+                    onClick={() => handleSort('dr')}
+                    className="py-3 px-3 cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={sortField === 'dr' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>DR (Ahrefs)</span>
+                      {sortField === 'dr' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
+                      )}
+                    </div>
+                  </th>
+                  <th className="py-3 px-3">Registrar / Expiry</th>
+                  <th
+                    onClick={() => handleSort('createdAt')}
+                    className="py-3 px-3 cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className={sortField === 'createdAt' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>Saved Date</span>
+                      {sortField === 'createdAt' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3 text-[#FC6B17]" /> : <ArrowDown className="w-3 h-3 text-[#FC6B17]" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 text-gray-300 group-hover:text-gray-500" />
+                      )}
+                    </div>
+                  </th>
+                  <th className="py-3 pr-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 font-medium text-gray-800">
-                {[...items].sort((a, b) => {
-                  const aVal = (a as any)[sortField];
-                  const bVal = (b as any)[sortField];
+                {paginatedItems.map((item, idx) => (
+                  <tr key={item.id || item.domain} className="hover:bg-orange-50/20 transition-colors group">
+                    <td className="py-3.5 pl-4 pr-2 text-center text-gray-400 font-mono text-[11px]">
+                      {(currentPage - 1) * pageSize + idx + 1}
+                    </td>
 
-                  if (sortField === 'dr' || sortField === 'refDomains') {
-                    const aNum = Number(aVal) || 0;
-                    const bNum = Number(bVal) || 0;
-                    return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
-                  }
-                  const aStr = String(aVal || '').toLowerCase();
-                  const bStr = String(bVal || '').toLowerCase();
-                  return sortOrder === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
-                }).map((item) => (
-                  <tr key={item.id} className="hover:bg-orange-50/20 transition-colors">
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
-                        <Bookmark className="w-4 h-4 text-[#FC6B17] fill-current" />
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-2.5">
+                        <button
+                          onClick={() => handleDelete(item.domain)}
+                          className="text-[#FC6B17] hover:opacity-75 transition-opacity"
+                          title="Remove from Wishlist"
+                        >
+                          <Bookmark className="w-4 h-4 fill-current" />
+                        </button>
                         <div>
-                          <div className="font-mono font-bold text-gray-900 text-xs">
-                            {item.domain}
-                          </div>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            {item.citations.map((src, i) => (
-                              <span
-                                key={i}
-                                className="text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.2 rounded font-semibold"
-                              >
-                                🔗 {src}
+                          <div className="font-mono font-bold text-gray-900 text-xs flex items-center gap-1.5">
+                            <span>{item.domain}</span>
+                            <button
+                              onClick={() => handleCopy(item.domain)}
+                              className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Copy domain"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                            {copiedDomain === item.domain && (
+                              <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-1 rounded">
+                                Copied!
                               </span>
-                            ))}
+                            )}
                           </div>
+                          {item.notes && (
+                            <div className="text-[11px] text-gray-400 mt-0.5 max-w-xs truncate">
+                              {item.notes}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
 
-                    <td className="py-4 px-3 font-black text-sm text-[#0d1b3e]">{item.dr}</td>
-
-                    <td className="py-4 px-3 text-gray-700">
-                      <span className="font-bold">{item.refDomains}</span> domains
-                    </td>
-
-                    <td className="py-4 px-3">
+                    <td className="py-3.5 px-3">
                       {item.status === 'Available' ? (
                         <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                          🟢 Available to Buy
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Available
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
-                          🟠 {item.dropDate}
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Registered
                         </span>
                       )}
                     </td>
 
-                    <td className="py-4 px-3">
-                      <button
-                        onClick={() => toggleAlert(item.id)}
-                        className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all ${
-                          item.alertEmail
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'
-                        }`}
-                      >
-                        <Bell className="w-3.5 h-3.5" />
-                        {item.alertEmail ? 'Alert ON' : 'Alert OFF'}
-                      </button>
+                    <td className="py-3.5 px-3">
+                      <span className={`font-black text-xs px-2 py-0.5 rounded-md ${
+                        item.dr >= 50
+                          ? 'bg-orange-100 text-orange-900'
+                          : item.dr >= 20
+                          ? 'bg-blue-50 text-blue-800'
+                          : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        {item.dr}
+                      </span>
                     </td>
 
-                    <td className="py-4 px-3 text-gray-500 text-xs max-w-xs truncate">
-                      {item.notes}
+                    <td className="py-3.5 px-3 text-gray-600">
+                      <div>{item.registrar || '—'}</div>
+                      <div className="text-[10px] text-gray-400">{item.daysLeft || 'Active'}</div>
                     </td>
 
-                    <td className="py-4 pr-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <a
-                          href={`https://www.namecheap.com/domains/registration/results/?domain=${item.domain}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="bg-[#FC6B17] hover:bg-[#e05b10] text-white px-3 py-1.5 rounded-lg font-bold text-[11px] flex items-center gap-1 shadow-xs"
-                        >
-                          Check ↗
-                        </a>
+                    <td className="py-3.5 px-3 text-gray-500 text-[11px]">
+                      {formatCheckDate(item.createdAt)}
+                    </td>
+
+                    <td className="py-3.5 pr-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
-                          onClick={() => deleteItem(item.id)}
+                          onClick={() => handleSearchAgain(item.domain)}
+                          className="px-2.5 py-1 bg-gray-100 hover:bg-[#fff0e8] hover:text-[#FC6B17] text-gray-700 rounded-lg font-bold text-[11px] transition-colors"
+                          title="Audit this domain again"
+                        >
+                          Audit
+                        </button>
+                        {item.status === 'Available' ? (
+                          <a
+                            href={`https://www.namecheap.com/domains/registration/results/?domain=${item.domain}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-[#FC6B17] hover:bg-[#e05b10] text-white px-3 py-1 rounded-lg font-bold text-[11px] flex items-center gap-1 shadow-2xs"
+                          >
+                            Buy <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        ) : null}
+                        <button
+                          onClick={() => handleDelete(item.domain)}
                           className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100"
+                          title="Delete from Wishlist"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -362,6 +531,49 @@ export default function WatchlistPage() {
             </table>
           </div>
         )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="p-4 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+            <div>
+              Showing <strong>{(currentPage - 1) * pageSize + 1}</strong> to{' '}
+              <strong>{Math.min(currentPage * pageSize, sortedItems.length)}</strong> of{' '}
+              <strong>{sortedItems.length}</strong> domains
+            </div>
+            <div className="flex items-center gap-1 font-bold">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="p-1.5 rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              {getPaginationRange(currentPage, totalPages).map((pg, i) => (
+                <button
+                  key={i}
+                  onClick={() => typeof pg === 'number' && setCurrentPage(pg)}
+                  disabled={typeof pg !== 'number'}
+                  className={`min-w-7 h-7 rounded-lg text-xs font-bold transition-all ${
+                    pg === currentPage
+                      ? 'bg-[#FC6B17] text-white shadow-2xs'
+                      : typeof pg === 'number'
+                      ? 'text-gray-600 hover:bg-gray-100'
+                      : 'text-gray-400 cursor-default'
+                  }`}
+                >
+                  {pg}
+                </button>
+              ))}
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="p-1.5 rounded-lg border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* -------------------- ADD DOMAIN MODAL -------------------- */}
@@ -371,9 +583,12 @@ export default function WatchlistPage() {
             onSubmit={handleAddItem}
             className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100"
           >
-            <h3 className="text-base font-bold text-[#0d1b3e] mb-1">Add Domain to Watchlist</h3>
+            <h3 className="text-base font-bold text-[#0d1b3e] mb-1 flex items-center gap-2">
+              <Bookmark className="w-4 h-4 text-[#FC6B17] fill-current" />
+              Add Domain to Wishlist
+            </h3>
             <p className="text-xs text-gray-500 mb-4">
-              We will track registry status changes and send instant drop alerts to your email.
+              Bookmark domains here to monitor and revisit anytime.
             </p>
 
             <div className="space-y-3 mb-6">
@@ -390,12 +605,12 @@ export default function WatchlistPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Private Notes</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Private Notes (Optional)</label>
                 <textarea
                   rows={2}
                   value={newNotes}
                   onChange={(e) => setNewNotes(e.target.value)}
-                  placeholder="e.g. Forbes link on AI tools page, planned for 301 redirect"
+                  placeholder="e.g. Good backlinks, target for 301 redirect"
                   className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none focus:border-[#FC6B17]"
                 />
               </div>
@@ -413,7 +628,7 @@ export default function WatchlistPage() {
                 type="submit"
                 className="bg-[#FC6B17] hover:bg-[#e05b10] text-white px-5 py-2 rounded-xl text-xs font-bold shadow-xs"
               >
-                Save to Watchlist
+                Save to Wishlist
               </button>
             </div>
           </form>

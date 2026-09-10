@@ -23,6 +23,7 @@ import { supabase } from '../../../lib/supabaseClient';
 
 import { getLocalSearchHistory, saveLocalSearchHistory, getPendingAnalyticsDomains } from '../../../lib/searchHistory';
 import { consumeAnalytics } from '../../../lib/plans';
+import { getLocalWishlist, toggleDomainWishlist } from '../../../lib/watchlist';
 
 interface AnalyzedDomain {
   domain: string;
@@ -48,6 +49,31 @@ function DomainAnalyticsResultContent() {
   const [copiedDomain, setCopiedDomain] = useState<string | null>(null);
   const [sortField, setSortField] = useState<'domain' | 'status' | 'dr' | 'da' | 'traffic' | 'refDomains' | 'spamScore'>('dr');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const [wishlistDomains, setWishlistDomains] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const list = getLocalWishlist();
+      return new Set(list.map((it) => it.domain.toLowerCase().trim()));
+    }
+    return new Set();
+  });
+
+  const handleToggleWishlist = async (row: AnalyzedDomain) => {
+    const isAdded = await toggleDomainWishlist({
+      domain: row.domain,
+      dr: row.dr,
+      status: row.status,
+      refDomains: row.refDomains,
+      backlinks: row.backlinks,
+    });
+    setWishlistDomains((prev) => {
+      const next = new Set(prev);
+      const lower = row.domain.toLowerCase().trim();
+      if (isAdded) next.add(lower);
+      else next.delete(lower);
+      return next;
+    });
+  };
 
   const handleSort = (field: 'domain' | 'status' | 'dr' | 'da' | 'traffic' | 'refDomains' | 'spamScore') => {
     if (sortField === field) {
@@ -293,6 +319,19 @@ function DomainAnalyticsResultContent() {
       }
     }
     loadData();
+
+    const handleWishlistUpdate = () => {
+      const list = getLocalWishlist();
+      setWishlistDomains(new Set(list.map((it) => it.domain.toLowerCase().trim())));
+    };
+
+    window.addEventListener('oldurl_wishlist_updated', handleWishlistUpdate);
+    window.addEventListener('storage', handleWishlistUpdate);
+
+    return () => {
+      window.removeEventListener('oldurl_wishlist_updated', handleWishlistUpdate);
+      window.removeEventListener('storage', handleWishlistUpdate);
+    };
   }, [searchParams]);
 
   const filteredResults = domains
@@ -685,9 +724,26 @@ function DomainAnalyticsResultContent() {
                       />
                     </td>
                     <td className="py-3.5 px-4 font-bold text-gray-900">
-                      <div className="flex items-center gap-1.5">
-                        <Globe className="w-3.5 h-3.5 text-gray-400" />
-                        <span>{row.domain}</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleWishlist(row);
+                          }}
+                          className="p-1 rounded-md text-gray-300 hover:text-[#FC6B17] hover:bg-orange-50 transition-all cursor-pointer"
+                          title={wishlistDomains.has(row.domain.toLowerCase().trim()) ? 'Remove from Wishlist' : 'Add to Wishlist & Favourites'}
+                        >
+                          <Bookmark className={`w-4 h-4 transition-all ${
+                            wishlistDomains.has(row.domain.toLowerCase().trim())
+                              ? 'text-[#FC6B17] fill-[#FC6B17]'
+                              : 'text-gray-300 hover:text-[#FC6B17]'
+                          }`} />
+                        </button>
+                        <div className="w-6 h-6 rounded-md bg-gray-100 text-gray-500 flex items-center justify-center shrink-0">
+                          <Globe className="w-3.5 h-3.5" />
+                        </div>
+                        <span className="text-[#0d1b3e] font-semibold text-xs sm:text-sm">{row.domain}</span>
                       </div>
                     </td>
                     <td className="py-3.5 px-3">
@@ -735,7 +791,7 @@ function DomainAnalyticsResultContent() {
                         >
                           {copiedDomain === row.domain ? 'Copied!' : 'Copy'}
                         </button>
-                        {row.status === 'Available' ? (
+                        {row.status === 'Available' && (
                           <a
                             href={`https://www.namecheap.com/domains/registration/results/?domain=${row.domain}`}
                             target="_blank"
@@ -744,28 +800,21 @@ function DomainAnalyticsResultContent() {
                           >
                             Register
                           </a>
-                        ) : (
-                          <button
-                            onClick={async () => {
-                              const { data: { user } } = await supabase.auth.getUser();
-                              if (user) {
-                                await supabase.from('watchlists').insert({
-                                  user_id: user.id,
-                                  domain: row.domain,
-                                  target_dr: row.dr,
-                                  notes: 'Added from Domain Analytics'
-                                });
-                                alert(`Saved ${row.domain} to your watchlist.`);
-                              } else {
-                                alert(`Saved ${row.domain} to your watchlist.`);
-                              }
-                            }}
-                            className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-                            title="Save to Watchlist"
-                          >
-                            <Bookmark className="w-3.5 h-3.5" />
-                          </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleWishlist(row)}
+                          className={`p-1 rounded-lg transition-colors cursor-pointer ${
+                            wishlistDomains.has(row.domain.toLowerCase().trim())
+                              ? 'text-[#FC6B17] bg-orange-50'
+                              : 'text-gray-400 hover:text-[#FC6B17] hover:bg-orange-50'
+                          }`}
+                          title={wishlistDomains.has(row.domain.toLowerCase().trim()) ? 'Remove from Wishlist' : 'Add to Wishlist & Favourites'}
+                        >
+                          <Bookmark className={`w-3.5 h-3.5 ${
+                            wishlistDomains.has(row.domain.toLowerCase().trim()) ? 'fill-[#FC6B17]' : ''
+                          }`} />
+                        </button>
                         <button
                           onClick={() => handleDeleteDomain(row.domain)}
                           className="p-1 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"

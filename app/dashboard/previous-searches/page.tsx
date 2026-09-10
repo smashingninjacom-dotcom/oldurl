@@ -36,8 +36,10 @@ import {
   RefreshCw,
   Trash2,
   Layers,
+  Bookmark,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { getLocalWishlist, toggleDomainWishlist } from '../../../lib/watchlist';
 
 function getPaginationRange(currentPage: number, totalPages: number): (number | string)[] {
   if (totalPages <= 7) {
@@ -69,6 +71,33 @@ export default function PreviousSearchesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 25;
 
+  const [wishlistDomains, setWishlistDomains] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const list = getLocalWishlist();
+      return new Set(list.map((it) => it.domain.toLowerCase().trim()));
+    }
+    return new Set();
+  });
+
+  const handleToggleWishlist = async (row: any) => {
+    const isAdded = await toggleDomainWishlist({
+      domain: row.domain,
+      dr: row.dr,
+      status: row.status,
+      daysLeft: row.daysLeft,
+      registrar: row.registrar,
+      refDomains: row.refDomains,
+      backlinks: row.backlinks,
+    });
+    setWishlistDomains((prev) => {
+      const next = new Set(prev);
+      const lower = row.domain.toLowerCase().trim();
+      if (isAdded) next.add(lower);
+      else next.delete(lower);
+      return next;
+    });
+  };
+
   const handleSort = (field: 'id' | 'domain' | 'status' | 'daysLeft' | 'dr' | 'registrar' | 'createdAt') => {
     if (sortField === field) {
       setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
@@ -91,9 +120,16 @@ export default function PreviousSearchesPage() {
       }
     };
 
+    const handleWishlistUpdate = () => {
+      const list = getLocalWishlist();
+      setWishlistDomains(new Set(list.map((it) => it.domain.toLowerCase().trim())));
+    };
+
     refreshData();
     window.addEventListener('oldurl_history_updated', refreshData);
+    window.addEventListener('oldurl_wishlist_updated', handleWishlistUpdate);
     window.addEventListener('storage', refreshData);
+    window.addEventListener('storage', handleWishlistUpdate);
 
     // Bootstrap directly from IndexedDB without delay
     loadFromIndexedDB().then((idbItems) => {
@@ -116,7 +152,9 @@ export default function PreviousSearchesPage() {
 
     return () => {
       window.removeEventListener('oldurl_history_updated', refreshData);
+      window.removeEventListener('oldurl_wishlist_updated', handleWishlistUpdate);
       window.removeEventListener('storage', refreshData);
+      window.removeEventListener('storage', handleWishlistUpdate);
     };
   }, []);
 
@@ -903,7 +941,22 @@ export default function PreviousSearchesPage() {
                         {itemIndex}
                       </td>
                       <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleWishlist(row);
+                            }}
+                            className="p-1 rounded-md text-gray-300 hover:text-[#FC6B17] hover:bg-orange-50 transition-all cursor-pointer"
+                            title={wishlistDomains.has(row.domain.toLowerCase().trim()) ? 'Remove from Wishlist' : 'Add to Wishlist & Favourites'}
+                          >
+                            <Bookmark className={`w-4 h-4 transition-all ${
+                              wishlistDomains.has(row.domain.toLowerCase().trim())
+                                ? 'text-[#FC6B17] fill-[#FC6B17]'
+                                : 'text-gray-300 hover:text-[#FC6B17]'
+                            }`} />
+                          </button>
                           <div className="w-6 h-6 rounded-md bg-gray-100 text-gray-500 flex items-center justify-center flex-shrink-0">
                             <Globe className="w-3.5 h-3.5" />
                           </div>

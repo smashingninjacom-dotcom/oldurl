@@ -30,7 +30,9 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Bookmark,
 } from 'lucide-react';
+import { getLocalWishlist, toggleDomainWishlist } from '../../lib/watchlist';
 
 interface SearchRecord {
   id: string;
@@ -70,6 +72,31 @@ export default function DashboardHomePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
+  const [wishlistDomains, setWishlistDomains] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      const list = getLocalWishlist();
+      return new Set(list.map((it) => it.domain.toLowerCase().trim()));
+    }
+    return new Set();
+  });
+
+  const handleToggleWishlist = async (row: SearchRecord) => {
+    const isAdded = await toggleDomainWishlist({
+      domain: row.domain,
+      dr: row.dr,
+      status: row.status,
+      daysLeft: row.daysLeft,
+      registrar: row.registrar,
+    });
+    setWishlistDomains((prev) => {
+      const next = new Set(prev);
+      const lower = row.domain.toLowerCase().trim();
+      if (isAdded) next.add(lower);
+      else next.delete(lower);
+      return next;
+    });
+  };
+
   const handleSort = (field: 'id' | 'domain' | 'status' | 'daysLeft' | 'dr' | 'registrar' | 'createdAt') => {
     if (sortField === field) {
       setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'));
@@ -103,8 +130,15 @@ export default function DashboardHomePage() {
     };
 
     refreshData();
+    const handleWishlistUpdate = () => {
+      const list = getLocalWishlist();
+      setWishlistDomains(new Set(list.map((it) => it.domain.toLowerCase().trim())));
+    };
+
     window.addEventListener('oldurl_history_updated', refreshData);
+    window.addEventListener('oldurl_wishlist_updated', handleWishlistUpdate);
     window.addEventListener('storage', refreshData);
+    window.addEventListener('storage', handleWishlistUpdate);
 
     // Bootstrap directly from IndexedDB without any flash
     loadFromIndexedDB().then((idbItems) => {
@@ -157,7 +191,9 @@ export default function DashboardHomePage() {
 
     return () => {
       window.removeEventListener('oldurl_history_updated', refreshData);
+      window.removeEventListener('oldurl_wishlist_updated', handleWishlistUpdate);
       window.removeEventListener('storage', refreshData);
+      window.removeEventListener('storage', handleWishlistUpdate);
     };
   }, []);
 
@@ -721,7 +757,22 @@ export default function DashboardHomePage() {
                         {itemIndex}
                       </td>
                       <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleWishlist(row);
+                            }}
+                            className="p-1 rounded-md text-gray-300 hover:text-[#FC6B17] hover:bg-orange-50 transition-all cursor-pointer"
+                            title={wishlistDomains.has(row.domain.toLowerCase().trim()) ? 'Remove from Wishlist' : 'Add to Wishlist & Favourites'}
+                          >
+                            <Bookmark className={`w-4 h-4 transition-all ${
+                              wishlistDomains.has(row.domain.toLowerCase().trim())
+                                ? 'text-[#FC6B17] fill-[#FC6B17]'
+                                : 'text-gray-300 hover:text-[#FC6B17]'
+                            }`} />
+                          </button>
                           <div className="w-6 h-6 rounded-md bg-gray-100 text-gray-500 flex items-center justify-center flex-shrink-0">
                             <Globe className="w-3.5 h-3.5" />
                           </div>

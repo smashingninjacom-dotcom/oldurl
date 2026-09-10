@@ -22,9 +22,11 @@ import {
   ChevronDown,
   LogIn,
   ArrowRight,
+  Bookmark,
 } from 'lucide-react';
 import { getUserQuotaData } from '../../lib/plans';
 import { resetMemoryCacheForUser } from '../../lib/searchHistory';
+import { getLocalWishlist, fetchCloudWishlist } from '../../lib/watchlist';
 
 export default function DashboardLayout({
   children,
@@ -89,6 +91,13 @@ export default function DashboardLayout({
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
+  const [wishlistCount, setWishlistCount] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      return getLocalWishlist().length;
+    }
+    return 0;
+  });
+
   useEffect(() => {
     let isMounted = true;
     async function initAuth() {
@@ -114,6 +123,9 @@ export default function DashboardLayout({
                   localStorage.setItem('oldurl_cached_user', JSON.stringify(data.session.user));
                 } catch (e) {}
                 fetchProfile(data.session.user.id);
+                fetchCloudWishlist(data.session.user.id).then((list) => {
+                  if (isMounted) setWishlistCount(list.length);
+                });
                 setIsAuthChecking(false);
               }
               window.history.replaceState({}, document.title, window.location.pathname);
@@ -132,6 +144,9 @@ export default function DashboardLayout({
               localStorage.setItem('oldurl_cached_user', JSON.stringify(session.user));
             } catch (e) {}
             fetchProfile(session.user.id);
+            fetchCloudWishlist(session.user.id).then((list) => {
+              if (isMounted) setWishlistCount(list.length);
+            });
           }
           setIsAuthChecking(false);
         }
@@ -156,6 +171,9 @@ export default function DashboardLayout({
           } catch (e) {}
           resetMemoryCacheForUser(newUser.id);
           fetchProfile(newUser.id);
+          fetchCloudWishlist(newUser.id).then((list) => {
+            if (isMounted) setWishlistCount(list.length);
+          });
           setAuthError(null);
         } else {
           try {
@@ -164,6 +182,7 @@ export default function DashboardLayout({
           } catch (e) {}
           resetMemoryCacheForUser('guest');
           setUserProfile(null);
+          setWishlistCount(0);
         }
         setIsAuthChecking(false);
       }
@@ -174,8 +193,18 @@ export default function DashboardLayout({
         setUserProfile((prev: any) => ({ ...(prev || {}), ...e.detail }));
       }
     };
+
+    const handleWishlistUpdated = (e: any) => {
+      if (typeof e?.detail?.count === 'number') {
+        setWishlistCount(e.detail.count);
+      } else {
+        setWishlistCount(getLocalWishlist().length);
+      }
+    };
+
     if (typeof window !== 'undefined') {
       window.addEventListener('oldurl_quota_updated', handleQuotaUpdated);
+      window.addEventListener('oldurl_wishlist_updated', handleWishlistUpdated);
     }
 
     return () => {
@@ -183,6 +212,7 @@ export default function DashboardLayout({
       subscription.unsubscribe();
       if (typeof window !== 'undefined') {
         window.removeEventListener('oldurl_quota_updated', handleQuotaUpdated);
+        window.removeEventListener('oldurl_wishlist_updated', handleWishlistUpdated);
       }
     };
   }, []);
@@ -344,6 +374,12 @@ export default function DashboardLayout({
       href: '/dashboard/previous-searches',
       icon: History,
       badge: null,
+    },
+    {
+      name: 'Wishlist & Favourites',
+      href: '/dashboard/watchlist',
+      icon: Bookmark,
+      badge: wishlistCount > 0 ? String(wishlistCount) : null,
     },
   ];
 
