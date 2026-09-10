@@ -350,73 +350,91 @@ export default function DashboardLayout({
     );
   }
 
-  const mainNav = [
+  interface NavItem {
+    name: string;
+    desc: string;
+    href: string;
+    icon: any;
+    badge?: string | null;
+  }
+
+  const mainNav: NavItem[] = [
     {
       name: 'Dashboard',
+      desc: 'Overview & metrics',
       href: '/dashboard',
       icon: LayoutDashboard,
       badge: null,
     },
     {
       name: 'Domain Checker',
+      desc: 'Instant & batch audit',
       href: '/dashboard/domain-checker',
       icon: Search,
       badge: null,
     },
     {
       name: 'Bulk Scanner',
+      desc: 'Upload CSV & XLSX',
       href: '/dashboard/bulk-scanner',
       icon: Layers,
       badge: 'File',
     },
     {
       name: 'Results',
+      desc: 'Live check stream',
       href: '/dashboard/results',
       icon: BarChart2,
       badge: 'Live',
     },
     {
       name: 'Previous Searches',
+      desc: 'Historical audit logs',
       href: '/dashboard/previous-searches',
       icon: History,
       badge: null,
     },
     {
       name: 'Wishlist & Favourites',
+      desc: 'Saved & watched domains',
       href: '/dashboard/watchlist',
       icon: Bookmark,
       badge: wishlistCount > 0 ? String(wishlistCount) : null,
     },
   ];
 
-  const analyticsNav = [
+  const analyticsNav: NavItem[] = [
     {
       name: 'Domain Analytics',
+      desc: 'Deep DR & citation audit',
       href: '/dashboard/domain-analytics',
       icon: Activity,
       badge: null,
     },
     {
       name: 'Analytics Results',
+      desc: 'Metrics & backlink reports',
       href: '/dashboard/domain-analytics-result',
       icon: FileCheck2,
       badge: null,
     },
     {
       name: 'Scanned History',
+      desc: 'Past batch analytics',
       href: '/dashboard/domain-analytics-scanned',
       icon: Layers,
       badge: null,
     },
     {
       name: 'Account & Profile',
+      desc: 'Plan, billing & API',
       href: '/dashboard/profile',
       icon: User,
       badge: null,
     },
   ];
 
-  const renderNavLink = (item: { name: string; href: string; icon: any; badge?: string | null }) => {
+  const renderNavLink = (item: NavItem) => {
     const isActive =
       pathname === item.href ||
       (item.href === '/dashboard' && pathname === '/dashboard');
@@ -428,37 +446,44 @@ export default function DashboardLayout({
         href={item.href}
         prefetch={true}
         onClick={() => setIsMobileMenuOpen(false)}
-        className={`group flex items-center justify-between px-4 py-3 rounded-xl text-[13.5px] font-semibold transition-all ${
+        className={`group relative flex items-center justify-between px-4 py-3 rounded-2xl transition-all ${
           isActive
-            ? 'bg-[#fff0e8] text-[#FC6B17] font-bold shadow-2xs border border-orange-200/50'
-            : 'text-gray-600 hover:bg-orange-50/50 hover:text-gray-900'
+            ? 'bg-[#fff0e8] text-[#FC6B17] font-bold shadow-xs border border-orange-200/60'
+            : 'text-gray-600 hover:bg-orange-50/40 hover:text-gray-900'
         }`}
       >
-        <div className="flex items-center gap-3.5">
+        <div className="flex items-center gap-3.5 min-w-0">
           <div
-            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors shrink-0 ${
+            className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all shrink-0 ${
               isActive
-                ? 'bg-[#FC6B17] text-white shadow-2xs'
-                : 'bg-gray-100/80 text-gray-500 group-hover:bg-orange-100 group-hover:text-[#FC6B17]'
+                ? 'bg-[#FC6B17] text-white shadow-xs'
+                : 'bg-gray-100/90 text-gray-500 group-hover:bg-orange-100/80 group-hover:text-[#FC6B17]'
             }`}
           >
             <Icon className="w-4.5 h-4.5" />
           </div>
-          <span className="truncate">{item.name}</span>
+          <div className="min-w-0 flex flex-col">
+            <span className={`text-[13.5px] leading-tight truncate ${isActive ? 'font-bold text-[#FC6B17]' : 'font-semibold text-gray-800 group-hover:text-gray-900'}`}>
+              {item.name}
+            </span>
+            <span className={`text-[11px] leading-tight mt-0.5 truncate ${isActive ? 'text-orange-600/80 font-medium' : 'text-gray-400 group-hover:text-gray-500'}`}>
+              {item.desc}
+            </span>
+          </div>
         </div>
 
         {item.badge ? (
-          <span className={`text-[10.5px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${
+          <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider shrink-0 ${
             item.badge === 'Live'
-              ? 'bg-emerald-100 text-emerald-800'
+              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200/60'
               : item.badge === 'File'
-              ? 'bg-amber-100 text-amber-800'
+              ? 'bg-amber-100 text-amber-800 border border-amber-200/60'
               : 'bg-[#FC6B17] text-white shadow-2xs'
           }`}>
             {item.badge}
           </span>
         ) : isActive ? (
-          <span className="w-1.5 h-1.5 rounded-full bg-[#FC6B17]" />
+          <span className="w-2 h-2 rounded-full bg-[#FC6B17] shadow-xs shrink-0" />
         ) : null}
       </Link>
     );
@@ -466,36 +491,55 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-[#faf9f8] text-[#1e1e2d] flex font-sans antialiased">
-      {/* -------------------- SIDEBAR (SPACIOUS & PROPER SIZE) -------------------- */}
-      <aside className="hidden lg:flex flex-col w-72 bg-white border-r border-gray-200/80 fixed top-0 bottom-0 z-40">
+      {/* -------------------- SIDEBAR (SPACIOUS 320PX W-80) -------------------- */}
+      <aside className="hidden lg:flex flex-col w-80 bg-white border-r border-gray-200/80 fixed top-0 bottom-0 z-40">
         {/* Logo Header */}
-        <div className="h-16 flex items-center px-6 border-b border-gray-100 shrink-0">
+        <div className="h-18 flex items-center justify-between px-6 border-b border-gray-100 shrink-0">
           <Link href="/" className="flex items-center gap-3 text-xl font-black text-[#0d1b3e] tracking-tight">
-            <div className="w-8 h-8 rounded-xl bg-[#FC6B17] flex items-center justify-center text-white font-black text-base shadow-xs">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FC6B17] to-[#e05607] flex items-center justify-center text-white font-black text-lg shadow-xs">
               O
             </div>
-            <div className="flex items-baseline">
-              <span className="text-[#FC6B17] font-extrabold text-lg">Old</span>
-              <span className="text-gray-900 font-extrabold text-lg">Url</span>
-              <span className="text-[11px] text-gray-400 font-semibold font-mono ml-1">.domains</span>
+            <div className="flex flex-col">
+              <div className="flex items-baseline leading-none">
+                <span className="text-[#FC6B17] font-black text-xl">Old</span>
+                <span className="text-gray-900 font-black text-xl">Url</span>
+                <span className="text-[11px] text-gray-400 font-semibold font-mono ml-1">.domains</span>
+              </div>
+              <span className="text-[10px] font-bold text-gray-400 tracking-wider uppercase mt-1">Domain Intelligence</span>
             </div>
+          </Link>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+            ● Live
+          </span>
+        </div>
+
+        {/* Quick Check Button in Sidebar */}
+        <div className="px-5 pt-5 pb-1 shrink-0">
+          <Link
+            href="/dashboard/domain-checker"
+            className="w-full flex items-center justify-center gap-2 bg-[#FC6B17] hover:bg-[#e05607] text-white py-3 px-4 rounded-2xl text-xs sm:text-[13px] font-bold shadow-xs transition-all hover:shadow-md"
+          >
+            <Zap className="w-4 h-4 fill-current" />
+            <span>New Domain Check</span>
           </Link>
         </div>
 
         {/* Nav Items Container */}
-        <div className="flex-1 py-6 px-4 space-y-6 overflow-y-auto">
+        <div className="flex-1 py-4 px-4 space-y-6 overflow-y-auto custom-scrollbar">
           {/* Main Section */}
           <div className="space-y-1.5">
-            <div className="px-3 text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
-              Domain Audit
+            <div className="px-3.5 text-[11px] font-extrabold text-gray-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+              <span>Domain Audit</span>
+              <span className="text-[10px] font-medium text-gray-300">Core Tools</span>
             </div>
             {mainNav.map(renderNavLink)}
           </div>
 
           {/* Analytics Section */}
           <div className="space-y-1.5 pt-4 border-t border-gray-100">
-            <div className="px-3 text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
-              Analytics &amp; Data
+            <div className="px-3.5 text-[11px] font-extrabold text-gray-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+              <span>Analytics &amp; Data</span>
+              <span className="text-[10px] font-medium text-gray-300">Metrics</span>
             </div>
             {analyticsNav.map(renderNavLink)}
           </div>
@@ -503,24 +547,24 @@ export default function DashboardLayout({
 
         {/* Bottom Plan Box */}
         <div className="p-4 border-t border-gray-100 shrink-0">
-          <div className="bg-gradient-to-br from-[#fff7f2] to-[#fff3ea] p-4 rounded-2xl border border-orange-200/70 text-center space-y-3 shadow-2xs">
+          <div className="bg-gradient-to-br from-[#fff7f2] via-[#fff4ec] to-[#ffeede] p-4 rounded-2xl border border-orange-200/80 text-center space-y-3 shadow-xs">
             <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-[#FC6B17] uppercase tracking-wider">
+              <span className="inline-flex items-center gap-1.5 text-xs font-black text-[#FC6B17] uppercase tracking-wider">
                 <Sparkles className="w-3.5 h-3.5" /> {quota.planName}
               </span>
-              <span className="text-xs font-semibold text-gray-500">
+              <span className="text-xs font-bold text-gray-600 bg-white/80 px-2 py-0.5 rounded-md border border-orange-100">
                 {quota.lookupsLimit >= 1000 ? `${(quota.lookupsLimit / 1000).toFixed(quota.lookupsLimit % 1000 === 0 ? 0 : 1)}K/mo` : `${quota.lookupsLimit}/mo`}
               </span>
             </div>
 
             <div>
               <div className="text-xs font-semibold text-gray-700 text-left flex items-center justify-between">
-                <span>Domain Checks</span>
-                <span className="font-bold text-gray-900">{quota.lookupsUsed.toLocaleString()} / {quota.lookupsLimit.toLocaleString()}</span>
+                <span>Checks Used</span>
+                <span className="font-extrabold text-gray-900">{quota.lookupsUsed.toLocaleString()} / {quota.lookupsLimit.toLocaleString()}</span>
               </div>
-              <div className="w-full bg-orange-100/60 h-2.5 rounded-full overflow-hidden mt-1.5 border border-orange-200/40">
+              <div className="w-full bg-orange-200/50 h-2.5 rounded-full overflow-hidden mt-1.5 border border-orange-200/60">
                 <div
-                  className="bg-[#FC6B17] h-full rounded-full transition-all duration-300"
+                  className="bg-gradient-to-r from-[#FC6B17] to-[#e05607] h-full rounded-full transition-all duration-300"
                   style={{ width: `${Math.min(100, quota.lookupsPercent)}%` }}
                 />
               </div>
@@ -528,9 +572,9 @@ export default function DashboardLayout({
 
             <Link
               href="/dashboard/billing"
-              className="block w-full py-2 px-3 bg-white hover:bg-[#FC6B17] text-[#FC6B17] hover:text-white border border-orange-200 hover:border-transparent rounded-xl text-xs font-bold transition-all shadow-2xs"
+              className="block w-full py-2.5 px-3 bg-white hover:bg-[#FC6B17] text-[#FC6B17] hover:text-white border border-orange-200 hover:border-transparent rounded-xl text-xs font-extrabold transition-all shadow-2xs text-center"
             >
-              Manage Plan →
+              Upgrade &amp; Manage Plan →
             </Link>
           </div>
         </div>
@@ -543,7 +587,7 @@ export default function DashboardLayout({
             className="fixed inset-0 bg-black/40 backdrop-blur-xs"
             onClick={() => setIsMobileMenuOpen(false)}
           />
-          <div className="relative w-72 bg-white h-full flex flex-col z-10 shadow-2xl p-4">
+          <div className="relative w-80 bg-white h-full flex flex-col z-10 shadow-2xl p-4">
             <div className="h-16 flex items-center justify-between px-2 border-b border-gray-100">
               <Link href="/" className="flex items-center gap-2 text-xl font-black text-[#0d1b3e]">
                 <span className="text-[#FC6B17]">Old</span>Url
@@ -564,7 +608,7 @@ export default function DashboardLayout({
       )}
 
       {/* -------------------- MAIN CONTENT WRAPPER -------------------- */}
-      <div className="flex-1 lg:pl-72 flex flex-col min-w-0">
+      <div className="flex-1 lg:pl-80 flex flex-col min-w-0">
         {/* Top Header Bar */}
         <header className="h-16 bg-white border-b border-gray-200/80 sticky top-0 z-30 px-6 sm:px-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
