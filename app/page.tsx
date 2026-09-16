@@ -417,11 +417,16 @@ export default function HomePage() {
                       <Lock className="w-4 h-4 text-[#FC6B17]" />
                     </div>
                     <div className="overflow-hidden flex-1">
-                      <h3 className="font-mono font-black text-gray-900 text-sm tracking-wider truncate select-none">
-                        {item.domain.slice(0, 2)}••••••••{item.tld}
-                      </h3>
+                      <div className="flex items-center gap-1">
+                        <h3 className="font-mono font-black text-gray-900 text-sm tracking-widest blur-[3px] select-none">
+                          {item.domain.slice(0, 2)}******
+                        </h3>
+                        <span className="font-mono font-black text-gray-800 text-sm select-none">
+                          {item.tld}
+                        </span>
+                      </div>
                       <span className="text-[10px] font-bold text-[#FC6B17] flex items-center gap-1 mt-0.5">
-                        <span>Sign in to reveal full domain</span>
+                        <span>🔒 Hidden · Admin verified domain</span>
                       </span>
                     </div>
                   </div>

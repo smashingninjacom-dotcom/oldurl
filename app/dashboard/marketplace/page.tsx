@@ -1258,28 +1258,40 @@ export default function DomainMarketplaceInventoryPage() {
 
                           <div>
                             <div className="font-extrabold text-[#0d1b3e] text-xs sm:text-[13px] flex items-center gap-1.5">
-                              <span>{item.domain}</span>
-                              <button
-                                type="button"
-                                onClick={() => handleCopy(item.domain)}
-                                className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                                title="Copy domain"
-                              >
-                                {copiedDomain === item.domain ? (
-                                  <Check className="w-3 h-3 text-emerald-500" />
-                                ) : (
-                                  <Copy className="w-3 h-3" />
-                                )}
-                              </button>
-                              <a
-                                href={archiveUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-gray-300 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                                title="Check Wayback Archive History"
-                              >
-                                <History className="w-3 h-3" />
-                              </a>
+                              {isAdmin ? (
+                                <>
+                                  <span>{item.domain}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopy(item.domain)}
+                                    className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                    title="Copy domain"
+                                  >
+                                    {copiedDomain === item.domain ? (
+                                      <Check className="w-3 h-3 text-emerald-500" />
+                                    ) : (
+                                      <Copy className="w-3 h-3" />
+                                    )}
+                                  </button>
+                                  <a
+                                    href={archiveUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-gray-300 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="Check Wayback Archive History"
+                                  >
+                                    <History className="w-3 h-3" />
+                                  </a>
+                                </>
+                              ) : (
+                                <div className="flex items-center gap-1">
+                                  <span className="font-mono font-bold blur-[2.5px] hover:blur-none transition-all select-none">
+                                    {item.domain.slice(0, 2)}******
+                                  </span>
+                                  <span className="font-mono font-bold">{item.tld}</span>
+                                  <span className="text-[10px] text-gray-400 font-bold ml-1">🔒 Admin Verified</span>
+                                </div>
+                              )}
                             </div>
 
                             <div className="flex items-center gap-1.5 mt-0.5">
@@ -1469,34 +1481,45 @@ export default function DomainMarketplaceInventoryPage() {
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <div className="w-8 h-8 rounded-xl bg-orange-50 text-[#FC6B17] flex items-center justify-center shrink-0 border border-orange-100">
-                        <Globe className="w-4 h-4" />
+                        {isAdmin ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4 text-[#FC6B17]" />}
                       </div>
-                      <h3 className="text-base sm:text-lg font-black text-[#0d1b3e] truncate tracking-tight">
-                        {item.domain}
-                      </h3>
+                      {isAdmin ? (
+                        <h3 className="text-base sm:text-lg font-black text-[#0d1b3e] truncate tracking-tight">
+                          {item.domain}
+                        </h3>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <h3 className="text-base sm:text-lg font-mono font-black text-[#0d1b3e] blur-[2.5px] hover:blur-none transition-all select-none tracking-wider">
+                            {item.domain.slice(0, 2)}******
+                          </h3>
+                          <span className="font-mono font-black text-gray-700 text-sm">{item.tld}</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-1">
-                      <a
-                        href={archiveUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-gray-400 hover:text-blue-600 p-1"
-                        title="View Archive Record"
-                      >
-                        <History className="w-3.5 h-3.5" />
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(item.domain)}
-                        className="text-gray-300 hover:text-gray-600 p-1 cursor-pointer"
-                      >
-                        {copiedDomain === item.domain ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-500" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </div>
+                    {isAdmin && (
+                      <div className="flex items-center gap-1">
+                        <a
+                          href={archiveUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-gray-400 hover:text-blue-600 p-1"
+                          title="View Archive Record"
+                        >
+                          <History className="w-3.5 h-3.5" />
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(item.domain)}
+                          className="text-gray-300 hover:text-gray-600 p-1 cursor-pointer"
+                        >
+                          {copiedDomain === item.domain ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-500" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Metric Pills Grid (Domain Coasters Style) */}
@@ -1682,7 +1705,7 @@ export default function DomainMarketplaceInventoryPage() {
                     <ShieldCheck className="w-3.5 h-3.5" /> Direct Verified Domain Acquisition
                   </div>
                   <h2 className="text-xl sm:text-2xl font-black text-[#0d1b3e] tracking-tight">
-                    Acquire {selectedDomainForBuy.domain}
+                    Acquire {isAdmin ? selectedDomainForBuy.domain : `${selectedDomainForBuy.domain.slice(0, 2)}******${selectedDomainForBuy.tld}`}
                   </h2>
                   <p className="text-xs text-gray-500 mt-1">
                     Instant ownership transfer via EPP Authorization Code or Registrar Push within 2 hours.
@@ -2625,7 +2648,7 @@ export default function DomainMarketplaceInventoryPage() {
             <div className="p-6 pb-4 flex items-center justify-between gap-4 border-b border-gray-100 pr-12">
               <div>
                 <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase font-mono">
-                  {selectedDomainForLinks.domain}
+                  {isAdmin ? selectedDomainForLinks.domain : `${selectedDomainForLinks.domain.slice(0, 2)}******${selectedDomainForLinks.tld}`}
                 </h2>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-xs font-bold text-gray-500">
