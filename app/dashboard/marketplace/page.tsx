@@ -30,12 +30,15 @@ import {
   CreditCard,
   MessageSquare,
   Lock,
+  Unlock,
   RefreshCw,
   LayoutGrid,
   List as ListIcon,
   X,
   Info,
   BadgeCheck,
+  Key,
+  LogIn,
 } from 'lucide-react';
 import {
   MarketplaceDomain,
@@ -43,8 +46,13 @@ import {
   addMarketplaceDomain,
   deleteMarketplaceDomain,
   resetMarketplaceToDefaults,
+  isMarketplaceAdmin,
+  setMarketplaceAdminMode,
+  verifyAdminPasscode,
 } from '../../../lib/marketplace';
 import { isDomainInWishlist, toggleDomainWishlist } from '../../../lib/watchlist';
+import { supabase } from '../../../lib/supabaseClient';
+import AuthModal from '../../../components/AuthModal';
 
 export default function DomainMarketplacePage() {
   const [domains, setDomains] = useState<MarketplaceDomain[]>([]);
@@ -54,6 +62,14 @@ export default function DomainMarketplacePage() {
   const [priceFilter, setPriceFilter] = useState('All');
   const [sortBy, setSortBy] = useState<'featured' | 'dr-desc' | 'price-asc' | 'price-desc' | 'rd-desc'>('featured');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+
+  // User & Admin Auth State
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdminPasscodeModalOpen, setIsAdminPasscodeModalOpen] = useState(false);
+  const [adminPasscode, setAdminPasscode] = useState('');
+  const [adminPasscodeError, setAdminPasscodeError] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Wishlist set
   const [wishlistSet, setWishlistSet] = useState<Set<string>>(new Set());
@@ -79,7 +95,7 @@ export default function DomainMarketplacePage() {
   const [newBuyUrl, setNewBuyUrl] = useState('');
   const [newContactEmail, setNewContactEmail] = useState('');
 
-  // Load domains on mount & listen to changes
+  // Load domains & check user/admin on mount
   useEffect(() => {
     const loadListings = () => {
       const data = getMarketplaceDomains();
@@ -89,6 +105,38 @@ export default function DomainMarketplacePage() {
 
     const handleUpdate = () => loadListings();
     window.addEventListener('oldurl_marketplace_updated', handleUpdate);
+
+    // Check user from Supabase or localStorage
+    const checkAuth = async () => {
+      let email = null;
+      try {
+        const cachedUser = localStorage.getItem('oldurl_cached_user');
+        if (cachedUser) {
+          const parsed = JSON.parse(cachedUser);
+          if (parsed?.email) {
+            email = parsed.email;
+            setCurrentUser(parsed);
+          }
+        }
+        const { data } = await supabase.auth.getSession();
+        if (data?.session?.user) {
+          email = data.session.user.email;
+          setCurrentUser(data.session.user);
+        }
+      } catch (e) {}
+
+      setIsAdmin(isMarketplaceAdmin(email));
+    };
+    checkAuth();
+
+    const handleAdminChanged = (e: any) => {
+      if (typeof e?.detail?.isAdmin === 'boolean') {
+        setIsAdmin(e.detail.isAdmin);
+      } else {
+        setIsAdmin(isMarketplaceAdmin(currentUser?.email));
+      }
+    };
+    window.addEventListener('oldurl_marketplace_admin_changed', handleAdminChanged);
 
     // Initial wishlist sync
     const syncWishlist = () => {
@@ -109,9 +157,10 @@ export default function DomainMarketplacePage() {
 
     return () => {
       window.removeEventListener('oldurl_marketplace_updated', handleUpdate);
+      window.removeEventListener('oldurl_marketplace_admin_changed', handleAdminChanged);
       window.removeEventListener('oldurl_wishlist_updated', syncWishlist);
     };
-  }, []);
+  }, [currentUser?.email]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -245,11 +294,33 @@ export default function DomainMarketplacePage() {
     setNewContactEmail('');
   };
 
+  const handleDeleteListing = (id: string, domainName: string) => {
+    if (confirm(`Admin Action: Are you sure you want to delete "${domainName}" from the marketplace?`)) {
+      deleteMarketplaceDomain(id);
+    }
+  };
+
+  const handleAdminPasscodeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (verifyAdminPasscode(adminPasscode)) {
+      setIsAdmin(true);
+      setIsAdminPasscodeModalOpen(false);
+      setAdminPasscode('');
+      setAdminPasscodeError(false);
+    } else {
+      setAdminPasscodeError(true);
+    }
+  };
+
   const handleResetDefaults = () => {
     if (confirm('Reset marketplace listings to default high-DR inventory?')) {
       const defs = resetMarketplaceToDefaults();
       setDomains(defs);
     }
+  };
+
+  const handleInitiateBuy = (item: MarketplaceDomain) => {
+    setSelectedDomainForBuy(item);
   };
 
   return (
@@ -261,10 +332,18 @@ export default function DomainMarketplacePage() {
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-3 max-w-2xl">
-            <div className="inline-flex items-center gap-2 bg-orange-500/20 text-[#FC6B17] border border-orange-500/30 px-3 py-1 rounded-full text-xs font-bold tracking-wide backdrop-blur-md">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>PREMIUM DOMAIN MARKETPLACE</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="inline-flex items-center gap-2 bg-orange-500/20 text-[#FC6B17] border border-orange-500/30 px-3 py-1 rounded-full text-xs font-bold tracking-wide backdrop-blur-md">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>PREMIUM DOMAIN MARKETPLACE</span>
+              </div>
+              {isAdmin && (
+                <span className="inline-flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full text-[11px] font-black tracking-wide">
+                  <ShieldCheck className="w-3 h-3 text-emerald-400" /> ADMIN PUBLISHER ACTIVE
+                </span>
+              )}
             </div>
+
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-tight">
               Buy Vetted High-DR Domains with Authority Backlinks
             </h1>
@@ -286,23 +365,52 @@ export default function DomainMarketplacePage() {
             </div>
           </div>
 
-          <div className="flex flex-row sm:flex-col lg:flex-row items-center gap-3 shrink-0">
-            <button
-              type="button"
-              onClick={() => setIsListModalOpen(true)}
-              className="w-full sm:w-auto bg-[#FC6B17] hover:bg-[#e05607] text-white px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-orange-600/30 transition-all hover:scale-[1.02] active:scale-98 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>List Domain for Sale</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleResetDefaults}
-              className="bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white px-3.5 py-3 rounded-2xl text-xs font-semibold flex items-center justify-center gap-1.5 border border-white/10 transition-colors"
-              title="Reset inventory to default sample listings"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-            </button>
+          {/* Right Action Header Buttons */}
+          <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-stretch sm:items-center gap-3 shrink-0">
+            {isAdmin ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsListModalOpen(true)}
+                  className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-orange-600/30 transition-all hover:scale-[1.02] active:scale-98 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Post &amp; Publish Domain</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMarketplaceAdminMode(false);
+                    setIsAdmin(false);
+                  }}
+                  className="bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white px-3.5 py-3 rounded-2xl text-xs font-semibold flex items-center justify-center gap-1.5 border border-white/10 transition-colors"
+                  title="Disable Admin Mode"
+                >
+                  <Unlock className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsAdminPasscodeModalOpen(true)}
+                className="bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white px-4 py-3 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 border border-white/10 transition-all"
+                title="Admin access to post and publish new domains"
+              >
+                <Key className="w-3.5 h-3.5 text-orange-300" />
+                <span>Admin Post Portal</span>
+              </button>
+            )}
+
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={handleResetDefaults}
+                className="bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white px-3.5 py-3 rounded-2xl text-xs font-semibold flex items-center justify-center gap-1.5 border border-white/10 transition-colors"
+                title="Reset inventory to default sample listings"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -513,6 +621,17 @@ export default function DomainMarketplacePage() {
                           }`}
                         />
                       </button>
+
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteListing(item.id, item.domain)}
+                          className="p-1.5 rounded-lg text-gray-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          title="Admin: Delete listing"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -640,7 +759,7 @@ export default function DomainMarketplacePage() {
 
                     <button
                       type="button"
-                      onClick={() => setSelectedDomainForBuy(item)}
+                      onClick={() => handleInitiateBuy(item)}
                       className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all hover:scale-102 active:scale-98 cursor-pointer"
                     >
                       <span>Buy Now</span>
@@ -751,14 +870,26 @@ export default function DomainMarketplacePage() {
                       </td>
 
                       <td className="py-3.5 px-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedDomainForBuy(item)}
-                          className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-2xs inline-flex items-center gap-1 transition-all"
-                        >
-                          <span>Buy</span>
-                          <ArrowRight className="w-3 h-3" />
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteListing(item.id, item.domain)}
+                              className="p-1 rounded-lg text-gray-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+                              title="Admin: Delete listing"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleInitiateBuy(item)}
+                            className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-2xs inline-flex items-center gap-1 transition-all"
+                          >
+                            <span>Buy</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -886,7 +1017,13 @@ export default function DomainMarketplacePage() {
                 <div className="space-y-2.5 pt-1">
                   <button
                     type="button"
-                    onClick={() => setPurchaseSuccess(true)}
+                    onClick={() => {
+                      if (!currentUser) {
+                        setIsAuthModalOpen(true);
+                      } else {
+                        setPurchaseSuccess(true);
+                      }
+                    }}
                     className="w-full bg-[#FC6B17] hover:bg-[#e05607] text-white py-3.5 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-orange-500/25 transition-all cursor-pointer"
                   >
                     <CreditCard className="w-4 h-4" />
@@ -903,7 +1040,13 @@ export default function DomainMarketplacePage() {
                     </a>
                     <button
                       type="button"
-                      onClick={() => setPurchaseSuccess(true)}
+                      onClick={() => {
+                        if (!currentUser) {
+                          setIsAuthModalOpen(true);
+                        } else {
+                          setPurchaseSuccess(true);
+                        }
+                      }}
                       className="py-2.5 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors"
                     >
                       <Lock className="w-3.5 h-3.5" />
@@ -917,7 +1060,7 @@ export default function DomainMarketplacePage() {
         </div>
       )}
 
-      {/* LIST DOMAIN FOR SALE MODAL */}
+      {/* ADMIN POST & PUBLISH NEW DOMAIN MODAL */}
       {isListModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in overflow-y-auto">
           <div className="relative w-full max-w-xl bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-gray-100 space-y-5 my-8">
@@ -931,13 +1074,13 @@ export default function DomainMarketplacePage() {
 
             <div>
               <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#FC6B17] bg-orange-50 px-2.5 py-1 rounded-full mb-2">
-                <Plus className="w-3.5 h-3.5" /> Seller Portal
+                <ShieldCheck className="w-3.5 h-3.5" /> Admin Publisher Portal
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-[#0d1b3e] tracking-tight">
-                List a Domain for Sale
+                Publish New Domain to Marketplace
               </h2>
               <p className="text-xs text-gray-500 mt-1">
-                Reach thousands of SEO professionals, agency owners, and investors searching for high-DR domains.
+                Post high-authority vetted domains directly into the public &amp; dashboard marketplace for buyers.
               </p>
             </div>
 
@@ -1102,13 +1245,77 @@ export default function DomainMarketplacePage() {
                   className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-5 py-2.5 rounded-xl font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Publish Listing</span>
+                  <span>Publish to Marketplace</span>
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* ADMIN PASSCODE UNLOCK MODAL */}
+      {isAdminPasscodeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in">
+          <div className="relative w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 space-y-4">
+            <button
+              type="button"
+              onClick={() => {
+                setIsAdminPasscodeModalOpen(false);
+                setAdminPasscode('');
+                setAdminPasscodeError(false);
+              }}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-1.5 rounded-full hover:bg-gray-100"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 rounded-2xl bg-orange-50 text-[#FC6B17] flex items-center justify-center mx-auto">
+                <Key className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-black text-[#0d1b3e]">Admin Publishing Access</h3>
+              <p className="text-xs text-gray-500">
+                Enter your admin security passcode to post and manage domain listings.
+              </p>
+            </div>
+
+            <form onSubmit={handleAdminPasscodeSubmit} className="space-y-3">
+              <div>
+                <input
+                  type="password"
+                  autoFocus
+                  required
+                  value={adminPasscode}
+                  onChange={(e) => {
+                    setAdminPasscode(e.target.value);
+                    setAdminPasscodeError(false);
+                  }}
+                  placeholder="Enter admin passcode (e.g. oldurladmin)..."
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none focus:border-[#FC6B17] focus:bg-white text-center font-mono font-bold"
+                />
+                {adminPasscodeError && (
+                  <p className="text-[11px] text-red-500 font-semibold mt-1.5 text-center">
+                    Incorrect passcode. Try &quot;oldurladmin&quot; or &quot;admin2026&quot;.
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-[#FC6B17] hover:bg-[#e05607] text-white py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all"
+              >
+                Unlock Admin Controls
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Auth Modal for Gated Checkout */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
     </div>
   );
 }

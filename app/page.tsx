@@ -24,7 +24,12 @@ import {
   Eye,
   EyeOff,
   Flame,
+  ShoppingBag,
+  DollarSign,
+  Award,
+  BadgeCheck,
 } from 'lucide-react';
+import { DEFAULT_MARKETPLACE_DOMAINS } from '../lib/marketplace';
 
 interface DomainItem {
   domain: string;
@@ -191,7 +196,17 @@ export default function HomePage() {
             </span>
           </a>
 
-          <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-gray-600">
+          <div className="hidden md:flex items-center gap-7 text-sm font-semibold text-gray-600">
+            <a
+              href="#marketplace"
+              className="text-[#0d1b3e] hover:text-[#FC6B17] transition-colors flex items-center gap-1.5 font-bold bg-orange-50/80 hover:bg-orange-100/70 text-[#FC6B17] px-3 py-1 rounded-full border border-orange-200/60"
+            >
+              <ShoppingBag className="w-3.5 h-3.5 text-[#FC6B17]" />
+              <span>Marketplace</span>
+              <span className="text-[9px] bg-[#FC6B17] text-white px-1.5 py-0.2 rounded-full font-black uppercase">
+                HOT
+              </span>
+            </a>
             <a href="#demo" className="hover:text-[#FC6B17] transition-colors">
               Live Preview
             </a>
@@ -359,6 +374,139 @@ export default function HomePage() {
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-[#FC6B17]" /> 1-Click Export to CSV/PDF
             </span>
+          </div>
+        </div>
+      </section>
+
+      {/* -------------------- DOMAIN MARKETPLACE SHOWCASE SECTION -------------------- */}
+      <section id="marketplace" className="py-20 px-4 sm:px-6 bg-gradient-to-b from-[#fdf5ee] via-[#fff8f2] to-white border-t border-orange-100/70">
+        <div className="max-w-6xl mx-auto space-y-12">
+          <div className="text-center max-w-2xl mx-auto space-y-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#FC6B17] bg-orange-100/80 px-3.5 py-1.5 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
+              <ShoppingBag className="w-3.5 h-3.5" />
+              <span>PREMIUM DOMAIN MARKETPLACE</span>
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-black text-[#0d1b3e] tracking-tight">
+              Buy Vetted High-DR Domains for Sale
+            </h2>
+            <p className="text-gray-600 text-sm leading-relaxed">
+              Curated aged domains with permanent, clean backlinks from <strong className="text-gray-900 font-bold">Forbes, TechCrunch, Wikipedia, BBC, and Bloomberg</strong>. Sign in to browse all listings and buy with 2-hour instant transfer.
+            </p>
+          </div>
+
+          {/* 4 Featured Marketplace Domain Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            {DEFAULT_MARKETPLACE_DOMAINS.slice(0, 4).map((item) => (
+              <div
+                key={item.id}
+                className="bg-white rounded-2xl border border-gray-200/80 hover:border-orange-300 shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col justify-between overflow-hidden group"
+              >
+                {/* Header */}
+                <div className="p-5 pb-3 border-b border-gray-100 bg-gradient-to-b from-gray-50/60 to-white">
+                  <div className="flex items-center justify-between gap-1.5 mb-2">
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-orange-50 text-[#FC6B17] border border-orange-100">
+                      {item.category}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-500 text-white shadow-2xs">
+                      <Sparkles className="w-2.5 h-2.5" /> HOT
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-orange-50 text-[#FC6B17] flex items-center justify-center shrink-0">
+                      <Globe className="w-3.5 h-3.5" />
+                    </div>
+                    <h3 className="font-extrabold text-gray-900 text-base truncate tracking-tight">
+                      {item.domain}
+                    </h3>
+                  </div>
+
+                  {/* Metrics */}
+                  <div className="grid grid-cols-3 gap-1.5 mt-3 text-center">
+                    <div className="bg-[#fff7ed] p-1.5 rounded-lg border border-orange-200/60">
+                      <div className="text-[9px] font-bold text-gray-500 uppercase">Ahrefs DR</div>
+                      <div className="text-xs font-black text-[#FC6B17] flex items-center justify-center gap-0.5">
+                        {item.dr} <TrendingUp className="w-2.5 h-2.5 text-emerald-500" />
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 p-1.5 rounded-lg border border-gray-100">
+                      <div className="text-[9px] font-bold text-gray-400 uppercase">Ref Dom</div>
+                      <div className="text-xs font-bold text-gray-800">{item.referringDomains}</div>
+                    </div>
+                    <div className="bg-gray-50 p-1.5 rounded-lg border border-gray-100">
+                      <div className="text-[9px] font-bold text-gray-400 uppercase">Age</div>
+                      <div className="text-xs font-bold text-gray-800">{item.ageYears}y</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Top Authority Links */}
+                <div className="p-4 space-y-2 flex-1 flex flex-col justify-between">
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+                      Top High-DR Backlinks:
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {item.topAuthorityLinks.slice(0, 3).map((link, lIdx) => (
+                        <span
+                          key={lIdx}
+                          className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200"
+                        >
+                          {link.name} (DR {link.dr})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-500">
+                    <span className="text-emerald-700 font-bold flex items-center gap-1">
+                      <BadgeCheck className="w-3 h-3 text-emerald-600" /> Verified Clean
+                    </span>
+                    <span className="text-gray-400 font-medium">Instant Push</span>
+                  </div>
+                </div>
+
+                {/* Price & Buy Button */}
+                <div className="p-4 bg-gray-50/90 border-t border-gray-100 flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-[9px] font-bold text-gray-400 uppercase">Price</div>
+                    <div className="text-base font-black text-[#0d1b3e]">
+                      ${item.price.toLocaleString()} <span className="text-[10px] font-bold text-gray-400">USD</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={openAuthModal}
+                    className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1 transition-all hover:scale-102"
+                  >
+                    <span>Buy</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Full Marketplace CTA Box */}
+          <div className="bg-gradient-to-r from-[#0d1b3e] to-[#1a2f64] rounded-3xl p-6 sm:p-8 text-white flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl border border-blue-900/40">
+            <div className="space-y-1.5 text-center sm:text-left">
+              <h3 className="text-xl font-black text-white">
+                Want to browse the full Marketplace or sell your domain?
+              </h3>
+              <p className="text-xs text-gray-300">
+                Sign in with Google to explore all 50+ curated high-DR domains with complete backlink audits &amp; direct instant transfer.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={openAuthModal}
+              className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-6 py-3.5 rounded-2xl text-xs sm:text-sm font-bold shadow-lg shadow-orange-600/30 flex items-center justify-center gap-2 transition-all hover:scale-105 shrink-0 whitespace-nowrap"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span>Sign In to Access Marketplace</span>
+            </button>
           </div>
         </div>
       </section>

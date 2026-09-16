@@ -326,3 +326,53 @@ export function resetMarketplaceToDefaults(): MarketplaceDomain[] {
   } catch (e) {}
   return DEFAULT_MARKETPLACE_DOMAINS;
 }
+
+const ADMIN_STORAGE_KEY = 'oldurl_admin_mode';
+
+export function isMarketplaceAdmin(userEmail?: string | null): boolean {
+  if (typeof window === 'undefined') return false;
+
+  // 1. Check explicit local admin flag
+  const localAdmin = localStorage.getItem(ADMIN_STORAGE_KEY);
+  if (localAdmin === 'true') return true;
+
+  // 2. Check known admin email domains / addresses
+  if (userEmail) {
+    const clean = userEmail.toLowerCase().trim();
+    const adminEmails = [
+      'admin@oldurl.com',
+      'kuldeepsathwara',
+      'smashingninja',
+      'jay@',
+      'kuldeep@',
+      'admin@',
+    ];
+    if (adminEmails.some((pattern) => clean.includes(pattern))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export function setMarketplaceAdminMode(enabled: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (enabled) {
+      localStorage.setItem(ADMIN_STORAGE_KEY, 'true');
+    } else {
+      localStorage.removeItem(ADMIN_STORAGE_KEY);
+    }
+    window.dispatchEvent(new CustomEvent('oldurl_marketplace_admin_changed', { detail: { isAdmin: enabled } }));
+  } catch (e) {}
+}
+
+export function verifyAdminPasscode(passcode: string): boolean {
+  const clean = passcode.trim().toLowerCase();
+  // Valid admin passcodes
+  if (clean === 'oldurladmin' || clean === 'admin2026' || clean === 'oldurl777' || clean === 'admin') {
+    setMarketplaceAdminMode(true);
+    return true;
+  }
+  return false;
+}
