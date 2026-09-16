@@ -24,10 +24,12 @@ import {
   ArrowRight,
   Bookmark,
   ShoppingBag,
+  Package,
 } from 'lucide-react';
 import { getUserQuotaData } from '../../lib/plans';
 import { resetMemoryCacheForUser } from '../../lib/searchHistory';
 import { getLocalWishlist, fetchCloudWishlist } from '../../lib/watchlist';
+import { getMarketplaceOrders } from '../../lib/orders';
 
 export default function DashboardLayout({
   children,
@@ -95,6 +97,13 @@ export default function DashboardLayout({
   const [wishlistCount, setWishlistCount] = useState<number>(() => {
     if (typeof window !== 'undefined') {
       return getLocalWishlist().length;
+    }
+    return 0;
+  });
+
+  const [ordersCount, setOrdersCount] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      return getMarketplaceOrders().length;
     }
     return 0;
   });
@@ -203,9 +212,18 @@ export default function DashboardLayout({
       }
     };
 
+    const handleOrdersUpdated = (e: any) => {
+      if (typeof e?.detail?.count === 'number') {
+        setOrdersCount(e.detail.count);
+      } else {
+        setOrdersCount(getMarketplaceOrders().length);
+      }
+    };
+
     if (typeof window !== 'undefined') {
       window.addEventListener('oldurl_quota_updated', handleQuotaUpdated);
       window.addEventListener('oldurl_wishlist_updated', handleWishlistUpdated);
+      window.addEventListener('oldurl_orders_updated', handleOrdersUpdated);
     }
 
     return () => {
@@ -214,6 +232,7 @@ export default function DashboardLayout({
       if (typeof window !== 'undefined') {
         window.removeEventListener('oldurl_quota_updated', handleQuotaUpdated);
         window.removeEventListener('oldurl_wishlist_updated', handleWishlistUpdated);
+        window.removeEventListener('oldurl_orders_updated', handleOrdersUpdated);
       }
     };
   }, []);
@@ -387,6 +406,12 @@ export default function DashboardLayout({
       href: '/dashboard/marketplace',
       icon: ShoppingBag,
       badge: 'HOT',
+    },
+    {
+      name: 'My Orders',
+      href: '/dashboard/orders',
+      icon: Package,
+      badge: ordersCount > 0 ? String(ordersCount) : null,
     },
   ];
 
