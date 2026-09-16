@@ -468,27 +468,26 @@ export function resetMarketplaceToDefaults(): MarketplaceDomain[] {
 
 const ADMIN_STORAGE_KEY = 'oldurl_admin_mode';
 
+export const ADMIN_EMAILS = [
+  'jaysathwara96@gmail.com',
+  'admin@oldurl.com',
+];
+
 export function isMarketplaceAdmin(userEmail?: string | null): boolean {
   if (typeof window === 'undefined') return false;
 
-  // 1. Check explicit local admin flag
-  const localAdmin = localStorage.getItem(ADMIN_STORAGE_KEY);
-  if (localAdmin === 'true') return true;
-
-  // 2. Check known admin email domains / addresses
+  // 1. Strict check of logged-in user email
   if (userEmail) {
     const clean = userEmail.toLowerCase().trim();
-    const adminEmails = [
-      'admin@oldurl.com',
-      'kuldeepsathwara',
-      'smashingninja',
-      'jay@',
-      'kuldeep@',
-      'admin@',
-    ];
-    if (adminEmails.some((pattern) => clean.includes(pattern))) {
+    if (ADMIN_EMAILS.includes(clean)) {
       return true;
     }
+  }
+
+  // 2. Check explicit local admin flag
+  const localAdmin = localStorage.getItem(ADMIN_STORAGE_KEY);
+  if (localAdmin === 'true') {
+    return true;
   }
 
   return false;

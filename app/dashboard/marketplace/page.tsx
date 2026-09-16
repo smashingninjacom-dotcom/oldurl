@@ -174,6 +174,12 @@ export default function DomainMarketplaceInventoryPage() {
     };
     checkAuth();
 
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      const email = session?.user?.email || null;
+      setCurrentUser(session?.user || null);
+      setIsAdmin(isMarketplaceAdmin(email));
+    });
+
     const handleAdminChanged = (e: any) => {
       if (typeof e?.detail?.isAdmin === 'boolean') {
         setIsAdmin(e.detail.isAdmin);
@@ -204,6 +210,7 @@ export default function DomainMarketplaceInventoryPage() {
       window.removeEventListener('oldurl_marketplace_updated', handleUpdate);
       window.removeEventListener('oldurl_marketplace_admin_changed', handleAdminChanged);
       window.removeEventListener('oldurl_wishlist_updated', syncWishlist);
+      authListener?.subscription?.unsubscribe();
     };
   }, [currentUser?.email]);
 
