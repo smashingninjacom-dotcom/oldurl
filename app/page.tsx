@@ -46,6 +46,7 @@ import {
   AuthorityLink,
   getMarketplaceDomains,
   DEFAULT_MARKETPLACE_DOMAINS,
+  getDomainProofScreenshot,
 } from '../lib/marketplace';
 
 interface DomainItem {
@@ -139,7 +140,6 @@ export default function HomePage() {
   const [marketSort, setMarketSort] = useState<'default' | 'price-asc' | 'price-desc' | 'dr-desc' | 'da-desc' | 'rd-desc'>('default');
   const [marketView, setMarketView] = useState<'table' | 'grid'>('table');
   const [selectedDomainForLinks, setSelectedDomainForLinks] = useState<MarketplaceDomain | null>(null);
-  const [linksModalTab, setLinksModalTab] = useState<'table' | 'screenshot'>('table');
   const [selectedPreviewImage, setSelectedPreviewImage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -722,10 +722,7 @@ export default function HomePage() {
                           <td className="py-3.5 px-3 text-center">
                             <button
                               type="button"
-                              onClick={() => {
-                                setSelectedDomainForLinks(item);
-                                setLinksModalTab('table');
-                              }}
+                              onClick={() => setSelectedDomainForLinks(item)}
                               className="w-9 h-9 rounded-xl bg-orange-50 hover:bg-[#FC6B17] text-[#FC6B17] hover:text-white border border-orange-200 flex items-center justify-center mx-auto transition-all duration-200 hover:scale-105 active:scale-95 shadow-2xs cursor-pointer group/link"
                               title={`View referring domains & proof screenshots for ${item.domain}`}
                             >
@@ -830,10 +827,7 @@ export default function HomePage() {
                     <div className="p-4 space-y-2 flex-1 flex flex-col justify-between">
                       <button
                         type="button"
-                        onClick={() => {
-                          setSelectedDomainForLinks(item);
-                          setLinksModalTab('table');
-                        }}
+                        onClick={() => setSelectedDomainForLinks(item)}
                         className="w-full py-2 px-3 rounded-xl bg-orange-50 hover:bg-[#FC6B17] text-[#FC6B17] hover:text-white border border-orange-200 flex items-center justify-center gap-2 font-bold text-xs transition-all shadow-2xs cursor-pointer"
                       >
                         <Link2 className="w-3.5 h-3.5" />
@@ -1574,189 +1568,119 @@ export default function HomePage() {
         </div>
       </footer>
 
-      {/* VERIFIED LINKS & AUTHORITY PROOF MODAL (OLDURL SIGNATURE THEME) */}
-      {selectedDomainForLinks && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in overflow-y-auto">
-          <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden my-6 animate-in zoom-in-95">
-            {/* Close Button */}
-            <button
-              type="button"
-              onClick={() => setSelectedDomainForLinks(null)}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-900 p-1.5 rounded-full hover:bg-gray-100 transition-colors z-20 cursor-pointer"
+      {/* VERIFIED AUTHORITY PROOF POPUP SCREENSHOT LIGHTBOX */}
+      {selectedDomainForLinks && (() => {
+        const domainScreenshots = (selectedDomainForLinks.screenshots && selectedDomainForLinks.screenshots.length > 0)
+          ? selectedDomainForLinks.screenshots
+          : [getDomainProofScreenshot(selectedDomainForLinks)];
+
+        return (
+          <div
+            onClick={() => setSelectedDomainForLinks(null)}
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-3 md:p-6 bg-black/80 backdrop-blur-md animate-in fade-in overflow-y-auto cursor-pointer"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden my-auto animate-in zoom-in-95 flex flex-col max-h-[92vh] cursor-default"
             >
-              <X className="w-5 h-5" />
-            </button>
-
-            {/* Header: Masked Domain Name on left, OldURL Brand Badge on right */}
-            <div className="p-6 pb-4 flex items-center justify-between gap-4 border-b border-gray-100 pr-12">
-              <div>
-                <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase font-mono">
-                  {maskDomainName(selectedDomainForLinks.domain)}
-                </h2>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs font-bold text-gray-500">
-                    Ahrefs DR {selectedDomainForLinks.dr} · Moz DA {selectedDomainForLinks.da || 25}
-                  </span>
-                  <span className="text-xs font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-md border border-emerald-200">
-                    ${selectedDomainForLinks.price.toLocaleString()} USD
-                  </span>
+              {/* Header */}
+              <div className="p-4 md:p-5 flex items-center justify-between gap-4 border-b border-gray-100 bg-white z-10 shrink-0">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="w-10 h-10 rounded-xl bg-orange-50 border border-orange-200 flex items-center justify-center text-[#FC6B17] shrink-0">
+                    <ImageIcon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight uppercase font-mono">
+                        {maskDomainName(selectedDomainForLinks.domain)}
+                      </h2>
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        Live Proof
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className="text-xs font-extrabold text-[#FC6B17] bg-orange-50 px-2 py-0.5 rounded-md border border-orange-200">
+                        DR {selectedDomainForLinks.dr}
+                      </span>
+                      <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                        DA {selectedDomainForLinks.da || 25}
+                      </span>
+                      <span className="text-xs font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md">
+                        {selectedDomainForLinks.referringDomains.toLocaleString()} Ref Domains
+                      </span>
+                      <span className="text-xs font-black px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-md border border-emerald-200">
+                        ${selectedDomainForLinks.price.toLocaleString()} USD
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              {/* OldURL Brand Badge */}
-              <div className="flex items-center gap-2 select-none">
-                <div className="w-9 h-9 rounded-xl bg-[#FC6B17] text-white flex items-center justify-center font-black shadow-sm">
-                  <Globe className="w-5 h-5" />
-                </div>
-                <div className="leading-tight text-right">
-                  <div className="text-base font-black text-[#0d1b3e] tracking-tight">OldURL</div>
-                  <div className="text-[10px] font-bold text-[#FC6B17] tracking-wide uppercase">Verified Inventory</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Tab Switcher */}
-            <div className="px-6 py-2.5 bg-gray-50/90 flex items-center justify-between gap-2 border-b border-gray-100 text-xs font-bold">
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setLinksModalTab('table')}
-                  className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
-                    linksModalTab === 'table'
-                      ? 'bg-[#FC6B17] text-white shadow-xs'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/70'
-                  }`}
-                >
-                  Referring Domains Table
-                </button>
-
-                {selectedDomainForLinks.screenshots && selectedDomainForLinks.screenshots.length > 0 && (
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setLinksModalTab('screenshot')}
-                    className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
-                      linksModalTab === 'screenshot'
-                        ? 'bg-[#FC6B17] text-white shadow-xs'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/70'
-                    }`}
+                    onClick={() => setSelectedDomainForLinks(null)}
+                    className="p-2 text-gray-400 hover:text-gray-900 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                    title="Close"
                   >
-                    <ImageIcon className="w-3.5 h-3.5" />
-                    <span>Screenshot</span>
+                    <X className="w-6 h-6" />
                   </button>
-                )}
+                </div>
               </div>
-            </div>
 
-            {/* TAB 1: 3-COLUMN REFERRING DOMAINS TABLE */}
-            {linksModalTab === 'table' ? (
-              <div className="max-h-[60vh] overflow-y-auto">
-                <table className="w-full text-sm text-left border-collapse">
-                  <thead className="bg-orange-50 text-[#FC6B17] text-xs font-black uppercase sticky top-0 border-b border-orange-200">
-                    <tr>
-                      <th scope="col" className="px-6 py-3 font-extrabold text-[#FC6B17]">
-                        Referring Domains
-                      </th>
-                      <th scope="col" className="px-4 py-3 text-center font-extrabold text-[#FC6B17]">
-                        Domain Rating
-                      </th>
-                      <th scope="col" className="px-4 py-3 text-center font-extrabold text-[#FC6B17]">
-                        Backlinks Count
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
-                    {selectedDomainForLinks.topAuthorityLinks && selectedDomainForLinks.topAuthorityLinks.length > 0 ? (
-                      selectedDomainForLinks.topAuthorityLinks.map((link, idx) => {
-                        const backlinksCount = link.backlinksCount || ((idx % 3) + 1);
-                        return (
-                          <tr key={idx} className="hover:bg-orange-50/20 transition-colors">
-                            <td className="px-6 py-3 font-semibold text-gray-900">
-                              {link.name}
-                            </td>
-                            <td className="px-4 py-3 text-center font-semibold text-gray-800">
-                              {link.dr}
-                            </td>
-                            <td className="px-4 py-3 text-center font-semibold text-gray-800">
-                              {backlinksCount}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <tr>
-                        <td colSpan={3} className="px-6 py-8 text-center text-gray-400 italic">
-                          No referring domain records available for this domain.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              /* TAB 2: SCREENSHOT VIEW */
-              <div className="p-6 bg-gray-50 max-h-[60vh] overflow-y-auto space-y-4">
-                {selectedDomainForLinks.screenshots && selectedDomainForLinks.screenshots.length > 0 ? (
-                  <div className="space-y-4">
-                    {selectedDomainForLinks.screenshots.map((src, idx) => (
-                      <div
-                        key={idx}
-                        className="group relative bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm"
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={src}
-                          alt={`Proof Screenshot ${idx + 1}`}
-                          className="w-full h-auto object-contain cursor-pointer"
-                          onClick={() => setSelectedPreviewImage(src)}
-                        />
-                        <div
-                          onClick={() => setSelectedPreviewImage(src)}
-                          className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer text-white"
-                        >
-                          <div className="flex items-center gap-1.5 text-xs font-bold bg-black/80 px-3.5 py-2 rounded-xl backdrop-blur-xs">
-                            <Maximize2 className="w-4 h-4" />
-                            <span>Click to Zoom Full-Resolution</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+              {/* Body: Direct Pop-style Screenshot Display */}
+              <div className="p-3 md:p-6 bg-slate-900/95 overflow-y-auto flex items-center justify-center min-h-[320px] max-h-[65vh]">
+                <div className="w-full relative group rounded-xl overflow-hidden border border-slate-700 shadow-2xl bg-black">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={domainScreenshots[0]}
+                    alt={`Authority Proof Screenshot for ${selectedDomainForLinks.domain}`}
+                    className="w-full h-auto max-h-[60vh] object-contain mx-auto cursor-zoom-in transition-transform duration-200 group-hover:scale-[1.01]"
+                    onClick={() => setSelectedPreviewImage(domainScreenshots[0])}
+                  />
+                  <div
+                    onClick={() => setSelectedPreviewImage(domainScreenshots[0])}
+                    className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer text-white"
+                  >
+                    <div className="flex items-center gap-2 text-xs md:text-sm font-bold bg-black/85 px-4 py-2.5 rounded-xl backdrop-blur-md shadow-lg border border-white/20">
+                      <Maximize2 className="w-4 h-4 text-[#FC6B17]" />
+                      <span>Click to Enlarge Full-Resolution</span>
+                    </div>
                   </div>
-                ) : (
-                  <div className="p-8 text-center text-gray-400">No screenshot uploaded.</div>
-                )}
+                </div>
               </div>
-            )}
 
-            {/* Modal Footer */}
-            <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-3">
-              <span className="text-xs text-gray-500 font-medium">
-                Verified Domain Rating &amp; Backlink Database
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedDomainForLinks(null)}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-200 font-bold rounded-xl text-xs transition-colors cursor-pointer"
-                >
-                  Close
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedDomainForLinks(null);
-                    openAuthModal();
-                  }}
-                  className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-5 py-2 rounded-xl font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all hover:scale-102 cursor-pointer"
-                >
-                  <ShoppingCart className="w-3.5 h-3.5" />
-                  <span>Buy Domain (${selectedDomainForLinks.price.toLocaleString()})</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+              {/* Modal Footer */}
+              <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-3 shrink-0 flex-wrap">
+                <div className="flex items-center gap-1.5 text-xs text-gray-600 font-semibold">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span>100% Escrow Protection · Live Verified Domain Authority</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDomainForLinks(null)}
+                    className="px-4 py-2 text-gray-600 hover:bg-gray-200 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDomainForLinks(null);
+                      openAuthModal();
+                    }}
+                    className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-5 py-2.5 rounded-xl font-black text-xs shadow-md flex items-center gap-2 transition-all hover:scale-102 cursor-pointer"
+                  >
+                    <ShoppingCart className="w-4 h-4" />
+                    <span>Buy Domain (${selectedDomainForLinks.price.toLocaleString()})</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* FULLSCREEN LIGHTBOX PREVIEW MODAL */}
       {selectedPreviewImage && (
