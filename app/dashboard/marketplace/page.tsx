@@ -155,36 +155,45 @@ export default function DomainMarketplaceInventoryPage() {
     const checkAuth = async () => {
       let email = null;
       try {
-        const cachedUser = localStorage.getItem('oldurl_cached_user');
-        if (cachedUser) {
-          const parsed = JSON.parse(cachedUser);
-          if (parsed?.email) {
-            email = parsed.email;
-            setCurrentUser(parsed);
-          }
-        }
         const { data } = await supabase.auth.getSession();
-        if (data?.session?.user) {
+        if (data?.session?.user?.email) {
           email = data.session.user.email;
           setCurrentUser(data.session.user);
+        } else {
+          const cachedUser = localStorage.getItem('oldurl_cached_user');
+          if (cachedUser) {
+            const parsed = JSON.parse(cachedUser);
+            if (parsed?.email) {
+              email = parsed.email;
+              setCurrentUser(parsed);
+            }
+          }
         }
       } catch (e) {}
 
-      setIsAdmin(isMarketplaceAdmin(email));
+      const userIsAdmin = isMarketplaceAdmin(email);
+      setIsAdmin(userIsAdmin);
+      if (!userIsAdmin && typeof window !== 'undefined') {
+        localStorage.removeItem('oldurl_admin_mode');
+      }
     };
     checkAuth();
 
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       const email = session?.user?.email || null;
       setCurrentUser(session?.user || null);
-      setIsAdmin(isMarketplaceAdmin(email));
+      const userIsAdmin = isMarketplaceAdmin(email);
+      setIsAdmin(userIsAdmin);
+      if (!userIsAdmin && typeof window !== 'undefined') {
+        localStorage.removeItem('oldurl_admin_mode');
+      }
     });
 
-    const handleAdminChanged = (e: any) => {
-      if (typeof e?.detail?.isAdmin === 'boolean') {
-        setIsAdmin(e.detail.isAdmin);
-      } else {
-        setIsAdmin(isMarketplaceAdmin(currentUser?.email));
+    const handleAdminChanged = () => {
+      const userIsAdmin = isMarketplaceAdmin(currentUser?.email);
+      setIsAdmin(userIsAdmin);
+      if (!userIsAdmin && typeof window !== 'undefined') {
+        localStorage.removeItem('oldurl_admin_mode');
       }
     };
     window.addEventListener('oldurl_marketplace_admin_changed', handleAdminChanged);
@@ -410,10 +419,7 @@ export default function DomainMarketplaceInventoryPage() {
   };
 
   const handleOpenEditModal = (item: MarketplaceDomain) => {
-    if (!isAdmin) {
-      setIsAdminPasscodeModalOpen(true);
-      return;
-    }
+    if (!isAdmin) return;
     setEditingDomain(item);
     setEditDomainName(item.domain);
     setEditPrice(String(item.price));
@@ -530,10 +536,7 @@ export default function DomainMarketplaceInventoryPage() {
 
   const handleSaveEditListing = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isAdmin) {
-      setIsAdminPasscodeModalOpen(true);
-      return;
-    }
+    if (!isAdmin) return;
     if (!editingDomain || !editDomainName.trim() || !editPrice.trim()) return;
 
     const updates: Partial<MarketplaceDomain> = {
@@ -563,10 +566,7 @@ export default function DomainMarketplaceInventoryPage() {
 
   const handleCreateListing = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isAdmin) {
-      setIsAdminPasscodeModalOpen(true);
-      return;
-    }
+    if (!isAdmin) return;
     if (!newDomain.trim() || !newPrice.trim()) return;
 
     // Parse top authority links from text
@@ -619,10 +619,7 @@ export default function DomainMarketplaceInventoryPage() {
   };
 
   const handleDeleteListing = (id: string, domainName: string) => {
-    if (!isAdmin) {
-      setIsAdminPasscodeModalOpen(true);
-      return;
-    }
+    if (!isAdmin) return;
     if (confirm(`Admin Action: Are you sure you want to delete "${domainName}" from the inventory?`)) {
       deleteMarketplaceDomain(id);
     }
@@ -694,39 +691,27 @@ export default function DomainMarketplaceInventoryPage() {
           </div>
 
           {/* Right Header CTA & Admin Trigger */}
-          <div className="flex flex-row sm:flex-col lg:flex-row items-center gap-3 shrink-0">
-            {isAdmin ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setIsListModalOpen(true)}
-                  className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-orange-600/30 transition-all hover:scale-[1.02] active:scale-98 cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>+ Post New Domain</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleResetDefaults}
-                  className="bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white px-3.5 py-3 rounded-2xl text-xs font-semibold flex items-center justify-center gap-1.5 border border-white/10 transition-colors cursor-pointer"
-                  title="Reset inventory to default sample listings"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                </button>
-              </>
-            ) : (
+          {isAdmin && (
+            <div className="flex flex-row sm:flex-col lg:flex-row items-center gap-3 shrink-0">
               <button
                 type="button"
-                onClick={() => setIsAdminPasscodeModalOpen(true)}
-                className="bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white px-4 py-2.5 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 border border-white/15 transition-all backdrop-blur-sm cursor-pointer"
-                title="Admin Authentication"
+                onClick={() => setIsListModalOpen(true)}
+                className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-orange-600/30 transition-all hover:scale-[1.02] active:scale-98 cursor-pointer"
               >
-                <Lock className="w-3.5 h-3.5 text-gray-400" />
-                <span>Admin Portal</span>
+                <Plus className="w-4 h-4" />
+                <span>+ Post New Domain</span>
               </button>
-            )}
-          </div>
+
+              <button
+                type="button"
+                onClick={handleResetDefaults}
+                className="bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white px-3.5 py-3 rounded-2xl text-xs font-semibold flex items-center justify-center gap-1.5 border border-white/10 transition-colors cursor-pointer"
+                title="Reset inventory to default sample listings"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

@@ -466,52 +466,28 @@ export function resetMarketplaceToDefaults(): MarketplaceDomain[] {
   return DEFAULT_MARKETPLACE_DOMAINS;
 }
 
-const ADMIN_STORAGE_KEY = 'oldurl_admin_mode';
-
 export const ADMIN_EMAILS = [
   'jaysathwara96@gmail.com',
-  'admin@oldurl.com',
 ];
 
 export function isMarketplaceAdmin(userEmail?: string | null): boolean {
-  if (typeof window === 'undefined') return false;
-
-  // 1. Strict check of logged-in user email
-  if (userEmail) {
-    const clean = userEmail.toLowerCase().trim();
-    if (ADMIN_EMAILS.includes(clean)) {
-      return true;
-    }
-  }
-
-  // 2. Check explicit local admin flag
-  const localAdmin = localStorage.getItem(ADMIN_STORAGE_KEY);
-  if (localAdmin === 'true') {
-    return true;
-  }
-
-  return false;
+  if (!userEmail) return false;
+  const clean = userEmail.toLowerCase().trim();
+  return ADMIN_EMAILS.includes(clean);
 }
 
 export function setMarketplaceAdminMode(enabled: boolean): void {
   if (typeof window === 'undefined') return;
   try {
-    if (enabled) {
-      localStorage.setItem(ADMIN_STORAGE_KEY, 'true');
-    } else {
-      localStorage.removeItem(ADMIN_STORAGE_KEY);
-    }
+    localStorage.removeItem('oldurl_admin_mode');
     window.dispatchEvent(new CustomEvent('oldurl_marketplace_admin_changed', { detail: { isAdmin: enabled } }));
   } catch (e) {}
 }
 
-export function verifyAdminPasscode(passcode?: string): boolean {
-  if (!passcode) return false;
-  const clean = passcode.trim().toLowerCase();
-  const validPasscodes = ['oldurladmin', 'admin2026', 'admin', 'superadmin', 'oldurl', 'oldurl123'];
-  if (validPasscodes.includes(clean)) {
-    setMarketplaceAdminMode(true);
-    return true;
-  }
-  return false;
+export function verifyAdminPasscode(passcode?: string, userEmail?: string | null): boolean {
+  if (!userEmail) return false;
+  const cleanEmail = userEmail.toLowerCase().trim();
+  if (!ADMIN_EMAILS.includes(cleanEmail)) return false;
+  return true;
 }
+
