@@ -403,6 +403,10 @@ export default function DomainMarketplaceInventoryPage() {
   };
 
   const handleOpenEditModal = (item: MarketplaceDomain) => {
+    if (!isAdmin) {
+      setIsAdminPasscodeModalOpen(true);
+      return;
+    }
     setEditingDomain(item);
     setEditDomainName(item.domain);
     setEditPrice(String(item.price));
@@ -519,6 +523,10 @@ export default function DomainMarketplaceInventoryPage() {
 
   const handleSaveEditListing = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) {
+      setIsAdminPasscodeModalOpen(true);
+      return;
+    }
     if (!editingDomain || !editDomainName.trim() || !editPrice.trim()) return;
 
     const updates: Partial<MarketplaceDomain> = {
@@ -548,6 +556,10 @@ export default function DomainMarketplaceInventoryPage() {
 
   const handleCreateListing = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) {
+      setIsAdminPasscodeModalOpen(true);
+      return;
+    }
     if (!newDomain.trim() || !newPrice.trim()) return;
 
     // Parse top authority links from text
@@ -600,6 +612,10 @@ export default function DomainMarketplaceInventoryPage() {
   };
 
   const handleDeleteListing = (id: string, domainName: string) => {
+    if (!isAdmin) {
+      setIsAdminPasscodeModalOpen(true);
+      return;
+    }
     if (confirm(`Admin Action: Are you sure you want to delete "${domainName}" from the inventory?`)) {
       deleteMarketplaceDomain(id);
     }
@@ -607,12 +623,14 @@ export default function DomainMarketplaceInventoryPage() {
 
   const handleAdminPasscodeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setMarketplaceAdminMode(true);
-    setIsAdmin(true);
-    setIsAdminPasscodeModalOpen(false);
-    setAdminPasscode('');
-    setAdminPasscodeError(false);
-    setIsListModalOpen(true);
+    if (verifyAdminPasscode(adminPasscode)) {
+      setIsAdmin(true);
+      setIsAdminPasscodeModalOpen(false);
+      setAdminPasscode('');
+      setAdminPasscodeError(false);
+    } else {
+      setAdminPasscodeError(true);
+    }
   };
 
   const handleResetDefaults = () => {
@@ -640,9 +658,11 @@ export default function DomainMarketplaceInventoryPage() {
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                 100% Vetted &amp; Spam-Cleaned
               </span>
-              <span className="inline-flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full text-[11px] font-black tracking-wide">
-                <BadgeCheck className="w-3 h-3 text-emerald-400" /> ADMIN ACTIVE
-              </span>
+              {isAdmin && (
+                <span className="inline-flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full text-[11px] font-black tracking-wide">
+                  <BadgeCheck className="w-3 h-3 text-emerald-400" /> ADMIN ACTIVE
+                </span>
+              )}
             </div>
 
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-tight">
@@ -668,27 +688,37 @@ export default function DomainMarketplaceInventoryPage() {
 
           {/* Right Header CTA & Admin Trigger */}
           <div className="flex flex-row sm:flex-col lg:flex-row items-center gap-3 shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                setMarketplaceAdminMode(true);
-                setIsAdmin(true);
-                setIsListModalOpen(true);
-              }}
-              className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-orange-600/30 transition-all hover:scale-[1.02] active:scale-98 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>+ Post New Domain</span>
-            </button>
+            {isAdmin ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsListModalOpen(true)}
+                  className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-orange-600/30 transition-all hover:scale-[1.02] active:scale-98 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Post New Domain</span>
+                </button>
 
-            <button
-              type="button"
-              onClick={handleResetDefaults}
-              className="bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white px-3.5 py-3 rounded-2xl text-xs font-semibold flex items-center justify-center gap-1.5 border border-white/10 transition-colors"
-              title="Reset inventory to default sample listings"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-            </button>
+                <button
+                  type="button"
+                  onClick={handleResetDefaults}
+                  className="bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white px-3.5 py-3 rounded-2xl text-xs font-semibold flex items-center justify-center gap-1.5 border border-white/10 transition-colors cursor-pointer"
+                  title="Reset inventory to default sample listings"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsAdminPasscodeModalOpen(true)}
+                className="bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white px-4 py-2.5 rounded-2xl text-xs font-semibold flex items-center justify-center gap-2 border border-white/15 transition-all backdrop-blur-sm cursor-pointer"
+                title="Admin Authentication"
+              >
+                <Lock className="w-3.5 h-3.5 text-gray-400" />
+                <span>Admin Portal</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1139,21 +1169,23 @@ export default function DomainMarketplaceInventoryPage() {
                             <BarChart2 className="w-3.5 h-3.5" />
                           </Link>
 
-                          {/* Edit Domain Info Button */}
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEditModal(item)}
-                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Edit Domain Info & Metrics"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                          </button>
+                          {/* Edit Domain Info Button (Admin Only) */}
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditModal(item)}
+                              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                              title="Admin: Edit Domain Info & Metrics"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
 
                           {isAdmin && (
                             <button
                               type="button"
                               onClick={() => handleDeleteListing(item.id, item.domain)}
-                              className="p-1.5 rounded-lg text-gray-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+                              className="p-1.5 rounded-lg text-gray-300 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                               title="Admin: Delete listing"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1204,7 +1236,7 @@ export default function DomainMarketplaceInventoryPage() {
                       <button
                         type="button"
                         onClick={() => handleToggleWishlist(item)}
-                        className="p-1.5 rounded-lg text-gray-300 hover:text-[#FC6B17] hover:bg-orange-50 transition-colors"
+                        className="p-1.5 rounded-lg text-gray-300 hover:text-[#FC6B17] hover:bg-orange-50 transition-colors cursor-pointer"
                         title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist & Favourites'}
                       >
                         <Bookmark
@@ -1214,21 +1246,23 @@ export default function DomainMarketplaceInventoryPage() {
                         />
                       </button>
 
-                      {/* Edit Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEditModal(item)}
-                        className="p-1.5 rounded-lg text-gray-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                        title="Edit Domain Info & Metrics"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
+                      {/* Edit Button (Admin Only) */}
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditModal(item)}
+                          className="p-1.5 rounded-lg text-gray-300 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                          title="Admin: Edit Domain Info & Metrics"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      )}
 
                       {isAdmin && (
                         <button
                           type="button"
                           onClick={() => handleDeleteListing(item.id, item.domain)}
-                          className="p-1.5 rounded-lg text-gray-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          className="p-1.5 rounded-lg text-gray-300 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                           title="Admin: Delete listing"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1261,7 +1295,7 @@ export default function DomainMarketplaceInventoryPage() {
                       <button
                         type="button"
                         onClick={() => handleCopy(item.domain)}
-                        className="text-gray-300 hover:text-gray-600 p-1"
+                        className="text-gray-300 hover:text-gray-600 p-1 cursor-pointer"
                       >
                         {copiedDomain === item.domain ? (
                           <Check className="w-3.5 h-3.5 text-emerald-500" />
@@ -1352,15 +1386,17 @@ export default function DomainMarketplaceInventoryPage() {
                       <BarChart2 className="w-4 h-4" />
                     </Link>
 
-                    {/* Edit Info Button in Card Footer */}
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditModal(item)}
-                      className="p-2 rounded-xl text-gray-500 hover:text-blue-600 hover:bg-white border border-transparent hover:border-gray-200 transition-all"
-                      title="Edit Domain Info & Metrics"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
+                    {/* Edit Info Button in Card Footer (Admin Only) */}
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(item)}
+                        className="p-2 rounded-xl text-gray-500 hover:text-blue-600 hover:bg-white border border-transparent hover:border-gray-200 transition-all cursor-pointer"
+                        title="Admin: Edit Domain Info & Metrics"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                    )}
 
                     <button
                       type="button"

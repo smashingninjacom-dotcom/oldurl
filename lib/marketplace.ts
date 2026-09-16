@@ -506,7 +506,13 @@ export function setMarketplaceAdminMode(enabled: boolean): void {
   } catch (e) {}
 }
 
-export function verifyAdminPasscode(_passcode?: string): boolean {
-  setMarketplaceAdminMode(true);
-  return true;
+export function verifyAdminPasscode(passcode?: string): boolean {
+  if (!passcode) return false;
+  const clean = passcode.trim().toLowerCase();
+  const validPasscodes = ['oldurladmin', 'admin2026', 'admin', 'superadmin', 'oldurl', 'oldurl123'];
+  if (validPasscodes.includes(clean)) {
+    setMarketplaceAdminMode(true);
+    return true;
+  }
+  return false;
 }
