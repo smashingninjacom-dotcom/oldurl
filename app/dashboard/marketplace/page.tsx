@@ -46,6 +46,8 @@ import {
   Image as ImageIcon,
   Upload,
   Maximize2,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import {
   MarketplaceDomain,
@@ -90,9 +92,40 @@ export default function DomainMarketplaceInventoryPage() {
   const [adminPasscodeError, setAdminPasscodeError] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  // Wishlist set
+  // Wishlist set & Revealed domains set (for "See" button)
   const [wishlistSet, setWishlistSet] = useState<Set<string>>(new Set());
   const [copiedDomain, setCopiedDomain] = useState<string | null>(null);
+  const [revealedDomainIds, setRevealedDomainIds] = useState<Set<string>>(new Set());
+
+  const maskDomainName = (domain: string) => {
+    const parts = domain.split('.');
+    const name = parts[0] || '';
+    const tld = parts.slice(1).join('.');
+    if (name.length <= 3) {
+      return `${name[0]}***.${tld}`;
+    }
+    const start = name.slice(0, 2);
+    const end = name.slice(-1);
+    const stars = '*'.repeat(Math.max(3, name.length - 3));
+    return `${start}${stars}${end}.${tld}`;
+  };
+
+  const handleToggleReveal = (id: string) => {
+    setRevealedDomainIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleToggleRevealAll = () => {
+    if (revealedDomainIds.size === domains.length) {
+      setRevealedDomainIds(new Set());
+    } else {
+      setRevealedDomainIds(new Set(domains.map((d) => d.id)));
+    }
+  };
 
   // Modals & Links / Screenshots Viewer
   const [selectedDomainForBuy, setSelectedDomainForBuy] = useState<MarketplaceDomain | null>(null);
@@ -1150,6 +1183,32 @@ export default function DomainMarketplaceInventoryPage() {
                 <span>Reset ({activeFiltersCount})</span>
               </button>
             )}
+
+            {/* Quick See/Mask All Domains Toggle Button */}
+            {!isAdmin && (
+              <button
+                type="button"
+                onClick={handleToggleRevealAll}
+                className={`px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 text-xs cursor-pointer shadow-2xs ${
+                  revealedDomainIds.size === domains.length && domains.length > 0
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+                    : 'bg-orange-50 text-[#FC6B17] border border-orange-200 hover:bg-orange-100'
+                }`}
+                title={revealedDomainIds.size === domains.length ? 'Mask domain names' : 'Reveal all domain names'}
+              >
+                {revealedDomainIds.size === domains.length && domains.length > 0 ? (
+                  <>
+                    <EyeOff className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Hide All</span>
+                  </>
+                ) : (
+                  <>
+                    <Eye className="w-3.5 h-3.5 text-[#FC6B17]" />
+                    <span>See All Domains</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
 
           {/* View Switcher & Counter */}
@@ -1257,10 +1316,20 @@ export default function DomainMarketplaceInventoryPage() {
                           </button>
 
                           <div>
-                            <div className="font-extrabold text-[#0d1b3e] text-xs sm:text-[13px] flex items-center gap-1.5">
-                              {isAdmin ? (
+                            <div className="font-extrabold text-[#0d1b3e] text-xs sm:text-[13px] flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
+                              {isAdmin || revealedDomainIds.has(item.id) ? (
                                 <>
-                                  <span>{item.domain}</span>
+                                  <span className="font-mono font-bold text-gray-900">{item.domain}</span>
+                                  {!isAdmin && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleReveal(item.id)}
+                                      className="text-[10px] text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 px-1.5 py-0.5 rounded font-bold transition-colors cursor-pointer"
+                                      title="Hide domain name"
+                                    >
+                                      Hide
+                                    </button>
+                                  )}
                                   <button
                                     type="button"
                                     onClick={() => handleCopy(item.domain)}
@@ -1284,12 +1353,19 @@ export default function DomainMarketplaceInventoryPage() {
                                   </a>
                                 </>
                               ) : (
-                                <div className="flex items-center gap-1">
-                                  <span className="font-mono font-bold blur-[2.5px] hover:blur-none transition-all select-none">
-                                    {item.domain.slice(0, 2)}******
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono font-bold text-gray-800 tracking-wide select-none">
+                                    {maskDomainName(item.domain)}
                                   </span>
-                                  <span className="font-mono font-bold">{item.tld}</span>
-                                  <span className="text-[10px] text-gray-400 font-bold ml-1">🔒 Admin Verified</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleReveal(item.id)}
+                                    className="inline-flex items-center gap-1 text-[11px] font-extrabold text-[#FC6B17] hover:text-white bg-orange-50 hover:bg-[#FC6B17] px-2 py-0.5 rounded-md border border-orange-200 transition-all cursor-pointer shadow-2xs"
+                                    title="Click to see full domain name"
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                    <span>See</span>
+                                  </button>
                                 </div>
                               )}
                             </div>
@@ -1479,25 +1555,47 @@ export default function DomainMarketplaceInventoryPage() {
 
                   {/* Domain Name */}
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <div className="w-8 h-8 rounded-xl bg-orange-50 text-[#FC6B17] flex items-center justify-center shrink-0 border border-orange-100">
-                        {isAdmin ? <Globe className="w-4 h-4" /> : <Lock className="w-4 h-4 text-[#FC6B17]" />}
+                        {isAdmin || revealedDomainIds.has(item.id) ? (
+                          <Globe className="w-4 h-4" />
+                        ) : (
+                          <Lock className="w-4 h-4 text-[#FC6B17]" />
+                        )}
                       </div>
-                      {isAdmin ? (
-                        <h3 className="text-base sm:text-lg font-black text-[#0d1b3e] truncate tracking-tight">
-                          {item.domain}
-                        </h3>
-                      ) : (
-                        <div className="flex items-center gap-1">
-                          <h3 className="text-base sm:text-lg font-mono font-black text-[#0d1b3e] blur-[2.5px] hover:blur-none transition-all select-none tracking-wider">
-                            {item.domain.slice(0, 2)}******
+                      {isAdmin || revealedDomainIds.has(item.id) ? (
+                        <div className="flex items-center gap-1.5 truncate">
+                          <h3 className="text-base sm:text-lg font-black text-[#0d1b3e] truncate tracking-tight font-mono">
+                            {item.domain}
                           </h3>
-                          <span className="font-mono font-black text-gray-700 text-sm">{item.tld}</span>
+                          {!isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleReveal(item.id)}
+                              className="text-[10px] text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 px-1.5 py-0.5 rounded font-bold transition-colors cursor-pointer shrink-0"
+                            >
+                              Hide
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base font-mono font-bold text-gray-800 tracking-wide select-none">
+                            {maskDomainName(item.domain)}
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleReveal(item.id)}
+                            className="inline-flex items-center gap-1 text-[11px] font-extrabold text-[#FC6B17] hover:text-white bg-orange-50 hover:bg-[#FC6B17] px-2 py-0.5 rounded-md border border-orange-200 transition-all cursor-pointer shadow-2xs shrink-0"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>See</span>
+                          </button>
                         </div>
                       )}
                     </div>
-                    {isAdmin && (
-                      <div className="flex items-center gap-1">
+                    {(isAdmin || revealedDomainIds.has(item.id)) && (
+                      <div className="flex items-center gap-1 shrink-0">
                         <a
                           href={archiveUrl}
                           target="_blank"
@@ -1704,9 +1802,21 @@ export default function DomainMarketplaceInventoryPage() {
                   <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#FC6B17] bg-orange-50 px-2.5 py-1 rounded-full mb-2">
                     <ShieldCheck className="w-3.5 h-3.5" /> Direct Verified Domain Acquisition
                   </div>
-                  <h2 className="text-xl sm:text-2xl font-black text-[#0d1b3e] tracking-tight">
-                    Acquire {isAdmin ? selectedDomainForBuy.domain : `${selectedDomainForBuy.domain.slice(0, 2)}******${selectedDomainForBuy.tld}`}
-                  </h2>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-xl sm:text-2xl font-black text-[#0d1b3e] tracking-tight font-mono">
+                      Acquire {isAdmin || revealedDomainIds.has(selectedDomainForBuy.id) ? selectedDomainForBuy.domain : maskDomainName(selectedDomainForBuy.domain)}
+                    </h2>
+                    {!isAdmin && !revealedDomainIds.has(selectedDomainForBuy.id) && (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleReveal(selectedDomainForBuy.id)}
+                        className="inline-flex items-center gap-1 text-xs font-bold text-[#FC6B17] hover:text-white bg-orange-50 hover:bg-[#FC6B17] px-2.5 py-1 rounded-lg border border-orange-200 transition-all cursor-pointer shadow-2xs"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>See Domain</span>
+                      </button>
+                    )}
+                  </div>
                   <p className="text-xs text-gray-500 mt-1">
                     Instant ownership transfer via EPP Authorization Code or Registrar Push within 2 hours.
                   </p>
@@ -2647,9 +2757,21 @@ export default function DomainMarketplaceInventoryPage() {
             {/* Header: Domain Name on left, Domain Coasters style Branding on right */}
             <div className="p-6 pb-4 flex items-center justify-between gap-4 border-b border-gray-100 pr-12">
               <div>
-                <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase font-mono">
-                  {isAdmin ? selectedDomainForLinks.domain : `${selectedDomainForLinks.domain.slice(0, 2)}******${selectedDomainForLinks.tld}`}
-                </h2>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase font-mono">
+                    {isAdmin || revealedDomainIds.has(selectedDomainForLinks.id) ? selectedDomainForLinks.domain : maskDomainName(selectedDomainForLinks.domain)}
+                  </h2>
+                  {!isAdmin && !revealedDomainIds.has(selectedDomainForLinks.id) && (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleReveal(selectedDomainForLinks.id)}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-[#FC6B17] hover:text-white bg-orange-50 hover:bg-[#FC6B17] px-2.5 py-1 rounded-lg border border-orange-200 transition-all cursor-pointer shadow-2xs"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>See</span>
+                    </button>
+                  )}
+                </div>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-xs font-bold text-gray-500">
                     Ahrefs DR {selectedDomainForLinks.dr} · Moz DA {selectedDomainForLinks.da}
