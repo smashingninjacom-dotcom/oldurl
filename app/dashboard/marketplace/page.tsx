@@ -451,25 +451,113 @@ export default function DomainMarketplaceInventoryPage() {
     setIsEditModalOpen(true);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
+  // Helper to compress images before storing to prevent localStorage QuotaExceededError
+  const compressImageFile = (file: File, maxWidth = 1400, maxHeight = 1000, quality = 0.82): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const rawData = e.target?.result as string;
+        if (!rawData) {
+          resolve('');
+          return;
+        }
+        const img = new Image();
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+          if (width > maxWidth || height > maxHeight) {
+            if (width / height > maxWidth / maxHeight) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            } else {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressed = canvas.toDataURL('image/jpeg', quality);
+            resolve(compressed);
+          } else {
+            resolve(rawData);
+          }
+        };
+        img.onerror = () => resolve(rawData);
+        img.src = rawData;
+      };
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64 = event.target?.result as string;
-        if (base64) {
-          if (isEdit) {
-            setEditScreenshots((prev) => [...prev, base64]);
-          } else {
-            setNewScreenshots((prev) => [...prev, base64]);
-          }
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    const compressedList: string[] = [];
+    for (const file of Array.from(files)) {
+      const compressed = await compressImageFile(file);
+      if (compressed) {
+        compressedList.push(compressed);
+      }
+    }
+
+    if (compressedList.length > 0) {
+      if (isEdit) {
+        setEditScreenshots((prev) => [...prev, ...compressedList]);
+      } else {
+        setNewScreenshots((prev) => [...prev, ...compressedList]);
+      }
+    }
     e.target.value = '';
+  };
+
+  // Direct upload from within the Links Proof modal (Admin action)
+  const handleUploadInLinksModal = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedDomainForLinks || !isAdmin) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const compressedList: string[] = [];
+    for (const file of Array.from(files)) {
+      const compressed = await compressImageFile(file);
+      if (compressed) {
+        compressedList.push(compressed);
+      }
+    }
+
+    if (compressedList.length > 0) {
+      const updatedScreenshots = [
+        ...(selectedDomainForLinks.screenshots || []),
+        ...compressedList,
+      ];
+      updateMarketplaceDomain(selectedDomainForLinks.id, {
+        screenshots: updatedScreenshots,
+      });
+      setSelectedDomainForLinks({
+        ...selectedDomainForLinks,
+        screenshots: updatedScreenshots,
+      });
+      setDomains(getMarketplaceDomains());
+    }
+    e.target.value = '';
+  };
+
+  const handleRemoveScreenshotInLinksModal = (idx: number) => {
+    if (!selectedDomainForLinks || !isAdmin) return;
+    const updatedScreenshots = (selectedDomainForLinks.screenshots || []).filter((_, i) => i !== idx);
+    updateMarketplaceDomain(selectedDomainForLinks.id, {
+      screenshots: updatedScreenshots,
+    });
+    setSelectedDomainForLinks({
+      ...selectedDomainForLinks,
+      screenshots: updatedScreenshots,
+    });
+    setDomains(getMarketplaceDomains());
   };
 
   const handleAddScreenshotUrl = (isEdit: boolean) => {
@@ -2514,10 +2602,10 @@ export default function DomainMarketplaceInventoryPage() {
         onClose={() => setIsAuthModalOpen(false)}
       />
 
-      {/* VERIFIED LINKS & BACKLINK PROOF MODAL (DOMAIN COASTERS STYLE) */}
+      {/* VERIFIED LINKS & BACKLINK PROOF MODAL (DOMAIN COASTERS STYLE - SCREENSHOTS ONLY) */}
       {selectedDomainForLinks && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in overflow-y-auto">
-          <div className="relative w-full max-w-2xl bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-gray-100 space-y-6 my-8 animate-in zoom-in-95">
+          <div className="relative w-full max-w-3xl bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-gray-100 space-y-5 my-8 animate-in zoom-in-95">
             <button
               type="button"
               onClick={() => setSelectedDomainForLinks(null)}
@@ -2527,171 +2615,159 @@ export default function DomainMarketplaceInventoryPage() {
             </button>
 
             {/* Header */}
-            <div>
-              <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#4f46e5] bg-[#eef2ff] px-3 py-1 rounded-full mb-2 border border-[#c7d2fe]/70">
-                <Link2 className="w-3.5 h-3.5" />
-                <span>Verified Authority Proof &amp; Backlinks</span>
-              </div>
-              <h2 className="text-xl sm:text-2xl font-black text-[#0d1b3e] tracking-tight flex items-center gap-2 flex-wrap">
-                <span>{selectedDomainForLinks.domain}</span>
-                <span className="text-xs font-bold px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg">
-                  ${selectedDomainForLinks.price.toLocaleString()} USD
-                </span>
-              </h2>
-
-              {/* Metric Highlights */}
-              <div className="flex flex-wrap items-center gap-2 mt-3 text-xs">
-                <span className="font-extrabold text-[#FC6B17] bg-orange-50 px-2.5 py-1 rounded-lg border border-orange-200">
-                  Ahrefs DR {selectedDomainForLinks.dr}
-                </span>
-                <span className="font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
-                  Moz DA {selectedDomainForLinks.da}
-                </span>
-                <span className="font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-200">
-                  Majestic TF {selectedDomainForLinks.tf || 28}
-                </span>
-                <span className="font-bold text-gray-700 bg-gray-100 px-2.5 py-1 rounded-lg">
-                  {selectedDomainForLinks.referringDomains.toLocaleString()} Referring Domains
-                </span>
-                <span className="font-bold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-lg">
-                  {selectedDomainForLinks.ageYears}y Archive Age
-                </span>
-              </div>
-            </div>
-
-            {/* SECTION 1: TOP AUTHORITY REFERRING DOMAIN MENTIONS */}
-            <div className="space-y-2.5">
-              <h3 className="text-xs font-black uppercase text-gray-500 tracking-wider flex items-center gap-1.5">
-                <Award className="w-4 h-4 text-indigo-600" />
-                <span>Top High-DR Referring Domains &amp; Backlink Mentions</span>
-              </h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {selectedDomainForLinks.topAuthorityLinks && selectedDomainForLinks.topAuthorityLinks.length > 0 ? (
-                  selectedDomainForLinks.topAuthorityLinks.map((link, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between px-3.5 py-2.5 bg-[#f8fafc] hover:bg-[#eef2ff]/50 rounded-xl border border-gray-200/80 transition-colors"
-                    >
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-                        <span className="font-bold text-gray-800 text-xs truncate">
-                          {link.name}
-                        </span>
-                      </div>
-                      <span className="font-black text-[11px] text-[#4f46e5] bg-[#eef2ff] px-2 py-0.5 rounded-md border border-[#c7d2fe]/60 shrink-0">
-                        DR {link.dr}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="col-span-2 text-xs text-gray-400 italic p-3 bg-gray-50 rounded-xl border border-gray-100">
-                    No individual referring domain mentions specified.
+            <div className="flex items-center justify-between gap-3 pr-8 flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#eef2ff] text-[#4f46e5] border border-[#c7d2fe]/70 flex items-center justify-center shrink-0">
+                  <Link2 className="w-5 h-5 text-[#4f46e5]" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl sm:text-2xl font-black text-[#0d1b3e] tracking-tight">
+                      {selectedDomainForLinks.domain}
+                    </h2>
+                    <span className="text-xs font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md">
+                      ${selectedDomainForLinks.price.toLocaleString()} USD
+                    </span>
                   </div>
-                )}
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Verified Ahrefs Backlink &amp; Authority Links Proof Screenshots
+                  </p>
+                </div>
               </div>
+
+              {/* Admin Quick Upload Badge */}
+              {isAdmin && (
+                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl border border-indigo-200 font-bold text-xs cursor-pointer transition-colors shadow-2xs">
+                  <Upload className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>+ Upload Screenshot</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleUploadInLinksModal}
+                    className="hidden"
+                  />
+                </label>
+              )}
             </div>
 
-            {/* SECTION 2: AHREFS & BACKLINK PROOF SCREENSHOTS */}
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-black uppercase text-gray-500 tracking-wider flex items-center gap-1.5">
-                  <ImageIcon className="w-4 h-4 text-[#FC6B17]" />
-                  <span>Ahrefs / Backlink Proof Screenshots</span>
-                </h3>
-                {selectedDomainForLinks.screenshots && selectedDomainForLinks.screenshots.length > 0 && (
-                  <span className="text-[11px] text-gray-400 font-semibold">
-                    Click image to expand in full-res
-                  </span>
-                )}
-              </div>
-
+            {/* SCREENSHOTS DISPLAY SECTION */}
+            <div className="space-y-4">
               {selectedDomainForLinks.screenshots && selectedDomainForLinks.screenshots.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {selectedDomainForLinks.screenshots.map((src, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => setSelectedPreviewImage(src)}
-                      className="group relative rounded-xl overflow-hidden border border-gray-200 bg-gray-100 aspect-video cursor-pointer hover:border-[#4f46e5] hover:shadow-md transition-all"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={src}
-                        alt={`Proof screenshot ${idx + 1}`}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                        <div className="flex items-center gap-1.5 text-xs font-bold bg-black/60 px-3 py-1.5 rounded-lg backdrop-blur-xs">
-                          <Maximize2 className="w-3.5 h-3.5" />
-                          <span>View Full-Res</span>
+                <div className="space-y-3">
+                  {/* Gallery Grid */}
+                  <div className={`grid gap-3 ${
+                    selectedDomainForLinks.screenshots.length === 1
+                      ? 'grid-cols-1'
+                      : selectedDomainForLinks.screenshots.length === 2
+                      ? 'grid-cols-1 sm:grid-cols-2'
+                      : 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3'
+                  }`}>
+                    {selectedDomainForLinks.screenshots.map((src, idx) => (
+                      <div
+                        key={idx}
+                        className="group relative rounded-2xl overflow-hidden border border-gray-200 bg-gray-50 shadow-xs hover:border-[#4f46e5] hover:shadow-md transition-all aspect-video"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={src}
+                          alt={`Proof screenshot ${idx + 1}`}
+                          className="w-full h-full object-cover cursor-pointer group-hover:scale-102 transition-transform duration-300"
+                          onClick={() => setSelectedPreviewImage(src)}
+                        />
+
+                        {/* Hover Overlay with Zoom */}
+                        <div
+                          onClick={() => setSelectedPreviewImage(src)}
+                          className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer text-white"
+                        >
+                          <div className="flex items-center gap-1.5 text-xs font-bold bg-black/70 px-3 py-1.5 rounded-xl backdrop-blur-xs">
+                            <Maximize2 className="w-4 h-4" />
+                            <span>Click to Zoom</span>
+                          </div>
                         </div>
+
+                        {/* Admin Delete Screenshot Button */}
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveScreenshotInLinksModal(idx);
+                            }}
+                            className="absolute top-2 right-2 p-1.5 bg-red-600/90 hover:bg-red-700 text-white rounded-lg shadow-md opacity-90 group-hover:opacity-100 transition-opacity cursor-pointer z-10"
+                            title="Delete this screenshot"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+
+                  <p className="text-[11px] text-gray-400 text-center font-medium">
+                    💡 Click on any screenshot to view full-resolution image lightbox.
+                  </p>
                 </div>
               ) : (
-                <div className="p-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200 text-center space-y-1">
-                  <p className="text-xs font-bold text-gray-600">
-                    No attached screenshots for this domain listing yet.
-                  </p>
-                  <p className="text-[11px] text-gray-400">
-                    All metrics and backlink profiles are verified live against our SEO database intelligence.
-                  </p>
+                /* EMPTY STATE */
+                <div className="p-8 sm:p-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
+                    <ImageIcon className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-gray-800">
+                      No Screenshot Uploaded Yet
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
+                      {isAdmin
+                        ? 'As an admin, you can upload backlink and Ahrefs metrics screenshots directly below.'
+                        : 'Screenshots for this domain will be available shortly. All metrics are verified live.'}
+                    </p>
+                  </div>
+
+                  {/* Admin Direct Upload Button */}
+                  {isAdmin && (
+                    <div className="pt-2">
+                      <label className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer transition-colors">
+                        <Upload className="w-4 h-4" />
+                        <span>Upload Ahrefs Proof Screenshot</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleUploadInLinksModal}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Description & pitch if present */}
-            {selectedDomainForLinks.description && (
-              <div className="p-3.5 bg-gray-50 rounded-xl text-xs text-gray-600 border border-gray-100">
-                <span className="font-bold text-gray-800">Domain Notes: </span>
-                {selectedDomainForLinks.description}
-              </div>
-            )}
-
             {/* Footer Action Strip */}
-            <div className="pt-2 flex items-center justify-between gap-3 border-t border-gray-100 flex-wrap">
-              <div className="flex items-center gap-2">
-                <a
-                  href={`https://web.archive.org/web/*/${selectedDomainForLinks.domain}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors"
-                >
-                  <History className="w-3.5 h-3.5" />
-                  <span>Wayback Archive</span>
-                </a>
-                <Link
-                  href={`/dashboard/domain-analytics-result?domain=${encodeURIComponent(selectedDomainForLinks.domain)}`}
-                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors"
-                >
-                  <BarChart2 className="w-3.5 h-3.5" />
-                  <span>Analytics</span>
-                </Link>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedDomainForLinks(null)}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 font-bold rounded-xl text-xs transition-colors cursor-pointer"
-                >
-                  Close
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const d = selectedDomainForLinks;
-                    setSelectedDomainForLinks(null);
-                    setSelectedDomainForBuy(d);
-                  }}
-                  className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all hover:scale-102 cursor-pointer"
-                >
-                  <ShoppingBag className="w-3.5 h-3.5" />
-                  <span>Buy Domain (${selectedDomainForLinks.price.toLocaleString()})</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
+            <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setSelectedDomainForLinks(null)}
+                className="px-4 py-2.5 text-gray-600 hover:bg-gray-100 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const d = selectedDomainForLinks;
+                  setSelectedDomainForLinks(null);
+                  setSelectedDomainForBuy(d);
+                }}
+                className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all hover:scale-102 cursor-pointer"
+              >
+                <ShoppingBag className="w-3.5 h-3.5" />
+                <span>Buy Domain (${selectedDomainForLinks.price.toLocaleString()})</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
         </div>
