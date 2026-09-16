@@ -476,12 +476,12 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* -------------------- DOMAIN MARKETPLACE INVENTORY (EXACT DOMAIN COASTERS UI MATCH) -------------------- */}
+      {/* -------------------- DOMAIN MARKETPLACE INVENTORY (WEBSITE THEME POLISHED UI) -------------------- */}
       <section id="marketplace" className="py-20 px-4 sm:px-6 bg-gradient-to-b from-[#fdf5ee] via-[#fff8f2] to-white border-t border-orange-100/70">
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="text-center max-w-3xl mx-auto space-y-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#3b5bf6] bg-blue-50 border border-blue-200 px-3.5 py-1.5 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
-              <ShoppingBag className="w-3.5 h-3.5 text-[#3b5bf6]" />
+            <span className="text-xs font-bold uppercase tracking-wider text-[#FC6B17] bg-[#fff0e8] border border-orange-200/80 px-3.5 py-1.5 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
+              <ShoppingBag className="w-3.5 h-3.5 text-[#FC6B17]" />
               <span>PREMIUM DOMAIN MARKETPLACE</span>
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-[#0d1b3e] tracking-tight">
@@ -492,8 +492,8 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* QUICK FILTERS TOOLBAR (DOMAIN COASTERS STYLE) */}
-          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm space-y-3.5">
+          {/* QUICK FILTERS TOOLBAR */}
+          <div className="bg-white p-4 rounded-2xl border border-orange-200/60 shadow-sm space-y-3.5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               {/* Filter Pills */}
               <div className="flex items-center flex-wrap gap-2 text-xs font-bold">
@@ -503,8 +503,8 @@ export default function HomePage() {
                   onClick={() => setMarketQuickFilter('all')}
                   className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
                     marketQuickFilter === 'all'
-                      ? 'bg-[#3b5bf6] text-white shadow-xs'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      ? 'bg-[#FC6B17] text-white shadow-xs font-bold'
+                      : 'bg-white hover:bg-orange-50 text-gray-700 border border-gray-200'
                   }`}
                 >
                   All Domains
@@ -514,8 +514,8 @@ export default function HomePage() {
                   onClick={() => setMarketQuickFilter('low-spam')}
                   className={`px-3 py-1.5 rounded-xl transition-all flex items-center gap-1 cursor-pointer ${
                     marketQuickFilter === 'low-spam'
-                      ? 'bg-[#3b5bf6] text-white shadow-xs'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      ? 'bg-[#FC6B17] text-white shadow-xs font-bold'
+                      : 'bg-white hover:bg-orange-50 text-gray-700 border border-gray-200'
                   }`}
                 >
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
@@ -526,8 +526,8 @@ export default function HomePage() {
                   onClick={() => setMarketQuickFilter('da20')}
                   className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
                     marketQuickFilter === 'da20'
-                      ? 'bg-[#3b5bf6] text-white shadow-xs'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      ? 'bg-[#FC6B17] text-white shadow-xs font-bold'
+                      : 'bg-white hover:bg-orange-50 text-gray-700 border border-gray-200'
                   }`}
                 >
                   DA 20+
@@ -537,8 +537,8 @@ export default function HomePage() {
                   onClick={() => setMarketQuickFilter('dr20')}
                   className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
                     marketQuickFilter === 'dr20'
-                      ? 'bg-[#3b5bf6] text-white shadow-xs'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      ? 'bg-[#FC6B17] text-white shadow-xs font-bold'
+                      : 'bg-white hover:bg-orange-50 text-gray-700 border border-gray-200'
                   }`}
                 >
                   DR 20+
@@ -548,8 +548,8 @@ export default function HomePage() {
                   onClick={() => setMarketQuickFilter('under100')}
                   className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
                     marketQuickFilter === 'under100'
-                      ? 'bg-[#3b5bf6] text-white shadow-xs'
-                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      ? 'bg-[#FC6B17] text-white shadow-xs font-bold'
+                      : 'bg-white hover:bg-orange-50 text-gray-700 border border-gray-200'
                   }`}
                 >
                   Domains under $100
@@ -563,7 +563,7 @@ export default function HomePage() {
                   <select
                     value={marketNiche}
                     onChange={(e) => setMarketNiche(e.target.value)}
-                    className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 pr-7 text-xs font-semibold text-gray-700 outline-none focus:border-[#3b5bf6] cursor-pointer"
+                    className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 pr-7 text-xs font-semibold text-gray-700 outline-none focus:border-[#FC6B17] cursor-pointer"
                   >
                     {niches.map((n) => (
                       <option key={n} value={n}>
@@ -579,7 +579,7 @@ export default function HomePage() {
                   <select
                     value={marketSort}
                     onChange={(e: any) => setMarketSort(e.target.value)}
-                    className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 pr-7 text-xs font-semibold text-gray-700 outline-none focus:border-[#3b5bf6] cursor-pointer"
+                    className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 pr-7 text-xs font-semibold text-gray-700 outline-none focus:border-[#FC6B17] cursor-pointer"
                   >
                     <option value="default">Default order</option>
                     <option value="price-asc">Price: Low to High</option>
@@ -598,7 +598,7 @@ export default function HomePage() {
                     onClick={() => setMarketView('table')}
                     className={`p-1.5 rounded-lg transition-all ${
                       marketView === 'table'
-                        ? 'bg-white text-[#3b5bf6] shadow-2xs font-bold'
+                        ? 'bg-white text-[#FC6B17] shadow-2xs font-bold'
                         : 'text-gray-500 hover:text-gray-800'
                     }`}
                     title="Table View"
@@ -610,7 +610,7 @@ export default function HomePage() {
                     onClick={() => setMarketView('grid')}
                     className={`p-1.5 rounded-lg transition-all ${
                       marketView === 'grid'
-                        ? 'bg-white text-[#3b5bf6] shadow-2xs font-bold'
+                        ? 'bg-white text-[#FC6B17] shadow-2xs font-bold'
                         : 'text-gray-500 hover:text-gray-800'
                     }`}
                     title="Cards Grid View"
@@ -622,16 +622,16 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* TABLE DISPLAY (EXACT DOMAIN COASTERS UI MATCH) */}
+          {/* TABLE DISPLAY (MATCHES OLDURL SIGNATURE THEME) */}
           {marketView === 'table' ? (
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
-                  {/* DOMAIN COASTERS SOLID BLUE TABLE HEADER */}
+                  {/* WEBSITE THEME SIGNATURE ORANGE HEADER */}
                   <thead>
-                    <tr className="bg-[#3b5bf6] text-white font-black text-xs uppercase tracking-wider border-b border-[#2b4be6]">
+                    <tr className="bg-gradient-to-r from-[#FC6B17] via-[#f75e07] to-[#e05607] text-white font-black text-xs uppercase tracking-wider border-b border-orange-600/40">
                       <th className="py-3.5 px-3 w-8 text-center">
-                        <input type="checkbox" className="rounded text-[#3b5bf6] focus:ring-0 cursor-pointer" />
+                        <input type="checkbox" className="rounded accent-white cursor-pointer" />
                       </th>
                       <th className="py-3.5 px-4 min-w-[220px]">Domain</th>
                       <th className="py-3.5 px-3 min-w-[120px]">Category</th>
@@ -653,10 +653,10 @@ export default function HomePage() {
                       const maskedName = maskDomainName(item.domain);
 
                       return (
-                        <tr key={item.id || idx} className="hover:bg-blue-50/20 transition-colors group">
+                        <tr key={item.id || idx} className="hover:bg-orange-50/30 transition-colors group">
                           {/* Checkbox */}
                           <td className="py-3.5 px-3 text-center">
-                            <input type="checkbox" className="rounded text-[#3b5bf6] focus:ring-0 cursor-pointer" />
+                            <input type="checkbox" className="rounded accent-[#FC6B17] cursor-pointer" />
                           </td>
 
                           {/* Domain Column: Code + Masked Domain + [Reveal] Button */}
@@ -672,7 +672,7 @@ export default function HomePage() {
                                 <button
                                   type="button"
                                   onClick={openAuthModal}
-                                  className="inline-flex items-center gap-1 text-[11px] font-extrabold text-[#3b5bf6] hover:text-blue-700 bg-white hover:bg-blue-50 px-2 py-0.5 rounded border border-[#3b5bf6]/60 transition-colors cursor-pointer shadow-2xs"
+                                  className="inline-flex items-center gap-1 text-[11px] font-extrabold text-[#FC6B17] hover:text-white bg-orange-50 hover:bg-[#FC6B17] px-2 py-0.5 rounded-md border border-orange-200 transition-all cursor-pointer shadow-2xs"
                                   title="Sign in to reveal full domain name"
                                 >
                                   <Eye className="w-3 h-3" />
@@ -718,7 +718,7 @@ export default function HomePage() {
                             {item.referringDomains.toLocaleString()}
                           </td>
 
-                          {/* Links Button Column (Blue Rounded Square Icon Button) */}
+                          {/* Links Button Column (OldUrl Theme Rounded Square Icon Button) */}
                           <td className="py-3.5 px-3 text-center">
                             <button
                               type="button"
@@ -726,7 +726,7 @@ export default function HomePage() {
                                 setSelectedDomainForLinks(item);
                                 setLinksModalTab('table');
                               }}
-                              className="w-9 h-9 rounded-xl bg-[#eef2ff] hover:bg-[#3b5bf6] text-[#3b5bf6] hover:text-white border border-[#c7d2fe]/80 flex items-center justify-center mx-auto transition-all duration-200 hover:scale-105 active:scale-95 shadow-xs cursor-pointer group/link"
+                              className="w-9 h-9 rounded-xl bg-orange-50 hover:bg-[#FC6B17] text-[#FC6B17] hover:text-white border border-orange-200 flex items-center justify-center mx-auto transition-all duration-200 hover:scale-105 active:scale-95 shadow-2xs cursor-pointer group/link"
                               title={`View referring domains & proof screenshots for ${item.domain}`}
                             >
                               <Link2 className="w-4 h-4 group-hover/link:rotate-[-10deg] transition-transform" />
@@ -750,7 +750,7 @@ export default function HomePage() {
                           <td className="py-3.5 px-2 text-center">
                             <span
                               title={`Verified history: ${item.ageYears}y old · Clean Wayback profile · Safe for SEO`}
-                              className="inline-flex p-1 text-gray-400 hover:text-blue-600 cursor-help"
+                              className="inline-flex p-1 text-gray-400 hover:text-[#FC6B17] cursor-help transition-colors"
                             >
                               <Info className="w-3.5 h-3.5" />
                             </span>
@@ -761,7 +761,7 @@ export default function HomePage() {
                             <button
                               type="button"
                               onClick={openAuthModal}
-                              className="inline-flex items-center justify-center gap-1.5 bg-[#3b5bf6] hover:bg-blue-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-xs transition-all hover:scale-102 cursor-pointer w-full sm:w-auto"
+                              className="inline-flex items-center justify-center gap-1.5 bg-[#FC6B17] hover:bg-[#e05607] text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-xs transition-all hover:scale-102 cursor-pointer w-full sm:w-auto"
                             >
                               <ShoppingCart className="w-3 h-3" />
                               <span>Add To Cart</span>
@@ -784,14 +784,14 @@ export default function HomePage() {
                 return (
                   <div
                     key={item.id || idx}
-                    className="bg-white rounded-2xl border border-gray-200 hover:border-blue-300 shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col justify-between overflow-hidden group"
+                    className="bg-white rounded-2xl border border-gray-200 hover:border-orange-300 shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col justify-between overflow-hidden group"
                   >
                     <div className="p-5 pb-3 border-b border-gray-100 bg-gradient-to-b from-gray-50/60 to-white">
                       <div className="flex items-center justify-between gap-1.5 mb-2">
                         <span className="text-[10px] font-mono font-bold text-gray-400">
                           {domainCode}
                         </span>
-                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-blue-50 text-[#3b5bf6] border border-blue-100">
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-orange-50 text-[#FC6B17] border border-orange-100">
                           {item.category}
                         </span>
                       </div>
@@ -803,7 +803,7 @@ export default function HomePage() {
                         <button
                           type="button"
                           onClick={openAuthModal}
-                          className="inline-flex items-center gap-1 text-[11px] font-bold text-[#3b5bf6] hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-[#FC6B17] hover:text-white bg-orange-50 hover:bg-[#FC6B17] px-2.5 py-1 rounded-lg border border-orange-200 transition-all cursor-pointer shadow-2xs"
                         >
                           <Eye className="w-3 h-3" />
                           <span>Reveal</span>
@@ -834,7 +834,7 @@ export default function HomePage() {
                           setSelectedDomainForLinks(item);
                           setLinksModalTab('table');
                         }}
-                        className="w-full py-2 px-3 rounded-xl bg-[#eef2ff] hover:bg-[#3b5bf6] text-[#3b5bf6] hover:text-white border border-[#c7d2fe]/70 flex items-center justify-center gap-2 font-bold text-xs transition-all shadow-xs cursor-pointer"
+                        className="w-full py-2 px-3 rounded-xl bg-orange-50 hover:bg-[#FC6B17] text-[#FC6B17] hover:text-white border border-orange-200 flex items-center justify-center gap-2 font-bold text-xs transition-all shadow-2xs cursor-pointer"
                       >
                         <Link2 className="w-3.5 h-3.5" />
                         <span>View Verified Links</span>
@@ -861,7 +861,7 @@ export default function HomePage() {
                       <button
                         type="button"
                         onClick={openAuthModal}
-                        className="bg-[#3b5bf6] hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all hover:scale-102 cursor-pointer"
+                        className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all hover:scale-102 cursor-pointer"
                       >
                         <ShoppingCart className="w-3.5 h-3.5" />
                         <span>Add To Cart</span>
@@ -1574,7 +1574,7 @@ export default function HomePage() {
         </div>
       </footer>
 
-      {/* VERIFIED LINKS & AUTHORITY PROOF MODAL (EXACT DOMAIN COASTERS UI MATCH) */}
+      {/* VERIFIED LINKS & AUTHORITY PROOF MODAL (OLDURL SIGNATURE THEME) */}
       {selectedDomainForLinks && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in overflow-y-auto">
           <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden my-6 animate-in zoom-in-95">
@@ -1605,12 +1605,12 @@ export default function HomePage() {
 
               {/* OldURL Brand Badge */}
               <div className="flex items-center gap-2 select-none">
-                <div className="w-9 h-9 rounded-xl bg-[#3b5bf6] text-white flex items-center justify-center font-black shadow-sm">
+                <div className="w-9 h-9 rounded-xl bg-[#FC6B17] text-white flex items-center justify-center font-black shadow-sm">
                   <Globe className="w-5 h-5" />
                 </div>
                 <div className="leading-tight text-right">
-                  <div className="text-base font-black text-[#1e3a8a] tracking-tight">OldURL</div>
-                  <div className="text-[10px] font-bold text-[#3b5bf6] tracking-wide uppercase">Verified Inventory</div>
+                  <div className="text-base font-black text-[#0d1b3e] tracking-tight">OldURL</div>
+                  <div className="text-[10px] font-bold text-[#FC6B17] tracking-wide uppercase">Verified Inventory</div>
                 </div>
               </div>
             </div>
@@ -1623,7 +1623,7 @@ export default function HomePage() {
                   onClick={() => setLinksModalTab('table')}
                   className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
                     linksModalTab === 'table'
-                      ? 'bg-[#3b5bf6] text-white shadow-xs'
+                      ? 'bg-[#FC6B17] text-white shadow-xs'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/70'
                   }`}
                 >
@@ -1636,7 +1636,7 @@ export default function HomePage() {
                     onClick={() => setLinksModalTab('screenshot')}
                     className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
                       linksModalTab === 'screenshot'
-                        ? 'bg-[#3b5bf6] text-white shadow-xs'
+                        ? 'bg-[#FC6B17] text-white shadow-xs'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/70'
                     }`}
                   >
@@ -1647,19 +1647,19 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* TAB 1: EXACT DOMAIN COASTERS 3-COLUMN TABLE */}
+            {/* TAB 1: 3-COLUMN REFERRING DOMAINS TABLE */}
             {linksModalTab === 'table' ? (
               <div className="max-h-[60vh] overflow-y-auto">
                 <table className="w-full text-sm text-left border-collapse">
-                  <thead className="bg-[#edf2fe] text-[#3b5bf6] text-xs font-black uppercase sticky top-0 border-b border-[#dbe4ff]">
+                  <thead className="bg-orange-50 text-[#FC6B17] text-xs font-black uppercase sticky top-0 border-b border-orange-200">
                     <tr>
-                      <th scope="col" className="px-6 py-3 font-extrabold text-[#3b5bf6]">
+                      <th scope="col" className="px-6 py-3 font-extrabold text-[#FC6B17]">
                         Referring Domains
                       </th>
-                      <th scope="col" className="px-4 py-3 text-center font-extrabold text-[#3b5bf6]">
+                      <th scope="col" className="px-4 py-3 text-center font-extrabold text-[#FC6B17]">
                         Domain Rating
                       </th>
-                      <th scope="col" className="px-4 py-3 text-center font-extrabold text-[#3b5bf6]">
+                      <th scope="col" className="px-4 py-3 text-center font-extrabold text-[#FC6B17]">
                         Backlinks Count
                       </th>
                     </tr>
@@ -1669,7 +1669,7 @@ export default function HomePage() {
                       selectedDomainForLinks.topAuthorityLinks.map((link, idx) => {
                         const backlinksCount = link.backlinksCount || ((idx % 3) + 1);
                         return (
-                          <tr key={idx} className="hover:bg-gray-50/80 transition-colors">
+                          <tr key={idx} className="hover:bg-orange-50/20 transition-colors">
                             <td className="px-6 py-3 font-semibold text-gray-900">
                               {link.name}
                             </td>
@@ -1746,7 +1746,7 @@ export default function HomePage() {
                     setSelectedDomainForLinks(null);
                     openAuthModal();
                   }}
-                  className="bg-[#3b5bf6] hover:bg-blue-700 text-white px-5 py-2 rounded-xl font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all hover:scale-102 cursor-pointer"
+                  className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-5 py-2 rounded-xl font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all hover:scale-102 cursor-pointer"
                 >
                   <ShoppingCart className="w-3.5 h-3.5" />
                   <span>Buy Domain (${selectedDomainForLinks.price.toLocaleString()})</span>

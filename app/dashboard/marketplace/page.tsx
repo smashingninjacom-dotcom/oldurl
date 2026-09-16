@@ -1223,7 +1223,7 @@ export default function DomainMarketplaceInventoryPage() {
                   <th className="py-3.5 px-2.5 w-[7%] text-center">TF</th>
                   <th className="py-3.5 px-3 w-[8%] text-center">RD</th>
                   <th className="py-3.5 px-2.5 w-[7%] text-center">Age</th>
-                  <th className="py-3.5 px-3 w-[9%] text-center font-black text-blue-600">Links</th>
+                  <th className="py-3.5 px-3 w-[9%] text-center font-black text-[#FC6B17]">Links</th>
                   <th className="py-3.5 px-4 w-[11%] min-w-[100px]">Price (USD)</th>
                   <th className="py-3.5 px-4 w-[11%] min-w-[110px] text-right">Action</th>
                 </tr>
@@ -1317,7 +1317,7 @@ export default function DomainMarketplaceInventoryPage() {
 
                       {/* Moz DA */}
                       <td className="py-3.5 px-2.5 text-center">
-                        <span className="font-bold text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                        <span className="font-bold text-xs text-gray-800 bg-gray-100 px-2 py-0.5 rounded-md border border-gray-200">
                           {item.da}
                         </span>
                       </td>
@@ -1339,15 +1339,15 @@ export default function DomainMarketplaceInventoryPage() {
                         {item.ageYears}y
                       </td>
 
-                      {/* Links Button Column (Domain Coasters Style) */}
+                      {/* Links Button Column (OldUrl Theme Rounded Button) */}
                       <td className="py-3.5 px-3 text-center">
                         <button
                           type="button"
                           onClick={() => setSelectedDomainForLinks(item)}
-                          className="w-10 h-10 rounded-2xl bg-[#eef2ff] hover:bg-[#e0e7ff] text-[#4f46e5] border border-[#c7d2fe]/70 flex items-center justify-center mx-auto transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs cursor-pointer group"
+                          className="w-10 h-10 rounded-2xl bg-orange-50 hover:bg-[#FC6B17] text-[#FC6B17] hover:text-white border border-orange-200 flex items-center justify-center mx-auto transition-all duration-200 hover:scale-110 active:scale-95 shadow-2xs cursor-pointer group"
                           title={`View Verified Links & Proof Screenshots for ${item.domain}`}
                         >
-                          <Link2 className="w-5 h-5 text-[#4f46e5] group-hover:rotate-[-10deg] transition-transform" />
+                          <Link2 className="w-5 h-5 text-[#FC6B17] group-hover:text-white group-hover:rotate-[-10deg] transition-transform" />
                         </button>
                       </td>
 
@@ -1553,12 +1553,12 @@ export default function DomainMarketplaceInventoryPage() {
                     <button
                       type="button"
                       onClick={() => setSelectedDomainForLinks(item)}
-                      className="w-full py-2.5 px-3.5 rounded-xl bg-[#eef2ff] hover:bg-[#e0e7ff] text-[#4f46e5] border border-[#c7d2fe]/70 flex items-center justify-center gap-2 font-bold text-xs transition-all hover:scale-[1.01] active:scale-98 shadow-xs group cursor-pointer"
+                      className="w-full py-2.5 px-3.5 rounded-xl bg-orange-50 hover:bg-[#FC6B17] text-[#FC6B17] hover:text-white border border-orange-200 flex items-center justify-center gap-2 font-bold text-xs transition-all hover:scale-[1.01] active:scale-98 shadow-2xs group cursor-pointer"
                     >
-                      <Link2 className="w-4 h-4 text-[#4f46e5] group-hover:rotate-[-10deg] transition-transform" />
+                      <Link2 className="w-4 h-4 text-[#FC6B17] group-hover:text-white group-hover:rotate-[-10deg] transition-transform" />
                       <span>View Backlinks &amp; Screenshots</span>
                       {(item.screenshots?.length || 0) > 0 && (
-                        <span className="bg-[#4f46e5] text-white text-[10px] font-black px-1.5 py-0.2 rounded-md">
+                        <span className="bg-[#FC6B17] group-hover:bg-white text-white group-hover:text-[#FC6B17] text-[10px] font-black px-1.5 py-0.2 rounded-md">
                           {item.screenshots?.length}
                         </span>
                       )}
@@ -1737,9 +1737,9 @@ export default function DomainMarketplaceInventoryPage() {
                         setSelectedDomainForBuy(null);
                         setSelectedDomainForLinks(target);
                       }}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#eef2ff] hover:bg-[#e0e7ff] text-[#3b5bf6] text-[11px] font-bold border border-[#c7d2fe]/70 transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-orange-50 hover:bg-[#FC6B17] text-[#FC6B17] hover:text-white text-[11px] font-bold border border-orange-200 transition-colors cursor-pointer"
                     >
-                      <Link2 className="w-3 h-3 text-[#3b5bf6]" />
+                      <Link2 className="w-3 h-3" />
                       <span>View Proof &amp; Screenshots</span>
                     </button>
                   </div>
@@ -2662,12 +2662,12 @@ export default function DomainMarketplaceInventoryPage() {
 
               {/* OldURL Brand Badge */}
               <div className="flex items-center gap-2 select-none">
-                <div className="w-9 h-9 rounded-xl bg-[#3b5bf6] text-white flex items-center justify-center font-black shadow-sm">
+                <div className="w-9 h-9 rounded-xl bg-[#FC6B17] text-white flex items-center justify-center font-black shadow-sm">
                   <Globe className="w-5 h-5" />
                 </div>
                 <div className="leading-tight text-right">
-                  <div className="text-base font-black text-[#1e3a8a] tracking-tight">OldURL</div>
-                  <div className="text-[10px] font-bold text-[#3b5bf6] tracking-wide uppercase">Verified Inventory</div>
+                  <div className="text-base font-black text-[#0d1b3e] tracking-tight">OldURL</div>
+                  <div className="text-[10px] font-bold text-[#FC6B17] tracking-wide uppercase">Verified Inventory</div>
                 </div>
               </div>
             </div>
@@ -2680,7 +2680,7 @@ export default function DomainMarketplaceInventoryPage() {
                   onClick={() => setLinksModalTab('table')}
                   className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
                     linksModalTab === 'table'
-                      ? 'bg-[#3b5bf6] text-white shadow-xs'
+                      ? 'bg-[#FC6B17] text-white shadow-xs'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/70'
                   }`}
                 >
@@ -2693,7 +2693,7 @@ export default function DomainMarketplaceInventoryPage() {
                     onClick={() => setLinksModalTab('screenshot')}
                     className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
                       linksModalTab === 'screenshot'
-                        ? 'bg-[#3b5bf6] text-white shadow-xs'
+                        ? 'bg-[#FC6B17] text-white shadow-xs'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/70'
                     }`}
                   >
@@ -2705,8 +2705,8 @@ export default function DomainMarketplaceInventoryPage() {
 
               {/* Admin Direct Upload */}
               {isAdmin && (
-                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-blue-50 text-[#3b5bf6] border border-blue-200 rounded-lg font-bold text-xs cursor-pointer transition-colors shadow-2xs">
-                  <Upload className="w-3.5 h-3.5 text-[#3b5bf6]" />
+                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-orange-50 text-[#FC6B17] border border-orange-200 rounded-lg font-bold text-xs cursor-pointer transition-colors shadow-2xs">
+                  <Upload className="w-3.5 h-3.5 text-[#FC6B17]" />
                   <span>+ Upload Screenshot</span>
                   <input
                     type="file"
@@ -2723,15 +2723,15 @@ export default function DomainMarketplaceInventoryPage() {
             {linksModalTab === 'table' ? (
               <div className="max-h-[60vh] overflow-y-auto">
                 <table className="w-full text-sm text-left border-collapse">
-                  <thead className="bg-[#edf2fe] text-[#3b5bf6] text-xs font-black uppercase sticky top-0 border-b border-[#dbe4ff]">
+                  <thead className="bg-orange-50 text-[#FC6B17] text-xs font-black uppercase sticky top-0 border-b border-orange-200">
                     <tr>
-                      <th scope="col" className="px-6 py-3 font-extrabold text-[#3b5bf6]">
+                      <th scope="col" className="px-6 py-3 font-extrabold text-[#FC6B17]">
                         Referring Domains
                       </th>
-                      <th scope="col" className="px-4 py-3 text-center font-extrabold text-[#3b5bf6]">
+                      <th scope="col" className="px-4 py-3 text-center font-extrabold text-[#FC6B17]">
                         Domain Rating
                       </th>
-                      <th scope="col" className="px-4 py-3 text-center font-extrabold text-[#3b5bf6]">
+                      <th scope="col" className="px-4 py-3 text-center font-extrabold text-[#FC6B17]">
                         Backlinks Count
                       </th>
                     </tr>
@@ -2741,7 +2741,7 @@ export default function DomainMarketplaceInventoryPage() {
                       selectedDomainForLinks.topAuthorityLinks.map((link, idx) => {
                         const backlinksCount = link.backlinksCount || ((idx % 3) + 1);
                         return (
-                          <tr key={idx} className="hover:bg-gray-50/80 transition-colors">
+                          <tr key={idx} className="hover:bg-orange-50/20 transition-colors">
                             <td className="px-6 py-3 font-semibold text-gray-900">
                               {link.name}
                             </td>
