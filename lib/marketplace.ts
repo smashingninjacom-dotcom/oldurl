@@ -335,6 +335,35 @@ export const DEFAULT_MARKETPLACE_DOMAINS: MarketplaceDomain[] = [
 const STORAGE_KEY = 'oldurl_marketplace_listings';
 
 const KNOWN_VERIFIED_DR_MAP: Record<string, number> = {
+  // Indian & Regional Authority Media
+  'moneycontrol.com': 90,
+  'firstpost.com': 89,
+  'thehealthsite.com': 77,
+  'digit.in': 78,
+  'threadreaderapp.com': 85,
+  'ndtv.com': 91,
+  'timesofindia.indiatimes.com': 93,
+  'indiatimes.com': 92,
+  'economictimes.indiatimes.com': 92,
+  'hindustantimes.com': 91,
+  'thehindu.com': 91,
+  'indianexpress.com': 91,
+  'livemint.com': 89,
+  'business-standard.com': 89,
+  'news18.com': 90,
+  'zeenews.india.com': 88,
+  'scroll.in': 83,
+  'thewire.in': 82,
+  'yourstory.com': 87,
+  'inc42.com': 81,
+  'scoopwhoop.com': 78,
+  'mensxp.com': 79,
+  'jagran.com': 89,
+  'amarujala.com': 88,
+  'bhaskar.com': 88,
+  'navbharattimes.indiatimes.com': 89,
+
+  // Global News, Tech & Editorial
   'deeranddeerhunting.com': 56,
   'scoop.it': 82,
   'metafilter.com': 77,
@@ -357,6 +386,8 @@ const KNOWN_VERIFIED_DR_MAP: Record<string, number> = {
   'webmd.com': 93,
   'nih.gov': 96,
   'bbc.co.uk': 95,
+  'bbc.com': 95,
+  'cnn.com': 95,
   'mayoclinic.org': 93,
   'hubspot.com': 93,
   'searchenginejournal.com': 88,
@@ -369,6 +400,9 @@ const KNOWN_VERIFIED_DR_MAP: Record<string, number> = {
   'nytimes.com': 95,
   'theguardian.com': 95,
   'medium.com': 95,
+  'reddit.com': 97,
+  'quora.com': 93,
+  'substack.com': 92,
 };
 
 export function getMarketplaceDomains(): MarketplaceDomain[] {

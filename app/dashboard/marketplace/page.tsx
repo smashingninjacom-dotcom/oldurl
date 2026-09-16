@@ -116,7 +116,7 @@ export default function DomainMarketplaceInventoryPage() {
   const [editContactEmail, setEditContactEmail] = useState('');
   const [editAuthorityLinks, setEditAuthorityLinks] = useState<AuthorityLink[]>([]);
   const [newAuthorityNameInput, setNewAuthorityNameInput] = useState('');
-  const [newAuthorityDrInput, setNewAuthorityDrInput] = useState('90');
+  const [newAuthorityDrInput, setNewAuthorityDrInput] = useState('');
 
   // New Listing Form State
   const [newDomain, setNewDomain] = useState('');
@@ -465,6 +465,38 @@ export default function DomainMarketplaceInventoryPage() {
 
   const [isFetchingMentionDr, setIsFetchingMentionDr] = useState(false);
 
+  // Real-time debounce auto-lookup DR as user types or pastes domain
+  useEffect(() => {
+    if (!newAuthorityNameInput.trim()) {
+      setNewAuthorityDrInput('');
+      return;
+    }
+    const clean = newAuthorityNameInput
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//i, '')
+      .replace(/\/.*$/, '')
+      .replace(/[^a-z0-9.-]/g, '');
+
+    if (!clean || !clean.includes('.')) return;
+
+    const timer = setTimeout(async () => {
+      setIsFetchingMentionDr(true);
+      try {
+        const res = await fetch(`/api/ahrefs-dr?domain=${encodeURIComponent(clean)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (typeof data.dr === 'number') {
+            setNewAuthorityDrInput(String(data.dr));
+          }
+        }
+      } catch (e) {}
+      setIsFetchingMentionDr(false);
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [newAuthorityNameInput]);
+
   const handleLookupMentionDr = async (rawDomain: string) => {
     const clean = rawDomain.trim().toLowerCase().replace(/^https?:\/\//i, '').replace(/\/.*$/, '').replace(/[^a-z0-9.-]/g, '');
     if (!clean || !clean.includes('.')) return;
@@ -483,30 +515,61 @@ export default function DomainMarketplaceInventoryPage() {
 
   const handleAddEditAuthorityLink = async () => {
     if (!newAuthorityNameInput.trim()) return;
-    const cleanName = newAuthorityNameInput.trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '').toLowerCase();
+    const rawInput = newAuthorityNameInput.trim();
     
-    setIsFetchingMentionDr(true);
-    let resolvedDr = parseInt(newAuthorityDrInput, 10);
+    // Support single domain or comma/space/semicolon/newline separated domains/URLs
+    const parts = rawInput.split(/[,;\n\s]+/).map((s) => s.trim()).filter(Boolean);
+    if (parts.length === 0) return;
 
-    try {
-      const res = await fetch(`/api/ahrefs-dr?domain=${encodeURIComponent(cleanName)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (typeof data.dr === 'number') {
-          resolvedDr = data.dr;
+    setIsFetchingMentionDr(true);
+
+    const newLinks: AuthorityLink[] = [];
+
+    await Promise.all(
+      parts.map(async (part) => {
+        const cleanName = part
+          .replace(/^https?:\/\//i, '')
+          .replace(/\/.*$/, '')
+          .replace(/[^a-z0-9.-]/g, '')
+          .toLowerCase();
+
+        if (!cleanName || !cleanName.includes('.')) return;
+
+        // Skip if already in existing list or already in newly processed batch
+        if (editAuthorityLinks.some((l) => l.name.toLowerCase() === cleanName) || newLinks.some((l) => l.name.toLowerCase() === cleanName)) {
+          return;
         }
-      }
-    } catch (e) {}
+
+        let resolvedDr = 0;
+        try {
+          const res = await fetch(`/api/ahrefs-dr?domain=${encodeURIComponent(cleanName)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (typeof data.dr === 'number') {
+              resolvedDr = data.dr;
+            }
+          }
+        } catch (e) {}
+
+        if (resolvedDr === 0 && newAuthorityDrInput && parts.length === 1) {
+          resolvedDr = parseInt(newAuthorityDrInput, 10) || 50;
+        }
+
+        newLinks.push({
+          name: cleanName,
+          dr: resolvedDr > 0 ? resolvedDr : 50,
+          badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
+        });
+      })
+    );
+
     setIsFetchingMentionDr(false);
 
-    const item: AuthorityLink = {
-      name: cleanName,
-      dr: resolvedDr >= 0 ? resolvedDr : 50,
-      badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
-    };
-    setEditAuthorityLinks((prev) => [...prev, item]);
+    if (newLinks.length > 0) {
+      setEditAuthorityLinks((prev) => [...prev, ...newLinks]);
+    }
     setNewAuthorityNameInput('');
-    setNewAuthorityDrInput('90');
+    setNewAuthorityDrInput('');
   };
 
   const handleRemoveEditAuthorityLink = (idx: number) => {
@@ -2046,13 +2109,14 @@ export default function DomainMarketplaceInventoryPage() {
                       onChange={(e) => {
                         setNewAuthorityNameInput(e.target.value);
                       }}
-                      onBlur={(e) => {
-                        if (e.target.value.trim()) {
-                          handleLookupMentionDr(e.target.value);
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddEditAuthorityLink();
                         }
                       }}
-                      placeholder="Mention website (e.g. deeranddeerhunting.com, zeit.de)..."
-                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17]"
+                      placeholder="Enter domain URL (e.g. moneycontrol.com, thehealthsite.com, digit.in)..."
+                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] text-xs"
                     />
                     {isFetchingMentionDr && (
                       <div className="absolute right-2.5 top-2.5">
@@ -2060,27 +2124,27 @@ export default function DomainMarketplaceInventoryPage() {
                       </div>
                     )}
                   </div>
-                  <div className="w-24">
+                  <div className="w-28 relative">
                     <input
                       type="number"
                       value={newAuthorityDrInput}
                       onChange={(e) => setNewAuthorityDrInput(e.target.value)}
-                      placeholder="DR"
-                      className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] font-black text-[#FC6B17] text-center"
+                      placeholder="Ahrefs DR"
+                      className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] font-black text-[#FC6B17] text-center text-xs"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={handleAddEditAuthorityLink}
                     disabled={!newAuthorityNameInput.trim() || isFetchingMentionDr}
-                    className="px-3.5 py-2 bg-[#0d1b3e] hover:bg-[#152a5c] text-white rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center gap-1 shrink-0"
+                    className="px-4 py-2 bg-[#0d1b3e] hover:bg-[#152a5c] text-white rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center gap-1 shrink-0 text-xs cursor-pointer"
                   >
                     {isFetchingMentionDr ? (
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                     ) : (
                       <Plus className="w-3.5 h-3.5" />
                     )}
-                    <span>Add</span>
+                    <span>Add Link</span>
                   </button>
                 </div>
 
@@ -2091,26 +2155,27 @@ export default function DomainMarketplaceInventoryPage() {
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {[
+                      { name: 'moneycontrol.com', dr: 90 },
+                      { name: 'firstpost.com', dr: 89 },
+                      { name: 'thehealthsite.com', dr: 77 },
+                      { name: 'digit.in', dr: 78 },
+                      { name: 'threadreaderapp.com', dr: 85 },
+                      { name: 'forbes.com', dr: 94 },
+                      { name: 'techcrunch.com', dr: 92 },
+                      { name: 'wikipedia.org', dr: 98 },
                       { name: 'zeit.de', dr: 90 },
                       { name: 'scoop.it', dr: 82 },
                       { name: 'metafilter.com', dr: 77 },
                       { name: 'deeranddeerhunting.com', dr: 56 },
-                      { name: 'apartmenttherapy.com', dr: 85 },
-                      { name: 'forbes.com', dr: 94 },
-                      { name: 'techcrunch.com', dr: 92 },
-                      { name: 'wikipedia.org', dr: 98 },
                       { name: 'bloomberg.com', dr: 94 },
                       { name: 'reuters.com', dr: 95 },
-                      { name: 'harvard.edu', dr: 98 },
-                      { name: 'theguardian.com', dr: 95 },
-                      { name: 'nytimes.com', dr: 95 },
                       { name: 'healthline.com', dr: 91 },
                     ].map((sug) => (
                       <button
                         key={sug.name}
                         type="button"
                         onClick={() => handleQuickAddAuthority(sug.name, sug.dr)}
-                        className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-white hover:bg-orange-50 text-gray-700 hover:text-[#FC6B17] border border-gray-200 hover:border-orange-200 transition-colors"
+                        className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-white hover:bg-orange-50 text-gray-700 hover:text-[#FC6B17] border border-gray-200 hover:border-orange-200 transition-colors cursor-pointer"
                       >
                         + {sug.name} (DR {sug.dr})
                       </button>
