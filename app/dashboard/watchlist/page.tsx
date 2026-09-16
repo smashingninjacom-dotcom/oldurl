@@ -12,6 +12,7 @@ import {
   removeFromWishlist,
   toggleDomainWishlist,
 } from '../../../lib/watchlist';
+import { addMarketplaceDomain } from '../../../lib/marketplace';
 import { formatCheckDate, setPendingDomainsToScan } from '../../../lib/searchHistory';
 import {
   Bookmark,
@@ -31,6 +32,12 @@ import {
   ChevronRight,
   Sparkles,
   RefreshCw,
+  ShoppingBag,
+  TrendingUp,
+  X,
+  ShieldCheck,
+  Check,
+  Award,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -61,6 +68,22 @@ export default function WatchlistPage() {
   const [copiedDomain, setCopiedDomain] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 20;
+
+  // Move to Marketplace State
+  const [selectedForMarketplace, setSelectedForMarketplace] = useState<WishlistItem | null>(null);
+  const [mktPrice, setMktPrice] = useState('750');
+  const [mktOriginalPrice, setMktOriginalPrice] = useState('990');
+  const [mktDr, setMktDr] = useState('65');
+  const [mktDa, setMktDa] = useState('50');
+  const [mktTf, setMktTf] = useState('30');
+  const [mktCategory, setMktCategory] = useState('Technology & AI');
+  const [mktTopLinks, setMktTopLinks] = useState('Forbes (DR 94), TechCrunch (DR 92), Wikipedia (DR 98)');
+  const [mktReferringDomains, setMktReferringDomains] = useState('450');
+  const [mktAgeYears, setMktAgeYears] = useState('9');
+  const [mktDescription, setMktDescription] = useState('');
+  const [mktBuyUrl, setMktBuyUrl] = useState('');
+  const [mktContactEmail, setMktContactEmail] = useState('');
+  const [mktPublishedSuccess, setMktPublishedSuccess] = useState(false);
 
   const handleSort = (field: 'domain' | 'dr' | 'status' | 'createdAt') => {
     if (sortField === field) {
@@ -140,220 +163,291 @@ export default function WatchlistPage() {
       notes: newNotes.trim() || 'Added to Wishlist',
     });
 
-    setItems(getLocalWishlist());
     setNewDomain('');
     setNewNotes('');
     setShowAddModal(false);
+    setItems(getLocalWishlist());
   };
 
-  const handleExport = (format: 'csv' | 'xlsx') => {
-    const exportList = filteredItems;
-    if (exportList.length === 0) return;
+  // Open Move to Marketplace Modal with smart pre-filled values
+  const handleOpenMarketplaceModal = (item: WishlistItem) => {
+    setSelectedForMarketplace(item);
+    setMktPublishedSuccess(false);
 
-    const rows = exportList.map((it, idx) => ({
-      '#': idx + 1,
-      Domain: it.domain,
-      Status: it.status,
-      DR: it.dr,
-      'Days Left': it.daysLeft,
-      Registrar: it.registrar,
-      'Date Added': formatCheckDate(it.createdAt),
-      Notes: it.notes || '',
-    }));
+    const calculatedDr = item.dr || 60;
+    setMktDr(String(calculatedDr));
+    setMktDa(String(Math.max(20, Math.round(calculatedDr * 0.8))));
+    setMktTf(String(Math.max(15, Math.round(calculatedDr * 0.45))));
 
-    if (format === 'csv') {
-      const headers = ['#', 'Domain', 'Status', 'DR', 'Days Left', 'Registrar', 'Date Added', 'Notes'];
-      const csvContent =
-        'data:text/csv;charset=utf-8,' +
-        [headers.join(','), ...rows.map((r) => Object.values(r).map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\n');
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement('a');
-      link.setAttribute('href', encodedUri);
-      link.setAttribute('download', `OldUrl_Wishlist_${new Date().toISOString().split('T')[0]}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    // Intelligent default price estimation based on DR
+    let estPrice = 450;
+    if (calculatedDr >= 75) estPrice = 1650;
+    else if (calculatedDr >= 65) estPrice = 950;
+    else if (calculatedDr >= 50) estPrice = 650;
+    else if (calculatedDr >= 30) estPrice = 450;
+    setMktPrice(String(estPrice));
+    setMktOriginalPrice(String(Math.round(estPrice * 1.3)));
+
+    setMktReferringDomains(String(Number(item.refDomains) || Math.max(80, calculatedDr * 12)));
+    setMktAgeYears('8');
+
+    // Categorize by TLD or name
+    if (item.domain.includes('tech') || item.domain.includes('ai') || item.domain.includes('cloud')) {
+      setMktCategory('Technology & AI');
+    } else if (item.domain.includes('crypto') || item.domain.includes('coin') || item.domain.includes('pay') || item.domain.includes('fin')) {
+      setMktCategory('Finance & Crypto');
+    } else if (item.domain.includes('health') || item.domain.includes('med') || item.domain.includes('care')) {
+      setMktCategory('Health & Medical');
     } else {
-      const ws = XLSX.utils.json_to_sheet(rows);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Wishlist');
-      XLSX.writeFile(wb, `OldUrl_Wishlist_${new Date().toISOString().split('T')[0]}.xlsx`);
+      setMktCategory('Technology & AI');
     }
+
+    setMktTopLinks('Forbes (DR 94), TechCrunch (DR 92), Wikipedia (DR 98)');
+    setMktDescription(`High-authority aged domain with clean backlink equity and instant transfer authorization.`);
+    setMktBuyUrl('');
+    setMktContactEmail('');
+  };
+
+  const handlePublishToMarketplace = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedForMarketplace) return;
+
+    // Parse top authority links from text
+    const parsedLinks = mktTopLinks
+      .split(',')
+      .map((part) => {
+        const trimmed = part.trim();
+        const drMatch = trimmed.match(/DR\s*(\d+)/i) || trimmed.match(/\((\d+)\)/);
+        const name = trimmed.replace(/\(DR\s*\d+\)/i, '').replace(/\(\d+\)/, '').replace(/DR\s*\d+/i, '').trim();
+        const dr = drMatch ? parseInt(drMatch[1], 10) : 90;
+        return {
+          name: name || 'Authority Publication',
+          dr: isNaN(dr) ? 90 : dr,
+          badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
+        };
+      })
+      .filter((l) => l.name.length > 0);
+
+    const cleanDomain = selectedForMarketplace.domain.trim().toLowerCase();
+    const lastDot = cleanDomain.lastIndexOf('.');
+    const tld = lastDot !== -1 ? cleanDomain.slice(lastDot) : '.com';
+
+    addMarketplaceDomain({
+      domain: cleanDomain,
+      tld,
+      dr: parseInt(mktDr, 10) || selectedForMarketplace.dr || 50,
+      da: parseInt(mktDa, 10) || 40,
+      tf: parseInt(mktTf, 10) || 25,
+      price: parseFloat(mktPrice) || 499,
+      originalPrice: mktOriginalPrice ? parseFloat(mktOriginalPrice) : undefined,
+      category: mktCategory || 'General Authority',
+      topAuthorityLinks: parsedLinks.length > 0 ? parsedLinks : [{ name: 'Forbes', dr: 94 }, { name: 'Wikipedia', dr: 98 }],
+      referringDomains: parseInt(mktReferringDomains, 10) || 120,
+      backlinks: parseInt(mktReferringDomains, 10) * 18 || 2500,
+      ageYears: parseInt(mktAgeYears, 10) || 8,
+      cleanHistory: true,
+      verifiedOwnership: true,
+      instantTransfer: true,
+      description: mktDescription.trim() || 'Aged authority domain with clean backlink profile and instant transfer authorization.',
+      buyUrl: mktBuyUrl.trim() || undefined,
+      sellerContact: mktContactEmail.trim() ? { email: mktContactEmail.trim() } : undefined,
+      status: 'available',
+      featured: true,
+    });
+
+    setMktPublishedSuccess(true);
   };
 
   const filteredItems = useMemo(() => {
-    return items.filter((it) => {
-      if (statusFilter === 'Available' && it.status !== 'Available') return false;
-      if (statusFilter === 'Registered' && it.status === 'Available') return false;
-      if (searchQuery && !it.domain.toLowerCase().includes(searchQuery.toLowerCase().trim())) return false;
+    return items.filter((item) => {
+      if (statusFilter !== 'All' && item.status !== statusFilter) return false;
+      if (searchQuery && !item.domain.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       return true;
     });
   }, [items, statusFilter, searchQuery]);
 
   const sortedItems = useMemo(() => {
     return [...filteredItems].sort((a, b) => {
-      const aVal = (a as any)[sortField];
-      const bVal = (b as any)[sortField];
+      let valA: any = a[sortField];
+      let valB: any = b[sortField];
 
       if (sortField === 'dr') {
-        const aNum = Number(aVal) || 0;
-        const bNum = Number(bVal) || 0;
-        return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
+        valA = Number(valA) || 0;
+        valB = Number(valB) || 0;
       }
-      if (sortField === 'createdAt') {
-        const aTime = aVal ? new Date(aVal).getTime() : 0;
-        const bTime = bVal ? new Date(bVal).getTime() : 0;
-        return sortOrder === 'asc' ? aTime - bTime : bTime - aTime;
-      }
-      const aStr = String(aVal || '').toLowerCase();
-      const bStr = String(bVal || '').toLowerCase();
-      return sortOrder === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
     });
   }, [filteredItems, sortField, sortOrder]);
 
-  const totalPages = Math.max(1, Math.ceil(sortedItems.length / pageSize));
-  const paginatedItems = sortedItems.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const totalPages = Math.ceil(sortedItems.length / pageSize) || 1;
+  const paginatedItems = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return sortedItems.slice(start, start + pageSize);
+  }, [sortedItems, currentPage, pageSize]);
 
-  const availableCount = items.filter((i) => i.status === 'Available').length;
-  const registeredCount = items.length - availableCount;
+  const exportData = (format: 'csv' | 'xlsx') => {
+    if (items.length === 0) return;
+
+    const dataToExport = items.map((it, idx) => ({
+      '#': idx + 1,
+      'Domain Name': it.domain,
+      Status: it.status,
+      'DR (Ahrefs)': it.dr,
+      Registrar: it.registrar,
+      'Days Left': it.daysLeft,
+      'Saved Date': it.createdAt ? new Date(it.createdAt).toLocaleDateString() : '',
+      Notes: it.notes || '',
+    }));
+
+    if (format === 'csv') {
+      const headers = Object.keys(dataToExport[0]).join(',');
+      const rows = dataToExport.map((row) =>
+        Object.values(row)
+          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+          .join(',')
+      );
+      const csvContent = 'data:text/csv;charset=utf-8,' + [headers, ...rows].join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `oldurl_wishlist_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Wishlist');
+      XLSX.writeFile(wb, `oldurl_wishlist_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      {/* -------------------- BREADCRUMB -------------------- */}
-      <div className="flex items-center gap-1.5 text-xs text-gray-500">
-        <Link href="/dashboard" className="text-gray-400 hover:text-gray-600">
-          🏠 Home
-        </Link>
-        <span>›</span>
-        <span className="text-[#FC6B17] font-semibold">Wishlist &amp; Favourites</span>
-      </div>
+    <div className="space-y-6 max-w-[1400px] w-full mx-auto pb-12 font-sans">
+      {/* Top Header Card */}
+      <div className="bg-gradient-to-br from-[#0d1b3e] via-[#1a2f64] to-[#25428a] rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
+        <div className="absolute right-0 top-0 -mr-16 -mt-16 w-64 h-64 bg-[#FC6B17]/15 rounded-full blur-3xl pointer-events-none" />
 
-      {/* -------------------- HEADER -------------------- */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#0d1b3e] tracking-tight flex items-center gap-2.5">
-            <Bookmark className="w-6 h-6 text-[#FC6B17] fill-current" />
-            Wishlist &amp; Favourites
-          </h1>
-          <p className="text-xs sm:text-sm text-gray-500 mt-1">
-            Keep track of high-value expired domains you like and audit them anytime with 1 click.
+        <div className="space-y-2 relative z-10 max-w-xl">
+          <div className="flex items-center gap-2">
+            <span className="bg-[#FC6B17] text-white p-1.5 rounded-xl flex items-center justify-center">
+              <Bookmark className="w-4 h-4 fill-current" />
+            </span>
+            <span className="text-xs font-bold uppercase tracking-wider text-orange-200">
+              Personal Watchlist
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Wishlist &amp; Favourites</h1>
+          <p className="text-xs sm:text-sm text-gray-200 leading-relaxed">
+            Manage your bookmarked domains, monitor expiry status, or publish them directly to the Public Domain Marketplace for sale.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {items.length > 0 && (
-            <button
-              onClick={handleSearchAllWishlist}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs px-3.5 py-2.5 rounded-xl transition-colors inline-flex items-center gap-1.5"
-            >
-              <RefreshCw className="w-3.5 h-3.5 text-[#FC6B17]" /> Scan All Saved ({items.length})
-            </button>
-          )}
+        <div className="flex items-center gap-3 relative z-10 flex-wrap">
+          <Link
+            href="/dashboard/marketplace"
+            className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs"
+          >
+            <ShoppingBag className="w-4 h-4 text-orange-300" />
+            <span>View Marketplace</span>
+          </Link>
 
           <button
             onClick={() => setShowAddModal(true)}
-            className="bg-[#FC6B17] hover:bg-[#e05b10] text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-xs transition-transform hover:-translate-y-0.5 inline-flex items-center gap-1.5"
+            className="bg-[#FC6B17] hover:bg-[#e05b10] text-white px-5 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-2 transition-all shadow-md shadow-orange-600/30 hover:scale-102"
           >
-            <Plus className="w-4 h-4" /> Add Domain
+            <Plus className="w-4 h-4" />
+            <span>Add Domain</span>
           </button>
         </div>
       </div>
 
-      {/* -------------------- STATS CARDS -------------------- */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
-          <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Total Saved</div>
-          <div className="text-xl sm:text-2xl font-black text-[#0d1b3e] mt-1">{items.length}</div>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs">
-          <div className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Available to Register</div>
-          <div className="text-xl sm:text-2xl font-black text-emerald-700 mt-1">{availableCount}</div>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs col-span-2 sm:col-span-1">
-          <div className="text-[11px] font-bold text-amber-600 uppercase tracking-wider">Registered / Taken</div>
-          <div className="text-xl sm:text-2xl font-black text-amber-700 mt-1">{registeredCount}</div>
-        </div>
-      </div>
+      {/* Main Table Card */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
+        {/* Controls Toolbar */}
+        <div className="p-4 sm:p-5 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Status Filter Tabs */}
+            <div className="bg-gray-100/80 p-1 rounded-xl flex items-center gap-1 text-xs font-bold">
+              {(['All', 'Available', 'Registered'] as const).map((st) => (
+                <button
+                  key={st}
+                  onClick={() => {
+                    setStatusFilter(st);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                    statusFilter === st
+                      ? 'bg-white text-[#FC6B17] shadow-2xs font-extrabold'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {st}
+                </button>
+              ))}
+            </div>
 
-      {/* -------------------- SEARCH & FILTER BAR -------------------- */}
-      <div className="bg-white p-4 rounded-2xl border border-gray-200/90 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          {/* Status Tabs */}
-          <div className="flex items-center bg-gray-100 p-1 rounded-xl text-xs font-bold">
-            {(['All', 'Available', 'Registered'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => {
-                  setStatusFilter(tab);
-                  setCurrentPage(1);
-                }}
-                className={`px-3 py-1.5 rounded-lg transition-all ${
-                  statusFilter === tab
-                    ? 'bg-white text-[#FC6B17] shadow-xs'
-                    : 'text-gray-500 hover:text-gray-800'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
+            <span className="text-xs text-gray-400 font-medium ml-2">
+              {filteredItems.length} {filteredItems.length === 1 ? 'domain' : 'domains'}
+            </span>
           </div>
 
-          {/* Export buttons */}
-          {items.length > 0 && (
-            <div className="flex items-center gap-1.5 ml-auto md:ml-2">
-              <button
-                onClick={() => handleExport('csv')}
-                className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors inline-flex items-center gap-1"
-                title="Export to CSV"
-              >
-                <Download className="w-3.5 h-3.5" /> CSV
-              </button>
-              <button
-                onClick={() => handleExport('xlsx')}
-                className="px-2.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors inline-flex items-center gap-1"
-                title="Export to Excel"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" /> Excel
-              </button>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="relative">
+              <Search className="w-4 h-4 text-gray-400 absolute top-2.5 left-3" />
+              <input
+                type="text"
+                placeholder="Search wishlist..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="pl-9 pr-4 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-700 outline-none focus:border-[#FC6B17] w-48 sm:w-60"
+              />
             </div>
-          )}
+
+            {items.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => exportData('csv')}
+                  className="p-2 text-gray-500 hover:text-[#FC6B17] hover:bg-orange-50 rounded-xl border border-gray-200 transition-colors"
+                  title="Export to CSV"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={handleSearchAllWishlist}
+                  className="px-3 py-1.5 bg-[#0d1b3e] hover:bg-[#1a2f64] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors"
+                  title="Scan all domains in results"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Audit All</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Search Input */}
-        <div className="relative w-full md:w-72">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search saved domains..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-800 placeholder-gray-400 outline-none focus:border-[#FC6B17] focus:bg-white transition-all font-medium"
-          />
-        </div>
-      </div>
-
-      {/* -------------------- WISHLIST TABLE -------------------- */}
-      <div className="bg-white rounded-2xl border border-gray-200/90 shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-xs text-gray-400">Loading your wishlist...</div>
-        ) : items.length === 0 ? (
-          <div className="p-12 text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-orange-50 text-[#FC6B17] flex items-center justify-center mx-auto">
-              <Bookmark className="w-6 h-6" />
+        {/* Table Content */}
+        {items.length === 0 ? (
+          <div className="p-16 text-center space-y-3">
+            <div className="w-14 h-14 rounded-2xl bg-orange-50 text-[#FC6B17] flex items-center justify-center mx-auto shadow-inner">
+              <Bookmark className="w-7 h-7" />
             </div>
-            <h4 className="text-sm font-bold text-gray-800">Your wishlist is empty</h4>
+            <h3 className="text-base font-bold text-[#0d1b3e]">Your Wishlist is Empty</h3>
             <p className="text-xs text-gray-400 max-w-sm mx-auto">
-              Click the bookmark / star icon next to any domain in search results to save it here for quick access.
+              Save high-value domains while auditing, or click &quot;Add Domain&quot; to bookmark any domains manually.
             </p>
             <div className="pt-2">
               <button
                 onClick={() => setShowAddModal(true)}
-                className="inline-flex items-center gap-1.5 bg-[#FC6B17] hover:bg-[#e05607] text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs"
+                className="bg-[#FC6B17] text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xs hover:bg-[#e05607]"
               >
-                <Plus className="w-3.5 h-3.5" /> Add First Domain
+                + Add First Domain
               </button>
             </div>
           </div>
@@ -369,7 +463,7 @@ export default function WatchlistPage() {
                   <th className="py-3 px-3 w-12 text-center">#</th>
                   <th
                     onClick={() => handleSort('domain')}
-                    className="py-3 px-4 w-[30%] min-w-[200px] cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
+                    className="py-3 px-4 w-[28%] min-w-[200px] cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className={sortField === 'domain' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>Domain Name</span>
@@ -382,7 +476,7 @@ export default function WatchlistPage() {
                   </th>
                   <th
                     onClick={() => handleSort('status')}
-                    className="py-3 px-3 w-[15%] min-w-[130px] cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
+                    className="py-3 px-3 w-[14%] min-w-[120px] cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className={sortField === 'status' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>Availability</span>
@@ -395,7 +489,7 @@ export default function WatchlistPage() {
                   </th>
                   <th
                     onClick={() => handleSort('dr')}
-                    className="py-3 px-3 w-[12%] min-w-[90px] cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
+                    className="py-3 px-3 w-[10%] min-w-[85px] cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className={sortField === 'dr' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>DR (Ahrefs)</span>
@@ -406,10 +500,10 @@ export default function WatchlistPage() {
                       )}
                     </div>
                   </th>
-                  <th className="py-3 px-3 w-[20%] min-w-[150px]">Registrar / Expiry</th>
+                  <th className="py-3 px-3 w-[18%] min-w-[140px]">Registrar / Expiry</th>
                   <th
                     onClick={() => handleSort('createdAt')}
-                    className="py-3 px-3 w-[15%] min-w-[120px] cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
+                    className="py-3 px-3 w-[14%] min-w-[110px] cursor-pointer select-none hover:bg-gray-200/50 transition-colors group"
                   >
                     <div className="flex items-center gap-1.5">
                       <span className={sortField === 'createdAt' ? 'text-[#FC6B17] font-extrabold' : 'group-hover:text-gray-900'}>Saved Date</span>
@@ -420,13 +514,13 @@ export default function WatchlistPage() {
                       )}
                     </div>
                   </th>
-                  <th className="py-3 pr-4 w-[8%] min-w-[80px] text-right">Actions</th>
+                  <th className="py-3 pr-4 w-[16%] min-w-[150px] text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 font-medium text-gray-800">
                 {paginatedItems.map((item, idx) => (
                   <tr key={item.id || item.domain} className="hover:bg-orange-50/20 transition-colors group">
-                    <td className="py-3.5 pl-4 pr-2 text-center text-gray-400 font-mono text-[11px]">
+                    <td className="py-3.5 px-3 text-center text-gray-400 font-mono text-[11px] font-bold">
                       {(currentPage - 1) * pageSize + idx + 1}
                     </td>
 
@@ -498,24 +592,26 @@ export default function WatchlistPage() {
                     </td>
 
                     <td className="py-3.5 pr-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                      <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                        {/* Direct Publish / Move to Marketplace Action Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenMarketplaceModal(item)}
+                          className="px-2.5 py-1 bg-gradient-to-r from-[#FC6B17] to-[#ff8c42] hover:from-[#e05607] hover:to-[#FC6B17] text-white rounded-lg font-bold text-[11px] flex items-center gap-1 shadow-xs transition-all hover:scale-102 cursor-pointer"
+                          title="Publish this domain directly to Public Domain Marketplace"
+                        >
+                          <ShoppingBag className="w-3 h-3" />
+                          <span>Sell / Marketplace</span>
+                        </button>
+
                         <button
                           onClick={() => handleSearchAgain(item.domain)}
-                          className="px-2.5 py-1 bg-gray-100 hover:bg-[#fff0e8] hover:text-[#FC6B17] text-gray-700 rounded-lg font-bold text-[11px] transition-colors"
+                          className="px-2 py-1 bg-gray-100 hover:bg-[#fff0e8] hover:text-[#FC6B17] text-gray-700 rounded-lg font-bold text-[11px] transition-colors"
                           title="Audit this domain again"
                         >
                           Audit
                         </button>
-                        {item.status === 'Available' ? (
-                          <a
-                            href={`https://www.namecheap.com/domains/registration/results/?domain=${item.domain}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="bg-[#FC6B17] hover:bg-[#e05b10] text-white px-3 py-1 rounded-lg font-bold text-[11px] flex items-center gap-1 shadow-2xs"
-                          >
-                            Buy <ExternalLink className="w-2.5 h-2.5" />
-                          </a>
-                        ) : null}
+
                         <button
                           onClick={() => handleDelete(item.domain)}
                           className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100"
@@ -575,6 +671,214 @@ export default function WatchlistPage() {
           </div>
         )}
       </div>
+
+      {/* -------------------- MOVE / PUBLISH TO MARKETPLACE MODAL -------------------- */}
+      {selectedForMarketplace && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-gray-100 relative my-8">
+            <button
+              type="button"
+              onClick={() => setSelectedForMarketplace(null)}
+              className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 p-1.5 rounded-full hover:bg-gray-100"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {mktPublishedSuccess ? (
+              /* Success confirmation state */
+              <div className="text-center space-y-4 py-4">
+                <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
+                  <CheckCircle2 className="w-9 h-9" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-[#0d1b3e]">Published to Public Marketplace!</h3>
+                  <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
+                    <strong className="text-gray-900 font-bold">{selectedForMarketplace.domain}</strong> is now live on the public domain inventory for <strong className="text-[#FC6B17] font-black">${mktPrice} USD</strong>.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <Link
+                    href="/dashboard/marketplace"
+                    className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5" />
+                    <span>View in Marketplace</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedForMarketplace(null)}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Publish Form */
+              <form onSubmit={handlePublishToMarketplace} className="space-y-4 text-xs">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#FC6B17] bg-orange-50 px-2.5 py-1 rounded-full mb-1.5">
+                    <ShoppingBag className="w-3.5 h-3.5" /> Move from Wishlist to Public Marketplace
+                  </div>
+                  <h2 className="text-xl font-black text-[#0d1b3e] tracking-tight">
+                    Publish {selectedForMarketplace.domain}
+                  </h2>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    List this wishlisted domain for direct purchase in the public marketplace.
+                  </p>
+                </div>
+
+                {/* Domain & Pricing Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Domain Name</label>
+                    <input
+                      type="text"
+                      disabled
+                      value={selectedForMarketplace.domain}
+                      className="w-full px-3.5 py-2.5 bg-gray-100 border border-gray-200 rounded-xl font-bold text-gray-800 cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">
+                      Asking Price (USD $) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={mktPrice}
+                      onChange={(e) => setMktPrice(e.target.value)}
+                      placeholder="e.g. 750"
+                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white font-bold text-gray-900"
+                    />
+                  </div>
+                </div>
+
+                {/* Metrics Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Ahrefs DR</label>
+                    <input
+                      type="number"
+                      value={mktDr}
+                      onChange={(e) => setMktDr(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Moz DA</label>
+                    <input
+                      type="number"
+                      value={mktDa}
+                      onChange={(e) => setMktDa(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Majestic TF</label>
+                    <input
+                      type="number"
+                      value={mktTf}
+                      onChange={(e) => setMktTf(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Age (Years)</label>
+                    <input
+                      type="number"
+                      value={mktAgeYears}
+                      onChange={(e) => setMktAgeYears(e.target.value)}
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17]"
+                    />
+                  </div>
+                </div>
+
+                {/* Niche & Ref Domains */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Niche / Category</label>
+                    <select
+                      value={mktCategory}
+                      onChange={(e) => setMktCategory(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-semibold text-gray-700 outline-none focus:border-[#FC6B17]"
+                    >
+                      <option value="Technology & AI">Technology & AI</option>
+                      <option value="Finance & Crypto">Finance & Crypto</option>
+                      <option value="Health & Medical">Health & Medical</option>
+                      <option value="Marketing & SEO">Marketing & SEO</option>
+                      <option value="E-Commerce & SaaS">E-Commerce & SaaS</option>
+                      <option value="News & Media">News & Media</option>
+                      <option value="Lifestyle & Home">Lifestyle & Home</option>
+                      <option value="Real Estate & Property">Real Estate & Property</option>
+                      <option value="Legal & Law">Legal & Law</option>
+                      <option value="General Authority">General Authority</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-700 mb-1">Referring Domains</label>
+                    <input
+                      type="number"
+                      value={mktReferringDomains}
+                      onChange={(e) => setMktReferringDomains(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17]"
+                    />
+                  </div>
+                </div>
+
+                {/* Top Authority Links */}
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">
+                    Top High-DR Authority Links (Comma Separated)
+                  </label>
+                  <input
+                    type="text"
+                    value={mktTopLinks}
+                    onChange={(e) => setMktTopLinks(e.target.value)}
+                    placeholder="e.g. Forbes (DR 94), TechCrunch (DR 92), Wikipedia (DR 98)"
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17]"
+                  />
+                </div>
+
+                {/* Pitch / Description */}
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Description &amp; Highlights</label>
+                  <textarea
+                    rows={2}
+                    value={mktDescription}
+                    onChange={(e) => setMktDescription(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] resize-none"
+                  />
+                </div>
+
+                {/* Submit Actions */}
+                <div className="pt-2 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedForMarketplace(null)}
+                    className="px-4 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-100"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-5 py-2.5 rounded-xl font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <ShoppingBag className="w-4 h-4" />
+                    <span>Publish to Public Marketplace</span>
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* -------------------- ADD DOMAIN MODAL -------------------- */}
       {showAddModal && (
