@@ -155,7 +155,7 @@ export default function DomainTransferPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8 bg-white p-6 sm:p-8 rounded-3xl border border-gray-200/80 shadow-xs">
-        {/* 1. NAMEBRIGHT SECTION (EXACT MATCH) */}
+        {/* NAMEBRIGHT SECTION (PRIMARY FOCUS) */}
         <div className="space-y-4">
           <div className="flex items-center gap-3 flex-wrap">
             <h2 className="text-lg font-black text-gray-900 tracking-tight">Namebright</h2>
@@ -178,30 +178,32 @@ export default function DomainTransferPage() {
             </a>
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-1">
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-gray-500">
+              <label className="block text-xs font-bold text-gray-700">
                 Your Namebright username
               </label>
               <input
                 type="text"
+                required
                 value={formData.namebrightUsername}
                 onChange={(e) => handleChange('namebrightUsername', e.target.value)}
                 placeholder="e.g. kuldeepmax"
-                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 font-medium focus:outline-none focus:border-[#5051F9] focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-gray-300"
+                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 font-medium focus:outline-none focus:border-[#5051F9] focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-gray-300 shadow-2xs"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-gray-500">
+              <label className="block text-xs font-bold text-gray-700">
                 Your Namebright account email
               </label>
               <input
                 type="email"
+                required
                 value={formData.namebrightEmail}
                 onChange={(e) => handleChange('namebrightEmail', e.target.value)}
                 placeholder="e.g. mailmekuldeep16@gmail.com"
-                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 font-medium focus:outline-none focus:border-[#5051F9] focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-gray-300"
+                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 font-medium focus:outline-none focus:border-[#5051F9] focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-gray-300 shadow-2xs"
               />
               <p className="text-[11px] text-gray-400">
                 The email you use to sign in to Namebright.
@@ -210,160 +212,8 @@ export default function DomainTransferPage() {
           </div>
         </div>
 
-        <div className="border-t border-gray-100"></div>
-
-        {/* 2. GNAME SECTION (EXACT MATCH) */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h2 className="text-lg font-black text-gray-900 tracking-tight">Gname</h2>
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-              <Zap className="w-3.5 h-3.5 fill-emerald-600 text-emerald-600" />
-              <span>Transfer time: 3–5 minutes</span>
-            </span>
-          </div>
-
-          <p className="text-xs text-gray-600">
-            If you don&apos;t have a Gname account, you can sign up{' '}
-            <a
-              href="https://www.gname.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#5051F9] hover:underline font-bold inline-flex items-center gap-0.5"
-            >
-              <span>here</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
-            . Read more on{' '}
-            <a
-              href="https://www.gname.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#5051F9] hover:underline font-bold inline-flex items-center gap-0.5"
-            >
-              <span>how the Gname transfer process works</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
-            .
-          </p>
-
-          <div className="space-y-1.5 pt-1">
-            <label className="block text-xs font-semibold text-gray-500">
-              Your Gname Owner ID
-            </label>
-            <input
-              type="text"
-              value={formData.gnameOwnerId}
-              onChange={(e) => handleChange('gnameOwnerId', e.target.value)}
-              placeholder="e.g. 151523"
-              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 font-medium focus:outline-none focus:border-[#5051F9] focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-gray-300"
-            />
-            <p className="text-[11px] text-gray-400">
-              Your Gname account ID (not an email). Find it in your Gname account after signing in.
-            </p>
-          </div>
-        </div>
-
-        <div className="border-t border-gray-100"></div>
-
-        {/* 3. DYNADOT SECTION */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h2 className="text-lg font-black text-gray-900 tracking-tight">Dynadot</h2>
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-              <Zap className="w-3.5 h-3.5 fill-emerald-600 text-emerald-600" />
-              <span>Transfer time: 3–5 minutes</span>
-            </span>
-          </div>
-
-          <p className="text-xs text-gray-600">
-            If you don&apos;t have a Dynadot account, you can sign up{' '}
-            <a
-              href="https://www.dynadot.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#5051F9] hover:underline font-bold inline-flex items-center gap-0.5"
-            >
-              <span>here</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
-            .
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-gray-500">
-                Your Dynadot Forum ID / Username
-              </label>
-              <input
-                type="text"
-                value={formData.dynadotForumId || ''}
-                onChange={(e) => handleChange('dynadotForumId', e.target.value)}
-                placeholder="e.g. DynaUser123"
-                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 font-medium focus:outline-none focus:border-[#5051F9] focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-gray-300"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-gray-500">
-                Your Dynadot account email
-              </label>
-              <input
-                type="email"
-                value={formData.dynadotEmail || ''}
-                onChange={(e) => handleChange('dynadotEmail', e.target.value)}
-                placeholder="e.g. user@domain.com"
-                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 font-medium focus:outline-none focus:border-[#5051F9] focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-gray-300"
-              />
-              <p className="text-[11px] text-gray-400">
-                The email associated with your Dynadot account.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-gray-100"></div>
-
-        {/* 4. SAV.COM & OTHER REGISTRARS */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h2 className="text-lg font-black text-gray-900 tracking-tight">Sav.com &amp; Other Registrars</h2>
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
-              <Clock className="w-3.5 h-3.5" />
-              <span>Standard Push / Auth Code</span>
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-gray-500">
-                Your Sav.com account email
-              </label>
-              <input
-                type="email"
-                value={formData.savEmail || ''}
-                onChange={(e) => handleChange('savEmail', e.target.value)}
-                placeholder="e.g. user@sav.com"
-                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 font-medium focus:outline-none focus:border-[#5051F9] focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-gray-300"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-gray-500">
-                Spaceship / GoDaddy / Other account email or ID
-              </label>
-              <input
-                type="text"
-                value={formData.spaceshipEmail || formData.godaddyEmail || ''}
-                onChange={(e) => handleChange('spaceshipEmail', e.target.value)}
-                placeholder="e.g. username / customer #"
-                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 font-medium focus:outline-none focus:border-[#5051F9] focus:ring-2 focus:ring-indigo-100 transition-all placeholder:text-gray-300"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* SAVE BUTTON (EXACT DOMAIN COASTERS UI MATCH) */}
-        <div className="pt-4 flex items-center justify-between gap-4 flex-wrap">
+        {/* SAVE BUTTON */}
+        <div className="pt-2 flex items-center justify-between gap-4 flex-wrap border-t border-gray-100">
           <button
             type="submit"
             disabled={isSaving}
@@ -384,7 +234,7 @@ export default function DomainTransferPage() {
 
           <div className="flex items-center gap-2 text-xs text-gray-400 font-medium">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>Encrypted &amp; Secure Storage</span>
+            <span>Instant 1-Click Namebright Account Push</span>
           </div>
         </div>
       </form>
