@@ -1961,7 +1961,7 @@ export default function DomainMarketplaceInventoryPage() {
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-gray-800 flex items-center gap-1.5">
                     <ImageIcon className="w-4 h-4 text-[#4f46e5]" />
-                    <span>Ahrefs / Backlink Proof Screenshots</span>
+                    <span>Screenshots</span>
                   </span>
                   <span className="text-[11px] font-bold text-gray-500">
                     {newScreenshots.length} Uploaded
@@ -2424,7 +2424,7 @@ export default function DomainMarketplaceInventoryPage() {
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-gray-800 flex items-center gap-1.5">
                     <ImageIcon className="w-4 h-4 text-[#4f46e5]" />
-                    <span>Ahrefs / Backlink Proof Screenshots</span>
+                    <span>Screenshots</span>
                   </span>
                   <span className="text-[11px] font-bold text-gray-500">
                     {editScreenshots.length} Attached
@@ -2670,7 +2670,7 @@ export default function DomainMarketplaceInventoryPage() {
                     }`}
                   >
                     <ImageIcon className="w-3.5 h-3.5" />
-                    <span>Ahrefs Screenshot ({selectedDomainForLinks.screenshots.length})</span>
+                    <span>Screenshot</span>
                   </button>
                 )}
               </div>
