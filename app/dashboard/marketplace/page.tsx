@@ -42,12 +42,15 @@ import {
   History,
   CheckSquare,
   Sliders,
+  Edit3,
 } from 'lucide-react';
 import {
   MarketplaceDomain,
+  AuthorityLink,
   getMarketplaceDomains,
   addMarketplaceDomain,
   deleteMarketplaceDomain,
+  updateMarketplaceDomain,
   resetMarketplaceToDefaults,
   isMarketplaceAdmin,
   setMarketplaceAdminMode,
@@ -93,6 +96,28 @@ export default function DomainMarketplaceInventoryPage() {
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
 
+  // Edit Domain Modal State
+  const [editingDomain, setEditingDomain] = useState<MarketplaceDomain | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editDomainName, setEditDomainName] = useState('');
+  const [editPrice, setEditPrice] = useState('');
+  const [editOriginalPrice, setEditOriginalPrice] = useState('');
+  const [editDr, setEditDr] = useState('70');
+  const [editDa, setEditDa] = useState('55');
+  const [editTf, setEditTf] = useState('30');
+  const [editCategory, setEditCategory] = useState('Technology & AI');
+  const [editReferringDomains, setEditReferringDomains] = useState('650');
+  const [editBacklinks, setEditBacklinks] = useState('15000');
+  const [editAgeYears, setEditAgeYears] = useState('10');
+  const [editDescription, setEditDescription] = useState('');
+  const [editStatus, setEditStatus] = useState<'available' | 'reserved' | 'sold'>('available');
+  const [editFeatured, setEditFeatured] = useState(false);
+  const [editBuyUrl, setEditBuyUrl] = useState('');
+  const [editContactEmail, setEditContactEmail] = useState('');
+  const [editAuthorityLinks, setEditAuthorityLinks] = useState<AuthorityLink[]>([]);
+  const [newAuthorityNameInput, setNewAuthorityNameInput] = useState('');
+  const [newAuthorityDrInput, setNewAuthorityDrInput] = useState('90');
+
   // New Listing Form State
   const [newDomain, setNewDomain] = useState('');
   const [newPrice, setNewPrice] = useState('');
@@ -108,6 +133,12 @@ export default function DomainMarketplaceInventoryPage() {
   const [newDescription, setNewDescription] = useState('');
   const [newBuyUrl, setNewBuyUrl] = useState('');
   const [newContactEmail, setNewContactEmail] = useState('');
+
+  // Auto-fetch state
+  const [isFetchingAhrefsNew, setIsFetchingAhrefsNew] = useState(false);
+  const [isFetchingAhrefsEdit, setIsFetchingAhrefsEdit] = useState(false);
+  const [autoFetchNotice, setAutoFetchNotice] = useState<string | null>(null);
+
 
   // Load domains & check user/admin on mount
   useEffect(() => {
@@ -328,6 +359,144 @@ export default function DomainMarketplaceInventoryPage() {
       else next.delete(clean);
       return next;
     });
+  };
+
+  // Auto-fetch from Ahrefs API & Authority Intelligence
+  const fetchAhrefsData = async (targetDomain: string) => {
+    const clean = targetDomain.trim().toLowerCase().replace(/^(?:https?:\/\/)?(?:www\.)?/i, '').split('/')[0];
+    if (!clean || !clean.includes('.')) return null;
+
+    try {
+      const res = await fetch(`/api/ahrefs-dr?domain=${encodeURIComponent(clean)}&full=true`);
+      if (res.ok) {
+        const data = await res.json();
+        return data;
+      }
+    } catch (e) {
+      console.warn('Auto-fetch notice:', e);
+    }
+    return null;
+  };
+
+  const handleAutoFetchNewDomain = async () => {
+    if (!newDomain.trim()) return;
+    setIsFetchingAhrefsNew(true);
+    setAutoFetchNotice(null);
+    const data = await fetchAhrefsData(newDomain);
+    setIsFetchingAhrefsNew(false);
+
+    if (data) {
+      setNewDr(String(data.dr ?? 0));
+      setNewDa(String(data.da ?? 0));
+      setNewTf(String(data.tf ?? 0));
+      setNewReferringDomains(String(data.referringDomains ?? 0));
+      setNewBacklinks(String(data.backlinks ?? 0));
+      setNewAgeYears(String(data.ageYears ?? 5));
+      if (data.category) setNewCategory(data.category);
+      if (data.topAuthorityLinks && Array.isArray(data.topAuthorityLinks) && data.topAuthorityLinks.length > 0) {
+        const formatted = data.topAuthorityLinks.map((l: any) => `${l.name} (DR ${l.dr})`).join(', ');
+        setNewTopLinks(formatted);
+      }
+      setAutoFetchNotice(`Loaded live metrics & referring domains for ${data.domain || newDomain}!`);
+      setTimeout(() => setAutoFetchNotice(null), 4000);
+    }
+  };
+
+  const handleOpenEditModal = (item: MarketplaceDomain) => {
+    setEditingDomain(item);
+    setEditDomainName(item.domain);
+    setEditPrice(String(item.price));
+    setEditOriginalPrice(item.originalPrice ? String(item.originalPrice) : '');
+    setEditDr(String(item.dr));
+    setEditDa(String(item.da));
+    setEditTf(String(item.tf ?? 25));
+    setEditCategory(item.category || 'Technology & AI');
+    setEditReferringDomains(String(item.referringDomains ?? 0));
+    setEditBacklinks(String(item.backlinks ?? 0));
+    setEditAgeYears(String(item.ageYears ?? 5));
+    setEditDescription(item.description || '');
+    setEditStatus(item.status || 'available');
+    setEditFeatured(!!item.featured);
+    setEditBuyUrl(item.buyUrl || '');
+    setEditContactEmail(item.sellerContact?.email || '');
+    setEditAuthorityLinks(item.topAuthorityLinks ? [...item.topAuthorityLinks] : []);
+    setIsEditModalOpen(true);
+  };
+
+  const handleAutoFetchEditDomain = async () => {
+    if (!editDomainName.trim()) return;
+    setIsFetchingAhrefsEdit(true);
+    setAutoFetchNotice(null);
+    const data = await fetchAhrefsData(editDomainName);
+    setIsFetchingAhrefsEdit(false);
+
+    if (data) {
+      setEditDr(String(data.dr ?? 0));
+      setEditDa(String(data.da ?? 0));
+      setEditTf(String(data.tf ?? 0));
+      setEditReferringDomains(String(data.referringDomains ?? 0));
+      setEditBacklinks(String(data.backlinks ?? 0));
+      setEditAgeYears(String(data.ageYears ?? 5));
+      if (data.category) setEditCategory(data.category);
+      if (data.topAuthorityLinks && Array.isArray(data.topAuthorityLinks) && data.topAuthorityLinks.length > 0) {
+        setEditAuthorityLinks(data.topAuthorityLinks);
+      }
+      setAutoFetchNotice(`Live Ahrefs metrics & ${data.topAuthorityLinks?.length || 0} referring domain mentions auto-updated!`);
+      setTimeout(() => setAutoFetchNotice(null), 4000);
+    }
+  };
+
+  const handleAddEditAuthorityLink = () => {
+    if (!newAuthorityNameInput.trim()) return;
+    const item: AuthorityLink = {
+      name: newAuthorityNameInput.trim().replace(/^https?:\/\//i, ''),
+      dr: parseInt(newAuthorityDrInput, 10) || 90,
+      badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
+    };
+    setEditAuthorityLinks((prev) => [...prev, item]);
+    setNewAuthorityNameInput('');
+    setNewAuthorityDrInput('90');
+  };
+
+  const handleRemoveEditAuthorityLink = (idx: number) => {
+    setEditAuthorityLinks((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleQuickAddAuthority = (name: string, dr: number) => {
+    if (editAuthorityLinks.some((l) => l.name.toLowerCase() === name.toLowerCase())) return;
+    setEditAuthorityLinks((prev) => [
+      ...prev,
+      { name, dr, badgeColor: 'bg-blue-50 text-blue-700 border-blue-200' },
+    ]);
+  };
+
+  const handleSaveEditListing = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDomain || !editDomainName.trim() || !editPrice.trim()) return;
+
+    const updates: Partial<MarketplaceDomain> = {
+      domain: editDomainName.trim().toLowerCase(),
+      tld: '.' + (editDomainName.split('.').pop() || 'com'),
+      price: parseFloat(editPrice) || 0,
+      originalPrice: editOriginalPrice ? parseFloat(editOriginalPrice) : undefined,
+      dr: parseInt(editDr, 10) || 0,
+      da: parseInt(editDa, 10) || 0,
+      tf: parseInt(editTf, 10) || 0,
+      category: editCategory,
+      referringDomains: parseInt(editReferringDomains, 10) || 0,
+      backlinks: parseInt(editBacklinks, 10) || 0,
+      ageYears: parseInt(editAgeYears, 10) || 0,
+      description: editDescription.trim(),
+      status: editStatus,
+      featured: editFeatured,
+      topAuthorityLinks: editAuthorityLinks.length > 0 ? editAuthorityLinks : [{ name: 'Forbes', dr: 94 }],
+      buyUrl: editBuyUrl.trim() || undefined,
+      sellerContact: editContactEmail.trim() ? { email: editContactEmail.trim() } : undefined,
+    };
+
+    updateMarketplaceDomain(editingDomain.id, updates);
+    setIsEditModalOpen(false);
+    setEditingDomain(null);
   };
 
   const handleCreateListing = (e: React.FormEvent) => {
@@ -923,6 +1092,16 @@ export default function DomainMarketplaceInventoryPage() {
                             <BarChart2 className="w-3.5 h-3.5" />
                           </Link>
 
+                          {/* Edit Domain Info Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(item)}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Edit Domain Info & Metrics"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+
                           {isAdmin && (
                             <button
                               type="button"
@@ -988,6 +1167,16 @@ export default function DomainMarketplaceInventoryPage() {
                         />
                       </button>
 
+                      {/* Edit Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(item)}
+                        className="p-1.5 rounded-lg text-gray-300 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                        title="Edit Domain Info & Metrics"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+
                       {isAdmin && (
                         <button
                           type="button"
@@ -1000,6 +1189,7 @@ export default function DomainMarketplaceInventoryPage() {
                       )}
                     </div>
                   </div>
+
 
                   {/* Domain Name */}
                   <div className="flex items-center justify-between gap-2">
@@ -1114,6 +1304,16 @@ export default function DomainMarketplaceInventoryPage() {
                     >
                       <BarChart2 className="w-4 h-4" />
                     </Link>
+
+                    {/* Edit Info Button in Card Footer */}
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditModal(item)}
+                      className="p-2 rounded-xl text-gray-500 hover:text-blue-600 hover:bg-white border border-transparent hover:border-gray-200 transition-all"
+                      title="Edit Domain Info & Metrics"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </button>
 
                     <button
                       type="button"
@@ -1321,34 +1521,52 @@ export default function DomainMarketplaceInventoryPage() {
               </p>
             </div>
 
+            {autoFetchNotice && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{autoFetchNotice}</span>
+              </div>
+            )}
+
             <form onSubmit={handleCreateListing} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="block font-bold text-gray-700">
                     Domain Name <span className="text-red-500">*</span>
                   </label>
+                  <button
+                    type="button"
+                    onClick={handleAutoFetchNewDomain}
+                    disabled={isFetchingAhrefsNew || !newDomain.trim()}
+                    className="inline-flex items-center gap-1 text-[11px] font-extrabold text-[#FC6B17] hover:text-[#e05607] bg-orange-50 hover:bg-orange-100 px-2.5 py-1 rounded-lg border border-orange-200 transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    {isFetchingAhrefsNew ? (
+                      <RefreshCw className="w-3 h-3 animate-spin text-[#FC6B17]" />
+                    ) : (
+                      <Zap className="w-3 h-3 text-[#FC6B17]" />
+                    )}
+                    <span>⚡ Auto-Fetch Live Ahrefs &amp; Referring Domains</span>
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <input
                     type="text"
                     required
                     value={newDomain}
                     onChange={(e) => setNewDomain(e.target.value)}
-                    placeholder="e.g. saasgrowth.io"
+                    placeholder="e.g. foodnwhine.com"
                     className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white"
                   />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">
-                    Price (USD $) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    value={newPrice}
-                    onChange={(e) => setNewPrice(e.target.value)}
-                    placeholder="e.g. 750"
-                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white"
-                  />
+                  <div>
+                    <input
+                      type="number"
+                      required
+                      value={newPrice}
+                      onChange={(e) => setNewPrice(e.target.value)}
+                      placeholder="Price (USD $) e.g. 450"
+                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1359,8 +1577,8 @@ export default function DomainMarketplaceInventoryPage() {
                     type="number"
                     value={newDr}
                     onChange={(e) => setNewDr(e.target.value)}
-                    placeholder="e.g. 70"
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white"
+                    placeholder="e.g. 7"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white font-bold text-[#FC6B17]"
                   />
                 </div>
 
@@ -1370,8 +1588,8 @@ export default function DomainMarketplaceInventoryPage() {
                     type="number"
                     value={newDa}
                     onChange={(e) => setNewDa(e.target.value)}
-                    placeholder="e.g. 55"
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white"
+                    placeholder="e.g. 20"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white font-bold text-blue-700"
                   />
                 </div>
 
@@ -1381,8 +1599,8 @@ export default function DomainMarketplaceInventoryPage() {
                     type="number"
                     value={newTf}
                     onChange={(e) => setNewTf(e.target.value)}
-                    placeholder="e.g. 30"
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white"
+                    placeholder="e.g. 15"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white font-bold text-purple-700"
                   />
                 </div>
 
@@ -1392,8 +1610,8 @@ export default function DomainMarketplaceInventoryPage() {
                     type="number"
                     value={newAgeYears}
                     onChange={(e) => setNewAgeYears(e.target.value)}
-                    placeholder="e.g. 10"
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white"
+                    placeholder="e.g. 8"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white font-bold text-gray-800"
                   />
                 </div>
               </div>
@@ -1420,30 +1638,30 @@ export default function DomainMarketplaceInventoryPage() {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-gray-700 mb-1">Referring Domains Count</label>
+                  <label className="block font-bold text-gray-700 mb-1">Referring Domains (RD)</label>
                   <input
                     type="number"
                     value={newReferringDomains}
                     onChange={(e) => setNewReferringDomains(e.target.value)}
-                    placeholder="e.g. 640"
-                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white"
+                    placeholder="e.g. 226"
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white font-bold text-gray-900"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block font-bold text-gray-700 mb-1">
-                  Top High-DR Authority Links (Comma Separated)
+                  Top High-DR Authority Links (Mention Names &amp; DR)
                 </label>
                 <input
                   type="text"
                   value={newTopLinks}
                   onChange={(e) => setNewTopLinks(e.target.value)}
-                  placeholder="e.g. Forbes (DR 94), TechCrunch (DR 92), Wikipedia (DR 98)"
-                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white"
+                  placeholder="e.g. zeit.de (DR 90), scoop.it (DR 90), metafilter.com (DR 90)"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white font-medium"
                 />
                 <span className="text-[11px] text-gray-400 mt-0.5 block">
-                  Mention the top authority editorial websites linking into this domain.
+                  Format: <code className="text-gray-600 font-bold">domain.com (DR XX), nextdomain.com (DR XX)</code> or click ⚡ Auto-Fetch above.
                 </span>
               </div>
 
@@ -1460,23 +1678,23 @@ export default function DomainMarketplaceInventoryPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
+                  <label className="block font-bold text-gray-700 mb-1">Original Price (Strikeout $ - Optional)</label>
+                  <input
+                    type="number"
+                    value={newOriginalPrice}
+                    onChange={(e) => setNewOriginalPrice(e.target.value)}
+                    placeholder="e.g. 585"
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white"
+                  />
+                </div>
+
+                <div>
                   <label className="block font-bold text-gray-700 mb-1">Contact Email / Telegram (Optional)</label>
                   <input
                     type="text"
                     value={newContactEmail}
                     onChange={(e) => setNewContactEmail(e.target.value)}
                     placeholder="e.g. seller@domain.com"
-                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-gray-700 mb-1">Custom Checkout Link (Optional)</label>
-                  <input
-                    type="text"
-                    value={newBuyUrl}
-                    onChange={(e) => setNewBuyUrl(e.target.value)}
-                    placeholder="e.g. https://dan.com/buy-domain/..."
                     className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white"
                   />
                 </div>
@@ -1496,6 +1714,346 @@ export default function DomainMarketplaceInventoryPage() {
                 >
                   <Plus className="w-4 h-4" />
                   <span>Publish to Inventory</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT DOMAIN INFO & METRICS MODAL */}
+      {isEditModalOpen && editingDomain && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in overflow-y-auto">
+          <div className="relative w-full max-w-2xl bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-gray-100 space-y-5 my-8 animate-in zoom-in-95">
+            <button
+              type="button"
+              onClick={() => {
+                setIsEditModalOpen(false);
+                setEditingDomain(null);
+              }}
+              className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div>
+              <div className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full mb-2">
+                <Edit3 className="w-3.5 h-3.5" /> Edit Domain Listing Info &amp; Metrics
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-[#0d1b3e] tracking-tight">
+                Edit {editingDomain.domain}
+              </h2>
+              <p className="text-xs text-gray-500 mt-1">
+                Update Ahrefs DR, Moz DA, TF, Referring Domains, Price, or add/remove authority backlink mentions.
+              </p>
+            </div>
+
+            {autoFetchNotice && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{autoFetchNotice}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveEditListing} className="space-y-4 text-xs">
+              {/* Domain Name & Auto-Fetch Button Strip */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="block font-bold text-gray-700">
+                    Domain Name <span className="text-red-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleAutoFetchEditDomain}
+                    disabled={isFetchingAhrefsEdit || !editDomainName.trim()}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-extrabold text-[#FC6B17] hover:text-[#e05607] bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-xl border border-orange-200 transition-colors disabled:opacity-50 cursor-pointer shadow-2xs"
+                  >
+                    {isFetchingAhrefsEdit ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#FC6B17]" />
+                    ) : (
+                      <Zap className="w-3.5 h-3.5 text-[#FC6B17]" />
+                    )}
+                    <span>⚡ Auto-Fetch from Ahrefs (DR, RD, Backlinks, Mentions)</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  <div className="sm:col-span-1">
+                    <input
+                      type="text"
+                      required
+                      value={editDomainName}
+                      onChange={(e) => setEditDomainName(e.target.value)}
+                      placeholder="e.g. foodnwhine.com"
+                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white font-bold text-gray-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-500 text-[10px] uppercase mb-0.5">
+                      Selling Price (USD $) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={editPrice}
+                      onChange={(e) => setEditPrice(e.target.value)}
+                      placeholder="e.g. 450"
+                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white font-black text-emerald-700"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-gray-500 text-[10px] uppercase mb-0.5">
+                      Original Price (Strikeout)
+                    </label>
+                    <input
+                      type="number"
+                      value={editOriginalPrice}
+                      onChange={(e) => setEditOriginalPrice(e.target.value)}
+                      placeholder="e.g. 585"
+                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white text-gray-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Metric Values Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 bg-[#f8fafc] p-3 rounded-2xl border border-gray-200">
+                <div>
+                  <label className="block font-bold text-gray-600 text-[10px] uppercase mb-1">Ahrefs DR</label>
+                  <input
+                    type="number"
+                    value={editDr}
+                    onChange={(e) => setEditDr(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg outline-none focus:border-[#FC6B17] font-black text-[#FC6B17] text-center"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-600 text-[10px] uppercase mb-1">Moz DA</label>
+                  <input
+                    type="number"
+                    value={editDa}
+                    onChange={(e) => setEditDa(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg outline-none focus:border-blue-500 font-bold text-blue-700 text-center"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-600 text-[10px] uppercase mb-1">Majestic TF</label>
+                  <input
+                    type="number"
+                    value={editTf}
+                    onChange={(e) => setEditTf(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg outline-none focus:border-purple-500 font-bold text-purple-700 text-center"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-600 text-[10px] uppercase mb-1">Ref Domains (RD)</label>
+                  <input
+                    type="number"
+                    value={editReferringDomains}
+                    onChange={(e) => setEditReferringDomains(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg outline-none focus:border-gray-500 font-extrabold text-gray-800 text-center"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-600 text-[10px] uppercase mb-1">Age (Years)</label>
+                  <input
+                    type="number"
+                    value={editAgeYears}
+                    onChange={(e) => setEditAgeYears(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg outline-none focus:border-gray-500 font-bold text-gray-700 text-center"
+                  />
+                </div>
+              </div>
+
+              {/* Category, Status & Featured Badges */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Niche / Category</label>
+                  <select
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] font-semibold text-gray-800"
+                  >
+                    <option value="Technology & AI">Technology & AI</option>
+                    <option value="Finance & Crypto">Finance & Crypto</option>
+                    <option value="Health & Medical">Health & Medical</option>
+                    <option value="Marketing & SEO">Marketing & SEO</option>
+                    <option value="E-Commerce & SaaS">E-Commerce & SaaS</option>
+                    <option value="News & Media">News & Media</option>
+                    <option value="Lifestyle & Home">Lifestyle & Home</option>
+                    <option value="Real Estate & Property">Real Estate & Property</option>
+                    <option value="Legal & Law">Legal & Law</option>
+                    <option value="General Authority">General Authority</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Listing Status</label>
+                  <select
+                    value={editStatus}
+                    onChange={(e: any) => setEditStatus(e.target.value)}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] font-semibold text-gray-800"
+                  >
+                    <option value="available">🟢 Available for Sale</option>
+                    <option value="reserved">🟡 Reserved / In Escrow</option>
+                    <option value="sold">🔴 Sold</option>
+                  </select>
+                </div>
+
+                <div className="pt-4 sm:pt-6">
+                  <label className="flex items-center gap-2 cursor-pointer font-bold text-gray-700 select-none">
+                    <input
+                      type="checkbox"
+                      checked={editFeatured}
+                      onChange={(e) => setEditFeatured(e.target.checked)}
+                      className="w-4 h-4 rounded text-[#FC6B17] accent-[#FC6B17]"
+                    />
+                    <span>Highlight with &quot;HOT&quot; Badge</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* TOP AUTHORITY REFERRING DOMAINS MENTIONS MANAGER */}
+              <div className="p-4 bg-gray-50/90 rounded-2xl border border-gray-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-gray-800 flex items-center gap-1.5">
+                    <Link2 className="w-4 h-4 text-[#FC6B17]" />
+                    <span>Top High-DR Referring Domain Mentions</span>
+                  </span>
+                  <span className="text-[11px] font-bold text-gray-500">
+                    {editAuthorityLinks.length} Active Mentions
+                  </span>
+                </div>
+
+                {/* Current Active Chips */}
+                <div className="flex flex-wrap gap-2 min-h-[32px] p-2 bg-white rounded-xl border border-gray-200">
+                  {editAuthorityLinks.length === 0 ? (
+                    <span className="text-gray-400 text-xs italic">
+                      No authority mentions added yet. Click suggestions below or ⚡ Auto-Fetch.
+                    </span>
+                  ) : (
+                    editAuthorityLinks.map((item, idx) => (
+                      <span
+                        key={idx}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${
+                          item.badgeColor || 'bg-blue-50 text-blue-700 border-blue-200'
+                        }`}
+                      >
+                        <span>{item.name}</span>
+                        <span className="bg-black/10 px-1 py-0.2 rounded text-[10px] font-black">
+                          DR {item.dr}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveEditAuthorityLink(idx)}
+                          className="text-gray-400 hover:text-red-600 ml-0.5"
+                          title="Remove mention"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))
+                  )}
+                </div>
+
+                {/* Add Custom Referring Domain Mention */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newAuthorityNameInput}
+                    onChange={(e) => setNewAuthorityNameInput(e.target.value)}
+                    placeholder="Mention website (e.g. zeit.de, scoop.it, forbes.com)..."
+                    className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17]"
+                  />
+                  <div className="w-24">
+                    <input
+                      type="number"
+                      value={newAuthorityDrInput}
+                      onChange={(e) => setNewAuthorityDrInput(e.target.value)}
+                      placeholder="DR (e.g. 90)"
+                      className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] font-black text-[#FC6B17] text-center"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddEditAuthorityLink}
+                    disabled={!newAuthorityNameInput.trim()}
+                    className="px-3.5 py-2 bg-[#0d1b3e] hover:bg-[#152a5c] text-white rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center gap-1 shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add</span>
+                  </button>
+                </div>
+
+                {/* Quick Add Authority Suggestions */}
+                <div className="pt-1">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1.5">
+                    Quick Add Top Authority Sources:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { name: 'zeit.de', dr: 90 },
+                      { name: 'scoop.it', dr: 90 },
+                      { name: 'metafilter.com', dr: 90 },
+                      { name: 'forbes.com', dr: 94 },
+                      { name: 'techcrunch.com', dr: 92 },
+                      { name: 'wikipedia.org', dr: 98 },
+                      { name: 'bloomberg.com', dr: 94 },
+                      { name: 'reuters.com', dr: 95 },
+                      { name: 'harvard.edu', dr: 98 },
+                      { name: 'theguardian.com', dr: 95 },
+                      { name: 'nytimes.com', dr: 95 },
+                      { name: 'healthline.com', dr: 91 },
+                    ].map((sug) => (
+                      <button
+                        key={sug.name}
+                        type="button"
+                        onClick={() => handleQuickAddAuthority(sug.name, sug.dr)}
+                        className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-white hover:bg-orange-50 text-gray-700 hover:text-[#FC6B17] border border-gray-200 hover:border-orange-200 transition-colors"
+                      >
+                        + {sug.name} (DR {sug.dr})
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">Domain Description &amp; Pitch</label>
+                <textarea
+                  rows={2}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Describe domain backlink profile, clean history, use cases..."
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white resize-none"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditModalOpen(false);
+                    setEditingDomain(null);
+                  }}
+                  className="px-4 py-2.5 rounded-xl text-gray-600 font-bold hover:bg-gray-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-6 py-2.5 rounded-xl font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Save Changes</span>
                 </button>
               </div>
             </form>
@@ -1569,3 +2127,4 @@ export default function DomainMarketplaceInventoryPage() {
     </div>
   );
 }
+

@@ -38,6 +38,7 @@ import {
   ShieldCheck,
   Check,
   Award,
+  Zap,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -207,6 +208,35 @@ export default function WatchlistPage() {
     setMktBuyUrl('');
     setMktContactEmail('');
   };
+
+  const [isFetchingAhrefsMkt, setIsFetchingAhrefsMkt] = useState(false);
+  const [mktAutoFetchNotice, setMktAutoFetchNotice] = useState<string | null>(null);
+
+  const handleAutoFetchWatchlistMkt = async () => {
+    if (!selectedForMarketplace?.domain) return;
+    setIsFetchingAhrefsMkt(true);
+    setMktAutoFetchNotice(null);
+    try {
+      const res = await fetch(`/api/ahrefs-dr?domain=${encodeURIComponent(selectedForMarketplace.domain)}&full=true`);
+      if (res.ok) {
+        const data = await res.json();
+        setMktDr(String(data.dr ?? 0));
+        setMktDa(String(data.da ?? 0));
+        setMktTf(String(data.tf ?? 0));
+        setMktReferringDomains(String(data.referringDomains ?? 0));
+        setMktAgeYears(String(data.ageYears ?? 8));
+        if (data.category) setMktCategory(data.category);
+        if (data.topAuthorityLinks && Array.isArray(data.topAuthorityLinks) && data.topAuthorityLinks.length > 0) {
+          const formatted = data.topAuthorityLinks.map((l: any) => `${l.name} (DR ${l.dr})`).join(', ');
+          setMktTopLinks(formatted);
+        }
+        setMktAutoFetchNotice(`Ahrefs metrics & referring domain mentions auto-loaded for ${selectedForMarketplace.domain}!`);
+        setTimeout(() => setMktAutoFetchNotice(null), 4000);
+      }
+    } catch (e) {}
+    setIsFetchingAhrefsMkt(false);
+  };
+
 
   const handlePublishToMarketplace = (e: React.FormEvent) => {
     e.preventDefault();
@@ -718,8 +748,23 @@ export default function WatchlistPage() {
               /* Publish Form */
               <form onSubmit={handlePublishToMarketplace} className="space-y-4 text-xs">
                 <div>
-                  <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#FC6B17] bg-orange-50 px-2.5 py-1 rounded-full mb-1.5">
-                    <ShoppingBag className="w-3.5 h-3.5" /> Move from Wishlist to Public Marketplace
+                  <div className="flex items-center justify-between gap-2 flex-wrap mb-1.5">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#FC6B17] bg-orange-50 px-2.5 py-1 rounded-full">
+                      <ShoppingBag className="w-3.5 h-3.5" /> Move from Wishlist to Public Marketplace
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleAutoFetchWatchlistMkt}
+                      disabled={isFetchingAhrefsMkt}
+                      className="inline-flex items-center gap-1 text-[11px] font-extrabold text-[#FC6B17] hover:text-[#e05607] bg-orange-50 hover:bg-orange-100 px-2.5 py-1 rounded-lg border border-orange-200 transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      {isFetchingAhrefsMkt ? (
+                        <RefreshCw className="w-3 h-3 animate-spin text-[#FC6B17]" />
+                      ) : (
+                        <Zap className="w-3 h-3 text-[#FC6B17]" />
+                      )}
+                      <span>⚡ Auto-Fetch from Ahrefs</span>
+                    </button>
                   </div>
                   <h2 className="text-xl font-black text-[#0d1b3e] tracking-tight">
                     Publish {selectedForMarketplace.domain}
@@ -728,6 +773,13 @@ export default function WatchlistPage() {
                     List this wishlisted domain for direct purchase in the public marketplace.
                   </p>
                 </div>
+
+                {mktAutoFetchNotice && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{mktAutoFetchNotice}</span>
+                  </div>
+                )}
 
                 {/* Domain & Pricing Row */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -35,6 +35,33 @@ export interface MarketplaceDomain {
 
 export const DEFAULT_MARKETPLACE_DOMAINS: MarketplaceDomain[] = [
   {
+    id: 'mkt-0',
+    domain: 'foodnwhine.com',
+    tld: '.com',
+    dr: 7,
+    da: 20,
+    tf: 15,
+    price: 450,
+    originalPrice: 585,
+    category: 'Lifestyle & Home',
+    topAuthorityLinks: [
+      { name: 'zeit.de', dr: 90, badgeColor: 'bg-blue-50 text-blue-700 border-blue-200' },
+      { name: 'scoop.it', dr: 90, badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+      { name: 'metafilter.com', dr: 90, badgeColor: 'bg-purple-50 text-purple-700 border-purple-200' },
+      { name: 'apartmenttherapy.com', dr: 88, badgeColor: 'bg-rose-50 text-rose-700 border-rose-200' },
+    ],
+    referringDomains: 226,
+    backlinks: 1420,
+    ageYears: 8,
+    cleanHistory: true,
+    verifiedOwnership: true,
+    instantTransfer: true,
+    description: 'Aged lifestyle and culinary publication domain with established backlinks from Zeit.de, Scoop.it, MetaFilter and home design journals. Ready for immediate transfer.',
+    status: 'available',
+    featured: true,
+    createdAt: '2026-09-01T08:00:00Z',
+  },
+  {
     id: 'mkt-1',
     domain: 'techventure.io',
     tld: '.io',

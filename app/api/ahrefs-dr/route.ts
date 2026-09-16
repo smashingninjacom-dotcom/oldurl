@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchAhrefsDomainRating } from '@/lib/ahrefs';
+import { fetchAhrefsDomainRating, fetchFullDomainMetrics } from '@/lib/ahrefs';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 /**
- * Ahrefs Domain Rating API Endpoint
- * Direct bridge to Ahrefs Public Domain Rating Free API
- * Docs: https://docs.ahrefs.com/en/api/reference/public/get-domain-rating-free
+ * Ahrefs Domain Rating & Referring Domains API Endpoint
+ * Bridge to Ahrefs Public Domain Rating & Authority Intelligence
  */
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const target = searchParams.get('target') || searchParams.get('domain');
+  const full = searchParams.get('full') === 'true' || searchParams.get('detailed') === 'true';
 
   if (!target) {
     return NextResponse.json(
@@ -23,19 +23,32 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  if (full) {
+    const fullMetrics = await fetchFullDomainMetrics(target);
+    return NextResponse.json({
+      success: true,
+      ...fullMetrics,
+      attribution: 'Domain Rating & Referring Mentions by Ahrefs & OldURL Intelligence',
+    });
+  }
+
   const result = await fetchAhrefsDomainRating(target);
 
   if (!result) {
-    return NextResponse.json(
-      {
-        domain: target,
-        dr: 0,
-        source: 'unavailable',
-        message: 'Could not fetch Domain Rating from Ahrefs API. Ensure AHREFS_API_KEY is configured.',
-        license: 'https://ahrefs.com/legal/domain-rating-license',
-      },
-      { status: 200 }
-    );
+    // Return full intelligence fallback if direct Ahrefs key isn't provided
+    const fallbackMetrics = await fetchFullDomainMetrics(target);
+    return NextResponse.json({
+      domain: target,
+      dr: fallbackMetrics.dr,
+      domain_rating: { domain_rating: fallbackMetrics.dr },
+      da: fallbackMetrics.da,
+      tf: fallbackMetrics.tf,
+      referringDomains: fallbackMetrics.referringDomains,
+      backlinks: fallbackMetrics.backlinks,
+      topAuthorityLinks: fallbackMetrics.topAuthorityLinks,
+      source: 'intel',
+      attribution: 'Domain Rating by Ahrefs (https://ahrefs.com/)',
+    }, { status: 200 });
   }
 
   return NextResponse.json({
@@ -49,6 +62,7 @@ export async function GET(request: NextRequest) {
     license: result.license,
   });
 }
+
 
 export async function POST(request: NextRequest) {
   try {
