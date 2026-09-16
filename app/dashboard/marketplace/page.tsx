@@ -2793,7 +2793,7 @@ export default function DomainMarketplaceInventoryPage() {
             {/* Modal Footer */}
             <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-3">
               <span className="text-xs text-gray-500 font-medium">
-                Verified against live Ahrefs Domain Rating &amp; Backlink Database
+                Verified Domain Rating &amp; Backlink Database
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -2833,16 +2833,6 @@ export default function DomainMarketplaceInventoryPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="absolute -top-12 right-0 flex items-center gap-3">
-              <a
-                href={selectedPreviewImage}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-full transition-colors flex items-center gap-1.5 text-xs font-bold"
-                title="Open in new window"
-              >
-                <ExternalLink className="w-4 h-4" />
-                <span>Open Original</span>
-              </a>
               <button
                 type="button"
                 onClick={() => setSelectedPreviewImage(null)}
