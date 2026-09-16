@@ -33,7 +33,10 @@ import {
   getMarketplaceOrders,
   deleteMarketplaceOrder,
 } from '../../../lib/orders';
+import { CartItem, getCart } from '../../../lib/cart';
 import { supabase } from '../../../lib/supabaseClient';
+import CartDrawer from '../../../components/CartDrawer';
+import AuthModal from '../../../components/AuthModal';
 
 export default function DashboardOrdersPage() {
   const [orders, setOrders] = useState<MarketplaceOrder[]>([]);
@@ -43,9 +46,18 @@ export default function DashboardOrdersPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null);
   const [selectedOrderForReceipt, setSelectedOrderForReceipt] = useState<MarketplaceOrder | null>(null);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Load orders & auth
   useEffect(() => {
+    const syncCart = () => {
+      setCartItems(getCart());
+    };
+    syncCart();
+    window.addEventListener('oldurl_cart_updated', syncCart);
+
     const loadOrders = (userEmail?: string) => {
       const data = getMarketplaceOrders(userEmail);
       setOrders(data);
@@ -84,6 +96,7 @@ export default function DashboardOrdersPage() {
 
     return () => {
       window.removeEventListener('oldurl_orders_updated', handleOrdersUpdated);
+      window.removeEventListener('oldurl_cart_updated', syncCart);
     };
   }, []);
 
@@ -143,7 +156,7 @@ export default function DashboardOrdersPage() {
   return (
     <div className="space-y-6 pb-16 font-sans">
       {/* -------------------- HEADER BANNER -------------------- */}
-      <div className="relative overflow-hidden rounded-3xl bg-linear-to-r from-[#0d1b3e] via-[#152a5c] to-[#0a1530] p-6 sm:p-8 text-white shadow-xl border border-white/10">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0d1b3e] via-[#132857] to-[#1c356f] p-6 sm:p-8 text-white shadow-xl border border-[#233f82]">
         <div className="absolute top-0 right-0 -mt-10 -mr-10 w-80 h-80 bg-[#FC6B17]/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-1/3 -mb-10 w-60 h-60 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
 
@@ -169,11 +182,25 @@ export default function DashboardOrdersPage() {
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsCartOpen(true)}
+              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <ShoppingBag className="w-4 h-4 text-[#FC6B17]" />
+              <span>Cart</span>
+              {cartItems.length > 0 && (
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#FC6B17] text-white font-black shadow-2xs">
+                  {cartItems.length}
+                </span>
+              )}
+            </button>
+
             <Link
               href="/dashboard/marketplace"
               className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-orange-600/30 transition-all hover:scale-[1.02] active:scale-98 cursor-pointer"
             >
-              <ShoppingBag className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4" />
               <span>Browse Marketplace</span>
             </Link>
           </div>
@@ -594,6 +621,23 @@ export default function DashboardOrdersPage() {
           </div>
         </div>
       )}
+
+      {/* Cart Drawer */}
+      <CartDrawer
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        onCheckoutSuccess={() => {
+          setOrders(getMarketplaceOrders(currentUser?.email));
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+      />
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+      />
     </div>
   );
 }

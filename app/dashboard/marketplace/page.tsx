@@ -70,9 +70,17 @@ import {
   getMarketplaceOrders,
   addMarketplaceOrder,
 } from '../../../lib/orders';
+import {
+  CartItem,
+  getCart,
+  addToCart,
+  removeFromCart,
+  isDomainInCart,
+} from '../../../lib/cart';
 import { isDomainInWishlist, toggleDomainWishlist } from '../../../lib/watchlist';
 import { supabase } from '../../../lib/supabaseClient';
 import AuthModal from '../../../components/AuthModal';
+import CartDrawer from '../../../components/CartDrawer';
 
 export default function DomainMarketplaceInventoryPage() {
   const [domains, setDomains] = useState<MarketplaceDomain[]>([]);
@@ -153,6 +161,11 @@ export default function DomainMarketplaceInventoryPage() {
   const [orderStatusFilter, setOrderStatusFilter] = useState<'All' | 'Completed' | 'Transfer in Progress'>('All');
   const [orderSortBy, setOrderSortBy] = useState<'date-desc' | 'date-asc' | 'price-desc' | 'dr-desc'>('date-desc');
   const [copiedOrderText, setCopiedOrderText] = useState<string | null>(null);
+
+  // Cart State
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [cartDomainSet, setCartDomainSet] = useState<Set<string>>(new Set());
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
   // Edit Domain Modal State
   const [editingDomain, setEditingDomain] = useState<MarketplaceDomain | null>(null);
@@ -300,14 +313,42 @@ export default function DomainMarketplaceInventoryPage() {
     };
     window.addEventListener('oldurl_orders_updated', handleOrdersUpdated);
 
+    // Initial Cart sync
+    const syncCart = () => {
+      const currentCart = getCart();
+      setCartItems(currentCart);
+      setCartDomainSet(new Set(currentCart.map((c) => c.domain.toLowerCase().trim())));
+    };
+    syncCart();
+
+    const handleCartUpdated = (e: any) => {
+      if (e?.detail?.items) {
+        setCartItems(e.detail.items);
+        setCartDomainSet(new Set(e.detail.items.map((c: any) => c.domain.toLowerCase().trim())));
+      } else {
+        syncCart();
+      }
+    };
+    window.addEventListener('oldurl_cart_updated', handleCartUpdated);
+
     return () => {
       window.removeEventListener('oldurl_marketplace_updated', handleUpdate);
       window.removeEventListener('oldurl_marketplace_admin_changed', handleAdminChanged);
       window.removeEventListener('oldurl_wishlist_updated', syncWishlist);
       window.removeEventListener('oldurl_orders_updated', handleOrdersUpdated);
+      window.removeEventListener('oldurl_cart_updated', handleCartUpdated);
       authListener?.subscription?.unsubscribe();
     };
   }, [currentUser?.email]);
+
+  const handleToggleCart = (item: MarketplaceDomain) => {
+    const clean = item.domain.toLowerCase().trim();
+    if (cartDomainSet.has(clean)) {
+      removeFromCart(item.id);
+    } else {
+      addToCart(item);
+    }
+  };
 
   const niches = useMemo(() => {
     const set = new Set<string>();
@@ -1115,17 +1156,38 @@ export default function DomainMarketplaceInventoryPage() {
           </button>
         </div>
 
-        {activeMainTab === 'orders' ? (
-          <div className="text-xs font-semibold text-gray-500 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>{ordersCompletedCount} Completed • Transfer Ready</span>
-          </div>
-        ) : (
-          <div className="text-xs font-semibold text-gray-500 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span>{filteredDomains.length} Verified Domains Ready</span>
-          </div>
-        )}
+        {/* Right Action: Cart Drawer Trigger & Status Indicator */}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setIsCartOpen(true)}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer border ${
+              cartItems.length > 0
+                ? 'bg-[#fff7f2] hover:bg-[#ffede2] text-[#FC6B17] border-orange-300 shadow-xs'
+                : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-200'
+            }`}
+          >
+            <ShoppingBag className="w-4 h-4 text-[#FC6B17]" />
+            <span>Cart</span>
+            {cartItems.length > 0 && (
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#FC6B17] text-white font-black shadow-2xs">
+                {cartItems.length}
+              </span>
+            )}
+          </button>
+
+          {activeMainTab === 'orders' ? (
+            <div className="text-xs font-semibold text-gray-500 hidden sm:flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>{ordersCompletedCount} Completed • Transfer Ready</span>
+            </div>
+          ) : (
+            <div className="text-xs font-semibold text-gray-500 hidden sm:flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>{filteredDomains.length} Verified Domains Ready</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {activeMainTab === 'inventory' ? (
@@ -1647,6 +1709,29 @@ export default function DomainMarketplaceInventoryPage() {
 
                           <button
                             type="button"
+                            onClick={() => handleToggleCart(item)}
+                            className={`px-2.5 py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1 transition-all cursor-pointer border ${
+                              cartDomainSet.has(item.domain.toLowerCase().trim())
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-orange-50 hover:text-[#FC6B17]'
+                            }`}
+                            title={cartDomainSet.has(item.domain.toLowerCase().trim()) ? 'In Cart (Click to Remove)' : 'Add to Cart'}
+                          >
+                            {cartDomainSet.has(item.domain.toLowerCase().trim()) ? (
+                              <>
+                                <Check className="w-3 h-3 text-emerald-600" />
+                                <span>In Cart</span>
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="w-3 h-3" />
+                                <span>Cart</span>
+                              </>
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
                             onClick={() => setSelectedDomainForBuy(item)}
                             className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs inline-flex items-center gap-1 transition-all hover:scale-102 cursor-pointer"
                           >
@@ -1898,6 +1983,29 @@ export default function DomainMarketplaceInventoryPage() {
                         <Edit3 className="w-4 h-4" />
                       </button>
                     )}
+
+                    <button
+                      type="button"
+                      onClick={() => handleToggleCart(item)}
+                      className={`px-3 py-2.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-all cursor-pointer border ${
+                        cartDomainSet.has(item.domain.toLowerCase().trim())
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-orange-50 hover:text-[#FC6B17]'
+                      }`}
+                      title={cartDomainSet.has(item.domain.toLowerCase().trim()) ? 'In Cart (Click to Remove)' : 'Add to Cart'}
+                    >
+                      {cartDomainSet.has(item.domain.toLowerCase().trim()) ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>In Cart</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Cart</span>
+                        </>
+                      )}
+                    </button>
 
                     <button
                       type="button"
@@ -3616,6 +3724,18 @@ export default function DomainMarketplaceInventoryPage() {
           </div>
         </div>
       )}
+
+      {/* CART DRAWER */}
+      <CartDrawer
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        onCheckoutSuccess={() => {
+          setActiveMainTab('orders');
+          setOrders(getMarketplaceOrders(currentUser?.email));
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+      />
     </div>
   );
 }

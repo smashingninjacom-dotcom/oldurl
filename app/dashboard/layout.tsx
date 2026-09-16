@@ -30,6 +30,8 @@ import { getUserQuotaData } from '../../lib/plans';
 import { resetMemoryCacheForUser } from '../../lib/searchHistory';
 import { getLocalWishlist, fetchCloudWishlist } from '../../lib/watchlist';
 import { getMarketplaceOrders } from '../../lib/orders';
+import { getCart } from '../../lib/cart';
+import CartDrawer from '../../components/CartDrawer';
 
 export default function DashboardLayout({
   children,
@@ -107,6 +109,14 @@ export default function DashboardLayout({
     }
     return 0;
   });
+
+  const [cartCount, setCartCount] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      return getCart().length;
+    }
+    return 0;
+  });
+  const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -220,10 +230,19 @@ export default function DashboardLayout({
       }
     };
 
+    const handleCartUpdated = (e: any) => {
+      if (typeof e?.detail?.count === 'number') {
+        setCartCount(e.detail.count);
+      } else {
+        setCartCount(getCart().length);
+      }
+    };
+
     if (typeof window !== 'undefined') {
       window.addEventListener('oldurl_quota_updated', handleQuotaUpdated);
       window.addEventListener('oldurl_wishlist_updated', handleWishlistUpdated);
       window.addEventListener('oldurl_orders_updated', handleOrdersUpdated);
+      window.addEventListener('oldurl_cart_updated', handleCartUpdated);
     }
 
     return () => {
@@ -233,6 +252,7 @@ export default function DashboardLayout({
         window.removeEventListener('oldurl_quota_updated', handleQuotaUpdated);
         window.removeEventListener('oldurl_wishlist_updated', handleWishlistUpdated);
         window.removeEventListener('oldurl_orders_updated', handleOrdersUpdated);
+        window.removeEventListener('oldurl_cart_updated', handleCartUpdated);
       }
     };
   }, []);
@@ -595,6 +615,24 @@ export default function DashboardLayout({
           </div>
 
           <div className="flex items-center gap-3.5 relative">
+            <button
+              type="button"
+              onClick={() => setIsCartDrawerOpen(true)}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                cartCount > 0
+                  ? 'bg-[#fff7f2] hover:bg-[#ffede2] text-[#FC6B17] border-orange-200 shadow-2xs'
+                  : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200'
+              }`}
+            >
+              <ShoppingBag className="w-3.5 h-3.5 text-[#FC6B17]" />
+              <span className="hidden sm:inline">Cart</span>
+              {cartCount > 0 && (
+                <span className="bg-[#FC6B17] text-white text-[10px] font-black px-1.5 py-0.2 rounded-full">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+
             <Link
               href="/dashboard/domain-checker"
               className="hidden sm:inline-flex items-center gap-1.5 bg-[#FC6B17] hover:bg-[#e05607] text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-xs transition-colors"
@@ -705,6 +743,20 @@ export default function DashboardLayout({
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
+      />
+
+      {/* Cart Drawer */}
+      <CartDrawer
+        isOpen={isCartDrawerOpen}
+        onClose={() => setIsCartDrawerOpen(false)}
+        onCheckoutSuccess={() => {
+          if (pathname.includes('/dashboard/orders') || pathname.includes('/dashboard/marketplace')) {
+            window.location.reload();
+          } else {
+            window.location.href = '/dashboard/orders';
+          }
+        }}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
       />
     </div>
   );

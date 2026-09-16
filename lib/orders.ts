@@ -24,51 +24,27 @@ export interface MarketplaceOrder {
 
 const ORDERS_STORAGE_KEY = 'oldurl_marketplace_orders';
 
-export const DEFAULT_DEMO_ORDERS: MarketplaceOrder[] = [
-  {
-    id: 'ORD-2026-8492',
-    domain: 'techventure.io',
-    tld: '.io',
-    dr: 78,
-    da: 64,
-    tf: 38,
-    referringDomains: 1420,
-    backlinks: 32500,
-    price: 1450,
-    purchaseDate: '2026-09-14T14:30:00Z',
-    status: 'Completed',
-    authCode: 'EPP-OLDURL-TV9821',
-    transferMethod: 'Registrar Push / EPP Auth Code',
-    category: 'Technology & AI',
-    notes: 'Auth code dispatched. Ready for transfer to Namecheap, GoDaddy, Porkbun, or Cloudflare.',
-  },
-];
-
 export function getMarketplaceOrders(userEmail?: string | null): MarketplaceOrder[] {
-  if (typeof window === 'undefined') return DEFAULT_DEMO_ORDERS;
+  if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(ORDERS_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
+        // Filter out legacy hardcoded sample orders if any
+        const validOrders = parsed.filter((o: MarketplaceOrder) => o.id !== 'ORD-2026-8492');
         if (userEmail) {
-          const userSpecific = parsed.filter(
+          return validOrders.filter(
             (o: MarketplaceOrder) => !o.userEmail || o.userEmail.toLowerCase() === userEmail.toLowerCase()
           );
-          return userSpecific;
         }
-        return parsed;
+        return validOrders;
       }
     }
   } catch (e) {
     console.warn('Orders local read note:', e);
   }
-
-  // Initialize with empty or demo order if not set
-  try {
-    localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(DEFAULT_DEMO_ORDERS));
-  } catch (e) {}
-  return DEFAULT_DEMO_ORDERS;
+  return [];
 }
 
 export function saveMarketplaceOrders(orders: MarketplaceOrder[]): void {
