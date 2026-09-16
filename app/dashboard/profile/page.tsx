@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { getUserQuotaData } from '../../../lib/plans';
+import AccountNavTabs from '../../../components/AccountNavTabs';
 
 const getInitialProfileData = () => {
   if (typeof window !== 'undefined') {
@@ -200,13 +201,8 @@ export default function ProfilePage() {
         <span className="text-[#FC6B17] font-semibold">Account Profile &amp; Plan</span>
       </div>
 
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-[#0d1b3e]">Profile &amp; Subscription</h1>
-        <p className="text-xs text-gray-500 mt-1">
-          Manage your account credentials, notifications, and subscription quota.
-        </p>
-      </div>
+      {/* My Account Tabs */}
+      <AccountNavTabs activeTab="settings" />
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

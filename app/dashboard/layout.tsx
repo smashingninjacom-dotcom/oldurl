@@ -25,6 +25,7 @@ import {
   Bookmark,
   ShoppingBag,
   Package,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { getUserQuotaData } from '../../lib/plans';
 import { resetMemoryCacheForUser } from '../../lib/searchHistory';
@@ -432,6 +433,12 @@ export default function DashboardLayout({
       href: '/dashboard/orders',
       icon: Package,
       badge: ordersCount > 0 ? String(ordersCount) : null,
+    },
+    {
+      name: 'Domain Transfer',
+      href: '/dashboard/domain-transfer',
+      icon: ArrowRightLeft,
+      badge: null,
     },
   ];
 

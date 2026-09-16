@@ -37,6 +37,7 @@ import { CartItem, getCart } from '../../../lib/cart';
 import { supabase } from '../../../lib/supabaseClient';
 import CartDrawer from '../../../components/CartDrawer';
 import AuthModal from '../../../components/AuthModal';
+import AccountNavTabs from '../../../components/AccountNavTabs';
 
 export default function DashboardOrdersPage() {
   const [orders, setOrders] = useState<MarketplaceOrder[]>([]);
@@ -155,6 +156,9 @@ export default function DashboardOrdersPage() {
 
   return (
     <div className="space-y-6 pb-16 font-sans">
+      {/* My Account Navigation */}
+      <AccountNavTabs activeTab="orders" />
+
       {/* -------------------- HEADER BANNER -------------------- */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0d1b3e] via-[#132857] to-[#1c356f] p-6 sm:p-8 text-white shadow-xl border border-[#233f82]">
         <div className="absolute top-0 right-0 -mt-10 -mr-10 w-80 h-80 bg-[#FC6B17]/20 rounded-full blur-3xl pointer-events-none" />

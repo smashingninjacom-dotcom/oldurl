@@ -14,6 +14,7 @@ import {
 } from '../../../lib/watchlist';
 import { addMarketplaceDomain } from '../../../lib/marketplace';
 import { formatCheckDate, setPendingDomainsToScan } from '../../../lib/searchHistory';
+import AccountNavTabs from '../../../components/AccountNavTabs';
 import {
   Bookmark,
   Trash2,
@@ -357,6 +358,9 @@ export default function WatchlistPage() {
 
   return (
     <div className="space-y-6 max-w-[1400px] w-full mx-auto pb-12 font-sans">
+      {/* My Account Navigation */}
+      <AccountNavTabs activeTab="wishlist" />
+
       {/* Top Header Card */}
       <div className="bg-gradient-to-br from-[#0d1b3e] via-[#1a2f64] to-[#25428a] rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
         <div className="absolute right-0 top-0 -mr-16 -mt-16 w-64 h-64 bg-[#FC6B17]/15 rounded-full blur-3xl pointer-events-none" />
