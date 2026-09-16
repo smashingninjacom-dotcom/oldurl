@@ -31,6 +31,7 @@ import {
   ArrowUp,
   ArrowDown,
   Bookmark,
+  ShoppingBag,
 } from 'lucide-react';
 import { getLocalWishlist, toggleDomainWishlist } from '../../lib/watchlist';
 
@@ -437,8 +438,8 @@ export default function DashboardHomePage() {
         </form>
       </div>
 
-      {/* 5 Quick Action Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+      {/* 6 Quick Action Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
         <Link
           href="/dashboard/domain-checker"
           className="bg-white p-4 rounded-2xl border border-gray-100 hover:border-orange-200 hover:bg-orange-50/10 shadow-2xs hover:shadow-md flex items-center justify-between transition-all group"
@@ -455,6 +456,27 @@ export default function DashboardHomePage() {
             </div>
           </div>
           <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-[#FC6B17] group-hover:translate-x-0.5 transition-all flex-shrink-0 ml-1" />
+        </Link>
+
+        <Link
+          href="/dashboard/marketplace"
+          className="bg-gradient-to-br from-orange-50/70 to-amber-50/40 p-4 rounded-2xl border border-orange-200/80 hover:border-[#FC6B17] shadow-2xs hover:shadow-md flex items-center justify-between transition-all group relative overflow-hidden"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[#FC6B17] text-white flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
+              <ShoppingBag className="w-4.5 h-4.5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-black text-[#0d1b3e] group-hover:text-[#FC6B17] truncate transition-colors flex items-center gap-1.5">
+                <span>Marketplace</span>
+                <span className="text-[9px] font-extrabold px-1.5 py-0.2 bg-[#FC6B17] text-white rounded">
+                  HOT
+                </span>
+              </div>
+              <div className="text-[11px] text-gray-500 truncate mt-0.5">Buy high-DR domains</div>
+            </div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-[#FC6B17] group-hover:translate-x-0.5 transition-all flex-shrink-0 ml-1" />
         </Link>
 
         <Link

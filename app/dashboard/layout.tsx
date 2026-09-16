@@ -23,6 +23,7 @@ import {
   LogIn,
   ArrowRight,
   Bookmark,
+  ShoppingBag,
 } from 'lucide-react';
 import { getUserQuotaData } from '../../lib/plans';
 import { resetMemoryCacheForUser } from '../../lib/searchHistory';
@@ -380,6 +381,12 @@ export default function DashboardLayout({
       href: '/dashboard/watchlist',
       icon: Bookmark,
       badge: wishlistCount > 0 ? String(wishlistCount) : null,
+    },
+    {
+      name: 'Marketplace',
+      href: '/dashboard/marketplace',
+      icon: ShoppingBag,
+      badge: 'HOT',
     },
   ];
 
