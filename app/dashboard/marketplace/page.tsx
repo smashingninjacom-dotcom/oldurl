@@ -38,7 +38,10 @@ import {
   Info,
   BadgeCheck,
   Key,
-  LogIn,
+  SlidersHorizontal,
+  History,
+  CheckSquare,
+  Sliders,
 } from 'lucide-react';
 import {
   MarketplaceDomain,
@@ -54,14 +57,24 @@ import { isDomainInWishlist, toggleDomainWishlist } from '../../../lib/watchlist
 import { supabase } from '../../../lib/supabaseClient';
 import AuthModal from '../../../components/AuthModal';
 
-export default function DomainMarketplacePage() {
+export default function DomainMarketplaceInventoryPage() {
   const [domains, setDomains] = useState<MarketplaceDomain[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [drFilter, setDrFilter] = useState('All');
-  const [priceFilter, setPriceFilter] = useState('All');
-  const [sortBy, setSortBy] = useState<'featured' | 'dr-desc' | 'price-asc' | 'price-desc' | 'rd-desc'>('featured');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [selectedNiche, setSelectedNiche] = useState('All');
+  const [selectedTld, setSelectedTld] = useState('All');
+  const [selectedBacklinkSource, setSelectedBacklinkSource] = useState('All');
+
+  // Metric Range Filters (Domain Coasters Style)
+  const [minDr, setMinDr] = useState<number>(0);
+  const [minDa, setMinDa] = useState<number>(0);
+  const [minTf, setMinTf] = useState<number>(0);
+  const [minRd, setMinRd] = useState<number>(0);
+  const [maxPrice, setMaxPrice] = useState<number>(5000);
+  const [minAge, setMinAge] = useState<number>(0);
+
+  const [sortBy, setSortBy] = useState<'featured' | 'dr-desc' | 'da-desc' | 'tf-desc' | 'rd-desc' | 'price-asc' | 'price-desc' | 'age-desc'>('dr-desc');
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table'); // Domain Coasters default: Table
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
   // User & Admin Auth State
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -84,13 +97,14 @@ export default function DomainMarketplacePage() {
   const [newDomain, setNewDomain] = useState('');
   const [newPrice, setNewPrice] = useState('');
   const [newOriginalPrice, setNewOriginalPrice] = useState('');
-  const [newDr, setNewDr] = useState('65');
-  const [newDa, setNewDa] = useState('50');
-  const [newCategory, setNewCategory] = useState('Tech & AI');
+  const [newDr, setNewDr] = useState('70');
+  const [newDa, setNewDa] = useState('55');
+  const [newTf, setNewTf] = useState('30');
+  const [newCategory, setNewCategory] = useState('Technology & AI');
   const [newTopLinks, setNewTopLinks] = useState('Forbes (DR 94), TechCrunch (DR 92), Wikipedia (DR 98)');
-  const [newReferringDomains, setNewReferringDomains] = useState('500');
-  const [newBacklinks, setNewBacklinks] = useState('12000');
-  const [newAgeYears, setNewAgeYears] = useState('8');
+  const [newReferringDomains, setNewReferringDomains] = useState('650');
+  const [newBacklinks, setNewBacklinks] = useState('15000');
+  const [newAgeYears, setNewAgeYears] = useState('10');
   const [newDescription, setNewDescription] = useState('');
   const [newBuyUrl, setNewBuyUrl] = useState('');
   const [newContactEmail, setNewContactEmail] = useState('');
@@ -162,7 +176,7 @@ export default function DomainMarketplacePage() {
     };
   }, [currentUser?.email]);
 
-  const categories = useMemo(() => {
+  const niches = useMemo(() => {
     const set = new Set<string>();
     domains.forEach((d) => {
       if (d.category) set.add(d.category);
@@ -170,10 +184,31 @@ export default function DomainMarketplacePage() {
     return ['All', ...Array.from(set)];
   }, [domains]);
 
+  const tlds = useMemo(() => {
+    const set = new Set<string>();
+    domains.forEach((d) => {
+      if (d.tld) set.add(d.tld);
+    });
+    return ['All', ...Array.from(set)];
+  }, [domains]);
+
+  const authoritySourceOptions = [
+    'All',
+    'Forbes',
+    'TechCrunch',
+    'Wikipedia',
+    'Bloomberg',
+    'Reuters',
+    'Harvard.edu',
+    'Healthline',
+    'Wired',
+    'TheGuardian',
+  ];
+
   const filteredDomains = useMemo(() => {
     return domains
       .filter((item) => {
-        // Search query: domain name, description, category, or authority link names
+        // Search query
         if (searchQuery) {
           const q = searchQuery.toLowerCase().trim();
           const matchDomain = item.domain.toLowerCase().includes(q);
@@ -183,22 +218,31 @@ export default function DomainMarketplacePage() {
           if (!matchDomain && !matchDesc && !matchCategory && !matchLinks) return false;
         }
 
-        // Category filter
-        if (selectedCategory !== 'All' && item.category !== selectedCategory) {
+        // Niche filter
+        if (selectedNiche !== 'All' && item.category !== selectedNiche) {
           return false;
         }
 
-        // DR Filter
-        if (drFilter !== 'All') {
-          const minDr = parseInt(drFilter.replace(/[^0-9]/g, ''), 10);
-          if (minDr && item.dr < minDr) return false;
+        // TLD filter
+        if (selectedTld !== 'All' && item.tld !== selectedTld) {
+          return false;
         }
 
-        // Price Filter
-        if (priceFilter === '< $500' && item.price >= 500) return false;
-        if (priceFilter === '$500 - $1,000' && (item.price < 500 || item.price > 1000)) return false;
-        if (priceFilter === '$1,000 - $2,000' && (item.price < 1000 || item.price > 2000)) return false;
-        if (priceFilter === '$2,000+' && item.price < 2000) return false;
+        // Backlink Source filter
+        if (selectedBacklinkSource !== 'All') {
+          const hasSource = item.topAuthorityLinks?.some((l) =>
+            l.name.toLowerCase().includes(selectedBacklinkSource.toLowerCase().replace(/\.edu/i, ''))
+          );
+          if (!hasSource) return false;
+        }
+
+        // Metric Sliders / Minimums
+        if (minDr > 0 && item.dr < minDr) return false;
+        if (minDa > 0 && item.da < minDa) return false;
+        if (minTf > 0 && (item.tf || 0) < minTf) return false;
+        if (minRd > 0 && item.referringDomains < minRd) return false;
+        if (minAge > 0 && item.ageYears < minAge) return false;
+        if (item.price > maxPrice) return false;
 
         return true;
       })
@@ -209,12 +253,56 @@ export default function DomainMarketplacePage() {
           return b.dr - a.dr;
         }
         if (sortBy === 'dr-desc') return b.dr - a.dr;
+        if (sortBy === 'da-desc') return b.da - a.da;
+        if (sortBy === 'tf-desc') return (b.tf || 0) - (a.tf || 0);
+        if (sortBy === 'rd-desc') return b.referringDomains - a.referringDomains;
+        if (sortBy === 'age-desc') return b.ageYears - a.ageYears;
         if (sortBy === 'price-asc') return a.price - b.price;
         if (sortBy === 'price-desc') return b.price - a.price;
-        if (sortBy === 'rd-desc') return b.referringDomains - a.referringDomains;
         return 0;
       });
-  }, [domains, searchQuery, selectedCategory, drFilter, priceFilter, sortBy]);
+  }, [
+    domains,
+    searchQuery,
+    selectedNiche,
+    selectedTld,
+    selectedBacklinkSource,
+    minDr,
+    minDa,
+    minTf,
+    minRd,
+    minAge,
+    maxPrice,
+    sortBy,
+  ]);
+
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (selectedNiche !== 'All') count++;
+    if (selectedTld !== 'All') count++;
+    if (selectedBacklinkSource !== 'All') count++;
+    if (minDr > 0) count++;
+    if (minDa > 0) count++;
+    if (minTf > 0) count++;
+    if (minRd > 0) count++;
+    if (minAge > 0) count++;
+    if (maxPrice < 5000) count++;
+    if (searchQuery) count++;
+    return count;
+  }, [selectedNiche, selectedTld, selectedBacklinkSource, minDr, minDa, minTf, minRd, minAge, maxPrice, searchQuery]);
+
+  const handleResetAllFilters = () => {
+    setSelectedNiche('All');
+    setSelectedTld('All');
+    setSelectedBacklinkSource('All');
+    setMinDr(0);
+    setMinDa(0);
+    setMinTf(0);
+    setMinRd(0);
+    setMinAge(0);
+    setMaxPrice(5000);
+    setSearchQuery('');
+  };
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -267,6 +355,7 @@ export default function DomainMarketplacePage() {
       tld: '.' + (newDomain.split('.').pop() || 'com'),
       dr: parseInt(newDr, 10) || 50,
       da: parseInt(newDa, 10) || 40,
+      tf: parseInt(newTf, 10) || 25,
       price: parseFloat(newPrice) || 499,
       originalPrice: newOriginalPrice ? parseFloat(newOriginalPrice) : undefined,
       category: newCategory || 'General Authority',
@@ -295,7 +384,7 @@ export default function DomainMarketplacePage() {
   };
 
   const handleDeleteListing = (id: string, domainName: string) => {
-    if (confirm(`Admin Action: Are you sure you want to delete "${domainName}" from the marketplace?`)) {
+    if (confirm(`Admin Action: Are you sure you want to delete "${domainName}" from the inventory?`)) {
       deleteMarketplaceDomain(id);
     }
   };
@@ -313,60 +402,60 @@ export default function DomainMarketplacePage() {
   };
 
   const handleResetDefaults = () => {
-    if (confirm('Reset marketplace listings to default high-DR inventory?')) {
+    if (confirm('Reset marketplace inventory to default verified domain inventory?')) {
       const defs = resetMarketplaceToDefaults();
       setDomains(defs);
     }
   };
 
-  const handleInitiateBuy = (item: MarketplaceDomain) => {
-    setSelectedDomainForBuy(item);
-  };
-
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12 font-sans">
-      {/* Hero Banner Header */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-[#0d1b3e] via-[#132757] to-[#1c356f] rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-[#233f82]">
-        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-80 h-80 bg-[#FC6B17]/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 -mb-10 w-60 h-60 bg-blue-500/15 rounded-full blur-3xl pointer-events-none" />
+    <div className="space-y-6 max-w-[1400px] w-full mx-auto pb-16 font-sans">
+      {/* Top Hero / Header */}
+      <div className="bg-gradient-to-br from-[#0d1b3e] via-[#132857] to-[#1c356f] rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-[#233f82] relative overflow-hidden">
+        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-96 h-96 bg-[#FC6B17]/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 -mb-10 w-72 h-72 bg-blue-500/15 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div className="space-y-3 max-w-2xl">
+          <div className="space-y-3 max-w-3xl">
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="inline-flex items-center gap-2 bg-orange-500/20 text-[#FC6B17] border border-orange-500/30 px-3 py-1 rounded-full text-xs font-bold tracking-wide backdrop-blur-md">
+              <span className="inline-flex items-center gap-1.5 bg-orange-500/20 text-[#FC6B17] border border-orange-500/30 px-3 py-1 rounded-full text-xs font-bold tracking-wide backdrop-blur-md">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>PREMIUM DOMAIN MARKETPLACE</span>
-              </div>
+                <span>DOMAIN INVENTORY &amp; MARKETPLACE</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5 bg-white/10 text-gray-200 px-2.5 py-1 rounded-full text-xs font-semibold">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                100% Vetted &amp; Spam-Cleaned
+              </span>
               {isAdmin && (
                 <span className="inline-flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full text-[11px] font-black tracking-wide">
-                  <ShieldCheck className="w-3 h-3 text-emerald-400" /> ADMIN PUBLISHER ACTIVE
+                  <BadgeCheck className="w-3 h-3 text-emerald-400" /> ADMIN PUBLISHER ACTIVE
                 </span>
               )}
             </div>
 
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-tight">
-              Buy Vetted High-DR Domains with Authority Backlinks
+              Aged &amp; Expired Domains with High-DR Backlinks
             </h1>
-            <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
-              Curated aged domains with permanent backlinks from <strong className="text-white">Forbes, TechCrunch, Wikipedia, BBC</strong> &amp; top media. Includes verified ownership, clean history audit &amp; instant Auth-Code transfer.
+            <p className="text-xs sm:text-sm text-gray-300 leading-relaxed max-w-2xl">
+              Filter through curated authority domains with permanent editorial backlinks from <strong className="text-white">Forbes, TechCrunch, Wikipedia, BBC, Harvard &amp; Reuters</strong>. Guaranteed clean Wayback history and instant 2-hour transfer.
             </p>
 
-            {/* Feature Badges */}
-            <div className="flex items-center gap-2 sm:gap-4 flex-wrap pt-1 text-[11px] sm:text-xs font-semibold text-gray-200">
-              <span className="inline-flex items-center gap-1.5 bg-white/10 px-2.5 py-1 rounded-lg border border-white/10">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Verified Ownership
+            {/* Metric Highlights Strip */}
+            <div className="flex items-center gap-4 flex-wrap pt-1 text-xs text-gray-200 font-semibold">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" /> Ahrefs DR &amp; Moz DA Verified
               </span>
-              <span className="inline-flex items-center gap-1.5 bg-white/10 px-2.5 py-1 rounded-lg border border-white/10">
-                <Award className="w-3.5 h-3.5 text-amber-400" /> Permanent Top Editorial Links
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-blue-400" /> Majestic Trust Flow (TF)
               </span>
-              <span className="inline-flex items-center gap-1.5 bg-white/10 px-2.5 py-1 rounded-lg border border-white/10">
-                <Zap className="w-3.5 h-3.5 text-[#FC6B17]" /> 2-Hour Instant Push Transfer
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-400" /> Automated EPP Auth-Code Push
               </span>
             </div>
           </div>
 
-          {/* Right Action Header Buttons */}
-          <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-stretch sm:items-center gap-3 shrink-0">
+          {/* Right Header CTA & Admin Trigger */}
+          <div className="flex flex-row sm:flex-col lg:flex-row items-center gap-3 shrink-0">
             {isAdmin ? (
               <div className="flex items-center gap-2">
                 <button
@@ -375,7 +464,7 @@ export default function DomainMarketplacePage() {
                   className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-5 py-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-orange-600/30 transition-all hover:scale-[1.02] active:scale-98 cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Post &amp; Publish Domain</span>
+                  <span>+ Post New Domain</span>
                 </button>
                 <button
                   type="button"
@@ -415,18 +504,18 @@ export default function DomainMarketplacePage() {
         </div>
       </div>
 
-      {/* Filter & Search Bar */}
+      {/* DOMAIN COASTERS STYLE FILTER TOOLBAR */}
       <div className="bg-white p-4 sm:p-5 rounded-2xl border border-gray-100 shadow-xs space-y-4">
-        {/* Top Search & Dropdown Filters */}
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-          {/* Search Input */}
-          <div className="relative flex-1">
+        {/* Main Search & Primary Selectors */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+          {/* Search Box */}
+          <div className="md:col-span-4 relative">
             <Search className="w-4 h-4 text-gray-400 absolute top-3 left-3.5" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by domain, niche, or authority link (e.g. tech, forbes, crypto)..."
+              placeholder="Search domain, keyword, or backlink..."
               className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-800 placeholder-gray-400 outline-none focus:border-[#FC6B17] focus:bg-white transition-all"
             />
             {searchQuery && (
@@ -440,164 +529,468 @@ export default function DomainMarketplacePage() {
             )}
           </div>
 
-          {/* DR, Price & Sort Dropdowns */}
+          {/* Niche Dropdown */}
+          <div className="md:col-span-3 relative">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+              Niche / Category
+            </label>
+            <div className="relative">
+              <select
+                value={selectedNiche}
+                onChange={(e) => setSelectedNiche(e.target.value)}
+                className="w-full appearance-none bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 pr-7 text-xs font-semibold text-gray-700 outline-none focus:border-[#FC6B17] cursor-pointer"
+              >
+                {niches.map((n) => (
+                  <option key={n} value={n}>
+                    {n === 'All' ? 'All Niches' : n}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3 h-3 text-gray-400 absolute right-2.5 top-2.5 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* TLD Dropdown */}
+          <div className="md:col-span-2 relative">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+              TLD Extension
+            </label>
+            <div className="relative">
+              <select
+                value={selectedTld}
+                onChange={(e) => setSelectedTld(e.target.value)}
+                className="w-full appearance-none bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 pr-7 text-xs font-semibold text-gray-700 outline-none focus:border-[#FC6B17] cursor-pointer"
+              >
+                {tlds.map((t) => (
+                  <option key={t} value={t}>
+                    {t === 'All' ? 'All TLDs' : t}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3 h-3 text-gray-400 absolute right-2.5 top-2.5 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Backlink Authority Source */}
+          <div className="md:col-span-3 relative">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+              Backlinks From
+            </label>
+            <div className="relative">
+              <select
+                value={selectedBacklinkSource}
+                onChange={(e) => setSelectedBacklinkSource(e.target.value)}
+                className="w-full appearance-none bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 pr-7 text-xs font-semibold text-gray-700 outline-none focus:border-[#FC6B17] cursor-pointer"
+              >
+                {authoritySourceOptions.map((src) => (
+                  <option key={src} value={src}>
+                    {src === 'All' ? 'Any Authority Backlink' : `Links from ${src}`}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3 h-3 text-gray-400 absolute right-2.5 top-2.5 pointer-events-none" />
+            </div>
+          </div>
+        </div>
+
+        {/* METRICS RANGE SLIDERS BAR (Domain Coasters Exact SEO Metric Controls) */}
+        <div className="pt-3 border-t border-gray-100 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {/* Min DR Slider */}
+          <div className="bg-[#f8fafc] p-2.5 rounded-xl border border-gray-100">
+            <div className="flex items-center justify-between text-[11px] font-bold mb-1">
+              <span className="text-gray-500">Min Ahrefs DR</span>
+              <span className="text-[#FC6B17] font-black">{minDr > 0 ? minDr : '0+'}</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="90"
+              step="5"
+              value={minDr}
+              onChange={(e) => setMinDr(Number(e.target.value))}
+              className="w-full accent-[#FC6B17] cursor-pointer"
+            />
+          </div>
+
+          {/* Min DA Slider */}
+          <div className="bg-[#f8fafc] p-2.5 rounded-xl border border-gray-100">
+            <div className="flex items-center justify-between text-[11px] font-bold mb-1">
+              <span className="text-gray-500">Min Moz DA</span>
+              <span className="text-blue-600 font-black">{minDa > 0 ? minDa : '0+'}</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="80"
+              step="5"
+              value={minDa}
+              onChange={(e) => setMinDa(Number(e.target.value))}
+              className="w-full accent-blue-600 cursor-pointer"
+            />
+          </div>
+
+          {/* Min TF Slider */}
+          <div className="bg-[#f8fafc] p-2.5 rounded-xl border border-gray-100">
+            <div className="flex items-center justify-between text-[11px] font-bold mb-1">
+              <span className="text-gray-500">Min Majestic TF</span>
+              <span className="text-purple-600 font-black">{minTf > 0 ? minTf : '0+'}</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="60"
+              step="5"
+              value={minTf}
+              onChange={(e) => setMinTf(Number(e.target.value))}
+              className="w-full accent-purple-600 cursor-pointer"
+            />
+          </div>
+
+          {/* Min RD Slider */}
+          <div className="bg-[#f8fafc] p-2.5 rounded-xl border border-gray-100">
+            <div className="flex items-center justify-between text-[11px] font-bold mb-1">
+              <span className="text-gray-500">Min Ref Domains</span>
+              <span className="text-emerald-700 font-black">{minRd > 0 ? minRd : '0+'}</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="2000"
+              step="50"
+              value={minRd}
+              onChange={(e) => setMinRd(Number(e.target.value))}
+              className="w-full accent-emerald-600 cursor-pointer"
+            />
+          </div>
+
+          {/* Min Age Slider */}
+          <div className="bg-[#f8fafc] p-2.5 rounded-xl border border-gray-100">
+            <div className="flex items-center justify-between text-[11px] font-bold mb-1">
+              <span className="text-gray-500">Min Archive Age</span>
+              <span className="text-gray-800 font-black">{minAge > 0 ? `${minAge}y+` : 'Any'}</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="20"
+              step="1"
+              value={minAge}
+              onChange={(e) => setMinAge(Number(e.target.value))}
+              className="w-full accent-gray-700 cursor-pointer"
+            />
+          </div>
+
+          {/* Max Price Slider */}
+          <div className="bg-[#f8fafc] p-2.5 rounded-xl border border-gray-100">
+            <div className="flex items-center justify-between text-[11px] font-bold mb-1">
+              <span className="text-gray-500">Max Price (USD)</span>
+              <span className="text-emerald-700 font-black">${maxPrice.toLocaleString()}</span>
+            </div>
+            <input
+              type="range"
+              min="200"
+              max="5000"
+              step="100"
+              value={maxPrice}
+              onChange={(e) => setMaxPrice(Number(e.target.value))}
+              className="w-full accent-emerald-600 cursor-pointer"
+            />
+          </div>
+        </div>
+
+        {/* Bottom Filter Controls & Sort Bar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-gray-100 text-xs">
           <div className="flex items-center gap-2 flex-wrap">
-            {/* DR Filter */}
-            <div className="relative">
-              <select
-                value={drFilter}
-                onChange={(e) => setDrFilter(e.target.value)}
-                className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 pr-7 text-xs font-semibold text-gray-700 outline-none focus:border-[#FC6B17] cursor-pointer"
-              >
-                <option value="All">All DR Scores</option>
-                <option value="DR 60+">DR 60+</option>
-                <option value="DR 70+">DR 70+</option>
-                <option value="DR 75+">DR 75+</option>
-                <option value="DR 80+">DR 80+</option>
-              </select>
-              <ChevronDown className="w-3 h-3 text-gray-400 absolute right-2.5 top-3 pointer-events-none" />
-            </div>
-
-            {/* Price Filter */}
-            <div className="relative">
-              <select
-                value={priceFilter}
-                onChange={(e) => setPriceFilter(e.target.value)}
-                className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 pr-7 text-xs font-semibold text-gray-700 outline-none focus:border-[#FC6B17] cursor-pointer"
-              >
-                <option value="All">Any Price</option>
-                <option value="< $500">Under $500</option>
-                <option value="$500 - $1,000">$500 - $1,000</option>
-                <option value="$1,000 - $2,000">$1,000 - $2,000</option>
-                <option value="$2,000+">$2,000+</option>
-              </select>
-              <ChevronDown className="w-3 h-3 text-gray-400 absolute right-2.5 top-3 pointer-events-none" />
-            </div>
-
-            {/* Sort Dropdown */}
+            <span className="text-gray-400 font-bold">Quick Sort:</span>
             <div className="relative">
               <select
                 value={sortBy}
                 onChange={(e: any) => setSortBy(e.target.value)}
-                className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 pr-7 text-xs font-semibold text-gray-700 outline-none focus:border-[#FC6B17] cursor-pointer"
+                className="appearance-none bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 pr-7 text-xs font-semibold text-gray-700 outline-none focus:border-[#FC6B17] cursor-pointer"
               >
-                <option value="featured">Featured First</option>
-                <option value="dr-desc">DR: High to Low</option>
+                <option value="dr-desc">Ahrefs DR: High to Low</option>
+                <option value="da-desc">Moz DA: High to Low</option>
+                <option value="tf-desc">Majestic TF: High to Low</option>
+                <option value="rd-desc">Referring Domains: Most</option>
+                <option value="age-desc">Archive Age: Oldest</option>
                 <option value="price-asc">Price: Low to High</option>
                 <option value="price-desc">Price: High to Low</option>
-                <option value="rd-desc">Most Referring Domains</option>
               </select>
-              <ChevronDown className="w-3 h-3 text-gray-400 absolute right-2.5 top-3 pointer-events-none" />
+              <ChevronDown className="w-3 h-3 text-gray-400 absolute right-2.5 top-2.5 pointer-events-none" />
             </div>
 
-            {/* View Mode Switcher */}
-            <div className="flex items-center bg-gray-100 p-0.5 rounded-xl border border-gray-200">
+            {activeFiltersCount > 0 && (
               <button
                 type="button"
-                onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-lg transition-all ${
-                  viewMode === 'grid'
-                    ? 'bg-white text-[#FC6B17] shadow-2xs'
-                    : 'text-gray-500 hover:text-gray-800'
-                }`}
-                title="Grid Cards View"
+                onClick={handleResetAllFilters}
+                className="text-[#FC6B17] hover:bg-orange-50 px-2.5 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1"
               >
-                <LayoutGrid className="w-3.5 h-3.5" />
+                <RefreshCw className="w-3 h-3" />
+                <span>Reset ({activeFiltersCount})</span>
               </button>
+            )}
+          </div>
+
+          {/* View Switcher & Counter */}
+          <div className="flex items-center gap-3 justify-between sm:justify-end">
+            <span className="text-gray-500 font-medium text-xs">
+              Showing <strong className="text-gray-900">{filteredDomains.length}</strong> of{' '}
+              <strong className="text-gray-900">{domains.length}</strong> domains
+            </span>
+
+            <div className="flex items-center bg-gray-100 p-0.5 rounded-xl border border-gray-200">
               <button
                 type="button"
                 onClick={() => setViewMode('table')}
                 className={`p-1.5 rounded-lg transition-all ${
                   viewMode === 'table'
-                    ? 'bg-white text-[#FC6B17] shadow-2xs'
+                    ? 'bg-white text-[#FC6B17] shadow-2xs font-bold'
                     : 'text-gray-500 hover:text-gray-800'
                 }`}
-                title="Table View"
+                title="Table View (Domain Coasters style)"
               >
                 <ListIcon className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                className={`p-1.5 rounded-lg transition-all ${
+                  viewMode === 'grid'
+                    ? 'bg-white text-[#FC6B17] shadow-2xs font-bold'
+                    : 'text-gray-500 hover:text-gray-800'
+                }`}
+                title="Cards Grid View"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
         </div>
-
-        {/* Category Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
-          <span className="text-gray-400 font-bold mr-1 shrink-0">Category:</span>
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1.5 rounded-xl font-bold transition-all shrink-0 cursor-pointer ${
-                selectedCategory === cat
-                  ? 'bg-[#FC6B17] text-white shadow-2xs scale-102'
-                  : 'bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200/60'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
       </div>
 
-      {/* Results Count Banner */}
-      <div className="flex items-center justify-between text-xs text-gray-500 px-1">
-        <div>
-          Showing <span className="font-bold text-gray-900">{filteredDomains.length}</span> high-authority domains
-        </div>
-        {(selectedCategory !== 'All' || drFilter !== 'All' || priceFilter !== 'All' || searchQuery) && (
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedCategory('All');
-              setDrFilter('All');
-              setPriceFilter('All');
-              setSearchQuery('');
-            }}
-            className="text-[#FC6B17] font-bold hover:underline"
-          >
-            Clear All Filters
-          </button>
-        )}
-      </div>
-
-      {/* Empty State */}
+      {/* INVENTORY DISPLAY (TABLE / GRID) */}
       {filteredDomains.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 border border-gray-100 text-center space-y-3">
+        <div className="bg-white rounded-3xl p-12 border border-gray-100 text-center space-y-3 shadow-xs">
           <div className="w-12 h-12 rounded-2xl bg-orange-50 text-[#FC6B17] flex items-center justify-center mx-auto">
             <ShoppingBag className="w-6 h-6" />
           </div>
-          <h3 className="text-base font-bold text-gray-800">No domains match your filters</h3>
+          <h3 className="text-base font-bold text-gray-800">No domains match your active filters</h3>
           <p className="text-xs text-gray-400 max-w-md mx-auto">
-            Try broadening your search query, selecting &apos;All DR Scores&apos;, or resetting your filters.
+            Try lowering your minimum DR/DA/TF thresholds or click below to reset all filters.
           </p>
           <div className="pt-2">
             <button
               type="button"
-              onClick={() => {
-                setSelectedCategory('All');
-                setDrFilter('All');
-                setPriceFilter('All');
-                setSearchQuery('');
-              }}
-              className="bg-[#FC6B17] text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs hover:bg-[#e05607]"
+              onClick={handleResetAllFilters}
+              className="bg-[#FC6B17] text-white px-4 py-2 rounded-xl text-xs font-bold shadow-xs hover:bg-[#e05607] transition-colors"
             >
-              Reset Filters
+              Reset All Filters
             </button>
           </div>
         </div>
-      ) : viewMode === 'grid' ? (
+      ) : viewMode === 'table' ? (
+        /* DOMAIN COASTERS PRO TABLE VIEW */
+        <div className="bg-white rounded-2xl border border-gray-200/90 shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-[#f8fafc] border-b border-gray-200 text-gray-500 font-bold uppercase tracking-wider text-[11px]">
+                  <th className="py-3.5 px-3 w-10 text-center">#</th>
+                  <th className="py-3.5 px-4 w-[24%] min-w-[200px]">Domain Name</th>
+                  <th className="py-3.5 px-2.5 w-[8%] text-center">Ahrefs DR</th>
+                  <th className="py-3.5 px-2.5 w-[7%] text-center">Moz DA</th>
+                  <th className="py-3.5 px-2.5 w-[7%] text-center">TF</th>
+                  <th className="py-3.5 px-3 w-[8%] text-center">RD</th>
+                  <th className="py-3.5 px-2.5 w-[7%] text-center">Age</th>
+                  <th className="py-3.5 px-4 w-[25%] min-w-[200px]">Top Authority Links</th>
+                  <th className="py-3.5 px-4 w-[11%] min-w-[100px]">Price (USD)</th>
+                  <th className="py-3.5 px-4 w-[11%] min-w-[110px] text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 font-medium">
+                {filteredDomains.map((item, idx) => {
+                  const isWishlisted = wishlistSet.has(item.domain.toLowerCase().trim());
+                  const archiveUrl = `https://web.archive.org/web/*/${item.domain}`;
+
+                  return (
+                    <tr key={item.id} className="hover:bg-orange-50/20 transition-colors group">
+                      {/* Index */}
+                      <td className="py-3.5 px-3 text-center text-gray-400 font-mono text-[11px] font-bold">
+                        {idx + 1}
+                      </td>
+
+                      {/* Domain Name + Niche + Archive */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-start gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleWishlist(item)}
+                            className="p-1 rounded-md text-gray-300 hover:text-[#FC6B17] transition-colors mt-0.5"
+                            title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist & Favourites'}
+                          >
+                            <Bookmark
+                              className={`w-3.5 h-3.5 transition-all ${
+                                isWishlisted ? 'text-[#FC6B17] fill-[#FC6B17]' : 'text-gray-300 hover:text-[#FC6B17]'
+                              }`}
+                            />
+                          </button>
+
+                          <div>
+                            <div className="font-extrabold text-[#0d1b3e] text-xs sm:text-[13px] flex items-center gap-1.5">
+                              <span>{item.domain}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopy(item.domain)}
+                                className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Copy domain"
+                              >
+                                {copiedDomain === item.domain ? (
+                                  <Check className="w-3 h-3 text-emerald-500" />
+                                ) : (
+                                  <Copy className="w-3 h-3" />
+                                )}
+                              </button>
+                              <a
+                                href={archiveUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-gray-300 hover:text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                title="Check Wayback Archive History"
+                              >
+                                <History className="w-3 h-3" />
+                              </a>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.2 rounded">
+                                {item.category}
+                              </span>
+                              {item.featured && (
+                                <span className="text-[9px] font-extrabold px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded">
+                                  HOT
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Ahrefs DR */}
+                      <td className="py-3.5 px-2.5 text-center">
+                        <span className="inline-flex items-center justify-center gap-0.5 font-black text-xs text-[#FC6B17] bg-orange-50 px-2.5 py-1 rounded-lg border border-orange-100">
+                          {item.dr}
+                        </span>
+                      </td>
+
+                      {/* Moz DA */}
+                      <td className="py-3.5 px-2.5 text-center">
+                        <span className="font-bold text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                          {item.da}
+                        </span>
+                      </td>
+
+                      {/* Majestic TF */}
+                      <td className="py-3.5 px-2.5 text-center">
+                        <span className="font-bold text-xs text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-100">
+                          {item.tf || 28}
+                        </span>
+                      </td>
+
+                      {/* Referring Domains */}
+                      <td className="py-3.5 px-3 text-center text-gray-800 font-extrabold">
+                        {item.referringDomains.toLocaleString()}
+                      </td>
+
+                      {/* Archive Age */}
+                      <td className="py-3.5 px-2.5 text-center text-gray-600 font-bold">
+                        {item.ageYears}y
+                      </td>
+
+                      {/* Top Authority Links */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex flex-wrap gap-1">
+                          {item.topAuthorityLinks.slice(0, 3).map((link, lIdx) => (
+                            <span
+                              key={lIdx}
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                                link.badgeColor || 'bg-blue-50 text-blue-700 border-blue-200'
+                              }`}
+                            >
+                              {link.name} (DR {link.dr})
+                            </span>
+                          ))}
+                          {item.topAuthorityLinks.length > 3 && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-600">
+                              +{item.topAuthorityLinks.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Price */}
+                      <td className="py-3.5 px-4">
+                        <div className="font-black text-[#0d1b3e] text-sm">
+                          ${item.price.toLocaleString()}
+                        </div>
+                        {item.originalPrice && (
+                          <div className="text-[10px] text-gray-400 line-through">
+                            ${item.originalPrice.toLocaleString()}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Link
+                            href={`/dashboard/domain-analytics-result?domain=${encodeURIComponent(item.domain)}`}
+                            className="p-1.5 text-gray-400 hover:text-[#FC6B17] hover:bg-orange-50 rounded-lg transition-colors"
+                            title="Domain Analytics"
+                          >
+                            <BarChart2 className="w-3.5 h-3.5" />
+                          </Link>
+
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteListing(item.id, item.domain)}
+                              className="p-1.5 rounded-lg text-gray-300 hover:text-red-600 hover:bg-red-50 transition-colors"
+                              title="Admin: Delete listing"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => setSelectedDomainForBuy(item)}
+                            className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs inline-flex items-center gap-1 transition-all hover:scale-102 cursor-pointer"
+                          >
+                            <span>Buy</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
         /* GRID CARDS VIEW */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredDomains.map((item) => {
             const isWishlisted = wishlistSet.has(item.domain.toLowerCase().trim());
+            const archiveUrl = `https://web.archive.org/web/*/${item.domain}`;
 
             return (
               <div
                 key={item.id}
                 className="group relative bg-white rounded-2xl border border-gray-200/80 hover:border-orange-300 hover:shadow-lg transition-all duration-200 flex flex-col justify-between overflow-hidden"
               >
-                {/* Featured / Category Tag */}
+                {/* Top Section */}
                 <div className="p-5 pb-3 border-b border-gray-100 bg-gradient-to-b from-gray-50/50 to-white">
                   <div className="flex items-center justify-between gap-2 mb-2.5">
                     <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-orange-50 text-[#FC6B17] border border-orange-100">
@@ -606,7 +999,7 @@ export default function DomainMarketplacePage() {
                     <div className="flex items-center gap-1.5">
                       {item.featured && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-500 text-white shadow-2xs">
-                          <Sparkles className="w-2.5 h-2.5" /> FEATURED
+                          <Sparkles className="w-2.5 h-2.5" /> HOT
                         </span>
                       )}
                       <button
@@ -645,74 +1038,74 @@ export default function DomainMarketplacePage() {
                         {item.domain}
                       </h3>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleCopy(item.domain)}
-                      className="text-gray-300 hover:text-gray-600 p-1 rounded-md transition-colors"
-                      title="Copy domain name"
-                    >
-                      {copiedDomain === item.domain ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-500" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <a
+                        href={archiveUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-gray-400 hover:text-blue-600 p-1"
+                        title="View Archive Record"
+                      >
+                        <History className="w-3.5 h-3.5" />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(item.domain)}
+                        className="text-gray-300 hover:text-gray-600 p-1"
+                      >
+                        {copiedDomain === item.domain ? (
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Quick Metric Pills */}
-                  <div className="grid grid-cols-4 gap-2 mt-4 text-center">
+                  {/* Metric Pills Grid (Domain Coasters Style) */}
+                  <div className="grid grid-cols-5 gap-1.5 mt-4 text-center">
                     <div className="bg-[#fff7ed] p-2 rounded-xl border border-orange-200/60">
-                      <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Ahrefs DR</div>
-                      <div className="text-sm font-black text-[#FC6B17] flex items-center justify-center gap-0.5">
-                        {item.dr}
-                        <TrendingUp className="w-3 h-3 text-emerald-500" />
-                      </div>
+                      <div className="text-[9px] font-bold text-gray-500 uppercase">Ahrefs DR</div>
+                      <div className="text-xs font-black text-[#FC6B17]">{item.dr}</div>
+                    </div>
+                    <div className="bg-blue-50/60 p-2 rounded-xl border border-blue-100">
+                      <div className="text-[9px] font-bold text-gray-500 uppercase">Moz DA</div>
+                      <div className="text-xs font-bold text-blue-700">{item.da}</div>
+                    </div>
+                    <div className="bg-purple-50/60 p-2 rounded-xl border border-purple-100">
+                      <div className="text-[9px] font-bold text-gray-500 uppercase">TF</div>
+                      <div className="text-xs font-bold text-purple-700">{item.tf || 28}</div>
                     </div>
                     <div className="bg-gray-50 p-2 rounded-xl border border-gray-100">
-                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Moz DA</div>
-                      <div className="text-sm font-bold text-gray-800">{item.da}</div>
+                      <div className="text-[9px] font-bold text-gray-400 uppercase">RD</div>
+                      <div className="text-xs font-bold text-gray-800">{item.referringDomains}</div>
                     </div>
                     <div className="bg-gray-50 p-2 rounded-xl border border-gray-100">
-                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Ref Domains</div>
-                      <div className="text-sm font-bold text-gray-800">{item.referringDomains.toLocaleString()}</div>
-                    </div>
-                    <div className="bg-gray-50 p-2 rounded-xl border border-gray-100">
-                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Age</div>
-                      <div className="text-sm font-bold text-gray-800">{item.ageYears}y</div>
+                      <div className="text-[9px] font-bold text-gray-400 uppercase">Age</div>
+                      <div className="text-xs font-bold text-gray-800">{item.ageYears}y</div>
                     </div>
                   </div>
                 </div>
 
-                {/* Authority Backlinks Section (Crucial Requirement) */}
+                {/* Top Authority Links */}
                 <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1">
-                        <Link2 className="w-3 h-3 text-[#FC6B17]" /> Top High-DR Authority Links
-                      </span>
-                      <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
-                        ✓ Verified Clean
-                      </span>
-                    </div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1">
+                      <Link2 className="w-3 h-3 text-[#FC6B17]" /> Top High-DR Authority Links
+                    </span>
 
                     <div className="flex flex-wrap gap-1.5">
-                      {item.topAuthorityLinks && item.topAuthorityLinks.length > 0 ? (
-                        item.topAuthorityLinks.map((link, lIdx) => (
-                          <div
-                            key={lIdx}
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border shadow-2xs ${
-                              link.badgeColor || 'bg-blue-50 text-blue-700 border-blue-200'
-                            }`}
-                          >
-                            <span>{link.name}</span>
-                            <span className="text-[10px] font-black opacity-85 px-1 py-0.2 bg-black/10 rounded">
-                              DR {link.dr}
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <span className="text-xs text-gray-400">High authority backlink profile</span>
-                      )}
+                      {item.topAuthorityLinks.map((link, lIdx) => (
+                        <div
+                          key={lIdx}
+                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-bold border ${
+                            link.badgeColor || 'bg-blue-50 text-blue-700 border-blue-200'
+                          }`}
+                        >
+                          <span>{link.name}</span>
+                          <span className="text-[10px] font-black opacity-80">DR {link.dr}</span>
+                        </div>
+                      ))}
                     </div>
 
                     <p className="text-xs text-gray-500 line-clamp-2 mt-2 leading-relaxed">
@@ -720,30 +1113,22 @@ export default function DomainMarketplacePage() {
                     </p>
                   </div>
 
-                  {/* Transfer Guarantee Features */}
                   <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-500 font-medium">
                     <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
                       <BadgeCheck className="w-3.5 h-3.5 text-emerald-600" /> Ownership Verified
                     </span>
                     <span className="inline-flex items-center gap-1 text-gray-500">
-                      <Zap className="w-3 h-3 text-amber-500" /> Instant Auth-Code
+                      <Zap className="w-3 h-3 text-amber-500" /> Instant 2h Push
                     </span>
                   </div>
                 </div>
 
-                {/* Card Footer: Price & Direct Buy Action */}
+                {/* Card Footer */}
                 <div className="p-4 sm:p-5 bg-gray-50/80 border-t border-gray-100 flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Buy It Now Price</div>
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-xl font-black text-[#0d1b3e]">
-                        ${item.price.toLocaleString()}
-                      </span>
-                      {item.originalPrice && (
-                        <span className="text-xs font-semibold text-gray-400 line-through">
-                          ${item.originalPrice.toLocaleString()}
-                        </span>
-                      )}
+                    <div className="text-[10px] font-bold text-gray-400 uppercase">Price</div>
+                    <div className="text-xl font-black text-[#0d1b3e]">
+                      ${item.price.toLocaleString()}{' '}
                       <span className="text-[10px] font-bold text-gray-400">USD</span>
                     </div>
                   </div>
@@ -759,8 +1144,8 @@ export default function DomainMarketplacePage() {
 
                     <button
                       type="button"
-                      onClick={() => handleInitiateBuy(item)}
-                      className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all hover:scale-102 active:scale-98 cursor-pointer"
+                      onClick={() => setSelectedDomainForBuy(item)}
+                      className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all hover:scale-102 cursor-pointer"
                     >
                       <span>Buy Now</span>
                       <ArrowRight className="w-3.5 h-3.5" />
@@ -771,136 +1156,9 @@ export default function DomainMarketplacePage() {
             );
           })}
         </div>
-      ) : (
-        /* TABLE VIEW */
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-[#f8fafc] border-b border-gray-100 text-gray-400 font-bold uppercase tracking-wider text-[11px]">
-                  <th className="py-3 px-3 w-12 text-center">#</th>
-                  <th className="py-3 px-4 w-[24%] min-w-[180px]">Domain</th>
-                  <th className="py-3 px-3 w-[10%] min-w-[80px]">Ahrefs DR</th>
-                  <th className="py-3 px-4 w-[32%] min-w-[240px]">Top Authority Links</th>
-                  <th className="py-3 px-3 w-[10%] min-w-[90px]">Ref Domains</th>
-                  <th className="py-3 px-3 w-[8%] min-w-[70px]">Age</th>
-                  <th className="py-3 px-4 w-[12%] min-w-[100px]">Price</th>
-                  <th className="py-3 px-4 w-[10%] min-w-[90px] text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 font-medium">
-                {filteredDomains.map((item, idx) => {
-                  const isWishlisted = wishlistSet.has(item.domain.toLowerCase().trim());
-                  return (
-                    <tr key={item.id} className="hover:bg-orange-50/20 transition-colors group">
-                      <td className="py-3.5 px-3 text-center text-gray-400 font-mono text-[11px] font-bold">
-                        {idx + 1}
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-2.5">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleWishlist(item)}
-                            className="p-1 rounded-md text-gray-300 hover:text-[#FC6B17] transition-colors"
-                          >
-                            <Bookmark
-                              className={`w-3.5 h-3.5 ${
-                                isWishlisted ? 'text-[#FC6B17] fill-[#FC6B17]' : 'text-gray-300'
-                              }`}
-                            />
-                          </button>
-                          <div>
-                            <div className="font-bold text-[#0d1b3e] text-xs flex items-center gap-1.5">
-                              <span>{item.domain}</span>
-                              {item.featured && (
-                                <span className="text-[9px] font-extrabold px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded">
-                                  HOT
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-[10px] text-gray-400">{item.category}</span>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="py-3.5 px-3">
-                        <span className="inline-flex items-center gap-1 font-bold text-xs text-[#FC6B17] bg-orange-50 px-2 py-0.5 rounded-md border border-orange-100">
-                          {item.dr} <TrendingUp className="w-3 h-3 text-emerald-500" />
-                        </span>
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        <div className="flex flex-wrap gap-1">
-                          {item.topAuthorityLinks.slice(0, 3).map((link, lIdx) => (
-                            <span
-                              key={lIdx}
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
-                                link.badgeColor || 'bg-blue-50 text-blue-700 border-blue-200'
-                              }`}
-                            >
-                              {link.name} (DR {link.dr})
-                            </span>
-                          ))}
-                          {item.topAuthorityLinks.length > 3 && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-600">
-                              +{item.topAuthorityLinks.length - 3} more
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      <td className="py-3.5 px-3 text-gray-600 font-semibold">
-                        {item.referringDomains.toLocaleString()}
-                      </td>
-
-                      <td className="py-3.5 px-3 text-gray-600 font-semibold">
-                        {item.ageYears} yrs
-                      </td>
-
-                      <td className="py-3.5 px-4">
-                        <div className="font-extrabold text-[#0d1b3e] text-sm">
-                          ${item.price.toLocaleString()}
-                        </div>
-                        {item.originalPrice && (
-                          <div className="text-[10px] text-gray-400 line-through">
-                            ${item.originalPrice.toLocaleString()}
-                          </div>
-                        )}
-                      </td>
-
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {isAdmin && (
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteListing(item.id, item.domain)}
-                              className="p-1 rounded-lg text-gray-300 hover:text-red-600 hover:bg-red-50 transition-colors"
-                              title="Admin: Delete listing"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleInitiateBuy(item)}
-                            className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-2xs inline-flex items-center gap-1 transition-all"
-                          >
-                            <span>Buy</span>
-                            <ArrowRight className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
       )}
 
-      {/* BUY NOW / DIRECT PURCHASE MODAL */}
+      {/* DIRECT ACQUISITION & CHECKOUT MODAL */}
       {selectedDomainForBuy && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in">
           <div className="relative w-full max-w-lg bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-gray-100 space-y-6 animate-in zoom-in-95">
@@ -916,7 +1174,6 @@ export default function DomainMarketplacePage() {
             </button>
 
             {purchaseSuccess ? (
-              /* Success Order State */
               <div className="text-center space-y-4 py-4">
                 <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
                   <CheckCircle2 className="w-9 h-9" />
@@ -924,7 +1181,7 @@ export default function DomainMarketplacePage() {
                 <div>
                   <h3 className="text-xl font-black text-[#0d1b3e]">Purchase Order Initialized!</h3>
                   <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
-                    Your request to acquire <strong className="text-gray-900 font-bold">{selectedDomainForBuy.domain}</strong> has been secured. Our automated transfer system has dispatched the EPP Auth-Code to your account email.
+                    Your request to acquire <strong className="text-gray-900 font-bold">{selectedDomainForBuy.domain}</strong> has been confirmed. Our transfer system has dispatched the EPP Auth-Code to your account email.
                   </p>
                 </div>
 
@@ -955,7 +1212,6 @@ export default function DomainMarketplacePage() {
                 </button>
               </div>
             ) : (
-              /* Checkout Details State */
               <>
                 <div>
                   <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#FC6B17] bg-orange-50 px-2.5 py-1 rounded-full mb-2">
@@ -972,10 +1228,18 @@ export default function DomainMarketplacePage() {
                 {/* Domain Specs Box */}
                 <div className="p-4 bg-[#f8fafc] rounded-2xl border border-gray-100 space-y-2.5 text-xs">
                   <div className="flex items-center justify-between pb-2 border-b border-gray-200/60">
-                    <span className="text-gray-500">Ahrefs Authority Score</span>
-                    <span className="font-black text-[#FC6B17] bg-orange-50 px-2 py-0.5 rounded border border-orange-100">
-                      DR {selectedDomainForBuy.dr}
-                    </span>
+                    <span className="text-gray-500">SEO Metrics</span>
+                    <div className="flex gap-2">
+                      <span className="font-black text-[#FC6B17] bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100">
+                        DR {selectedDomainForBuy.dr}
+                      </span>
+                      <span className="font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                        DA {selectedDomainForBuy.da}
+                      </span>
+                      <span className="font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100">
+                        TF {selectedDomainForBuy.tf || 28}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between pb-2 border-b border-gray-200/60">
                     <span className="text-gray-500">Top Authority Backlinks</span>
@@ -1077,10 +1341,10 @@ export default function DomainMarketplacePage() {
                 <ShieldCheck className="w-3.5 h-3.5" /> Admin Publisher Portal
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-[#0d1b3e] tracking-tight">
-                Publish New Domain to Marketplace
+                Publish New Domain to Inventory
               </h2>
               <p className="text-xs text-gray-500 mt-1">
-                Post high-authority vetted domains directly into the public &amp; dashboard marketplace for buyers.
+                Post high-authority vetted domains directly into the domain inventory with full SEO metrics.
               </p>
             </div>
 
@@ -1115,15 +1379,15 @@ export default function DomainMarketplacePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div>
-                  <label className="block font-bold text-gray-700 mb-1">Ahrefs DR Score</label>
+                  <label className="block font-bold text-gray-700 mb-1">Ahrefs DR</label>
                   <input
                     type="number"
                     value={newDr}
                     onChange={(e) => setNewDr(e.target.value)}
-                    placeholder="e.g. 68"
-                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white"
+                    placeholder="e.g. 70"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white"
                   />
                 </div>
 
@@ -1133,19 +1397,30 @@ export default function DomainMarketplacePage() {
                     type="number"
                     value={newDa}
                     onChange={(e) => setNewDa(e.target.value)}
-                    placeholder="e.g. 52"
-                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white"
+                    placeholder="e.g. 55"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-gray-700 mb-1">Domain Age (Years)</label>
+                  <label className="block font-bold text-gray-700 mb-1">Majestic TF</label>
+                  <input
+                    type="number"
+                    value={newTf}
+                    onChange={(e) => setNewTf(e.target.value)}
+                    placeholder="e.g. 30"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Age (Yrs)</label>
                   <input
                     type="number"
                     value={newAgeYears}
                     onChange={(e) => setNewAgeYears(e.target.value)}
-                    placeholder="e.g. 8"
-                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white"
+                    placeholder="e.g. 10"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white"
                   />
                 </div>
               </div>
@@ -1158,13 +1433,15 @@ export default function DomainMarketplacePage() {
                     onChange={(e) => setNewCategory(e.target.value)}
                     className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] focus:bg-white font-semibold text-gray-700"
                   >
-                    <option value="Tech & AI">Tech & AI</option>
+                    <option value="Technology & AI">Technology & AI</option>
                     <option value="Finance & Crypto">Finance & Crypto</option>
-                    <option value="Health & Wellness">Health & Wellness</option>
+                    <option value="Health & Medical">Health & Medical</option>
                     <option value="Marketing & SEO">Marketing & SEO</option>
                     <option value="E-Commerce & SaaS">E-Commerce & SaaS</option>
                     <option value="News & Media">News & Media</option>
                     <option value="Lifestyle & Home">Lifestyle & Home</option>
+                    <option value="Real Estate & Property">Real Estate & Property</option>
+                    <option value="Legal & Law">Legal & Law</option>
                     <option value="General Authority">General Authority</option>
                   </select>
                 </div>
@@ -1245,7 +1522,7 @@ export default function DomainMarketplacePage() {
                   className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-5 py-2.5 rounded-xl font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Publish to Marketplace</span>
+                  <span>Publish to Inventory</span>
                 </button>
               </div>
             </form>
@@ -1275,7 +1552,7 @@ export default function DomainMarketplacePage() {
               </div>
               <h3 className="text-lg font-black text-[#0d1b3e]">Admin Publishing Access</h3>
               <p className="text-xs text-gray-500">
-                Enter your admin security passcode to post and manage domain listings.
+                Enter your admin security passcode to post and manage domain inventory.
               </p>
             </div>
 
@@ -1302,7 +1579,7 @@ export default function DomainMarketplacePage() {
 
               <button
                 type="submit"
-                className="w-full bg-[#FC6B17] hover:bg-[#e05607] text-white py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all"
+                className="w-full bg-[#FC6B17] hover:bg-[#e05607] text-white py-2.5 rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
               >
                 Unlock Admin Controls
               </button>

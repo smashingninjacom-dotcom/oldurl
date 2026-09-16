@@ -8,8 +8,9 @@ export interface MarketplaceDomain {
   id: string;
   domain: string;
   tld: string;
-  dr: number;
-  da: number;
+  dr: number; // Ahrefs DR
+  da: number; // Moz DA
+  tf: number; // Majestic Trust Flow
   price: number;
   originalPrice?: number;
   category: string;
@@ -39,9 +40,10 @@ export const DEFAULT_MARKETPLACE_DOMAINS: MarketplaceDomain[] = [
     tld: '.io',
     dr: 78,
     da: 64,
+    tf: 38,
     price: 1450,
     originalPrice: 1950,
-    category: 'Tech & AI',
+    category: 'Technology & AI',
     topAuthorityLinks: [
       { name: 'TechCrunch', dr: 92, badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
       { name: 'Forbes', dr: 94, badgeColor: 'bg-blue-50 text-blue-700 border-blue-200' },
@@ -65,6 +67,7 @@ export const DEFAULT_MARKETPLACE_DOMAINS: MarketplaceDomain[] = [
     tld: '.org',
     dr: 82,
     da: 71,
+    tf: 44,
     price: 2200,
     originalPrice: 2800,
     category: 'Finance & Crypto',
@@ -91,9 +94,10 @@ export const DEFAULT_MARKETPLACE_DOMAINS: MarketplaceDomain[] = [
     tld: '.net',
     dr: 74,
     da: 61,
+    tf: 32,
     price: 980,
     originalPrice: 1350,
-    category: 'Health & Wellness',
+    category: 'Health & Medical',
     topAuthorityLinks: [
       { name: 'Healthline', dr: 91, badgeColor: 'bg-rose-50 text-rose-700 border-rose-200' },
       { name: 'WebMD', dr: 93, badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
@@ -117,6 +121,7 @@ export const DEFAULT_MARKETPLACE_DOMAINS: MarketplaceDomain[] = [
     tld: '.co',
     dr: 68,
     da: 56,
+    tf: 29,
     price: 650,
     originalPrice: 890,
     category: 'Marketing & SEO',
@@ -143,6 +148,7 @@ export const DEFAULT_MARKETPLACE_DOMAINS: MarketplaceDomain[] = [
     tld: '.org',
     dr: 76,
     da: 62,
+    tf: 36,
     price: 1250,
     originalPrice: 1600,
     category: 'E-Commerce & SaaS',
@@ -169,6 +175,7 @@ export const DEFAULT_MARKETPLACE_DOMAINS: MarketplaceDomain[] = [
     tld: '.com',
     dr: 71,
     da: 58,
+    tf: 33,
     price: 890,
     originalPrice: 1200,
     category: 'News & Media',
@@ -195,9 +202,10 @@ export const DEFAULT_MARKETPLACE_DOMAINS: MarketplaceDomain[] = [
     tld: '.io',
     dr: 65,
     da: 52,
+    tf: 27,
     price: 550,
     originalPrice: 750,
-    category: 'Tech & AI',
+    category: 'Technology & AI',
     topAuthorityLinks: [
       { name: 'HackerNews', dr: 91, badgeColor: 'bg-orange-50 text-orange-700 border-orange-200' },
       { name: 'GitHub', dr: 96, badgeColor: 'bg-gray-100 text-gray-800 border-gray-300' },
@@ -221,6 +229,7 @@ export const DEFAULT_MARKETPLACE_DOMAINS: MarketplaceDomain[] = [
     tld: '.com',
     dr: 62,
     da: 49,
+    tf: 25,
     price: 480,
     originalPrice: 650,
     category: 'Lifestyle & Home',
@@ -239,6 +248,60 @@ export const DEFAULT_MARKETPLACE_DOMAINS: MarketplaceDomain[] = [
     status: 'available',
     featured: false,
     createdAt: '2026-09-09T13:40:00Z',
+  },
+  {
+    id: 'mkt-9',
+    domain: 'realestatetracker.org',
+    tld: '.org',
+    dr: 70,
+    da: 57,
+    tf: 31,
+    price: 920,
+    originalPrice: 1250,
+    category: 'Real Estate & Property',
+    topAuthorityLinks: [
+      { name: 'Zillow', dr: 92, badgeColor: 'bg-blue-50 text-blue-700 border-blue-200' },
+      { name: 'Realtor.com', dr: 91, badgeColor: 'bg-rose-50 text-rose-700 border-rose-200' },
+      { name: 'Forbes', dr: 94, badgeColor: 'bg-blue-50 text-blue-700 border-blue-200' },
+      { name: 'Inman', dr: 85, badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+    ],
+    referringDomains: 750,
+    backlinks: 16800,
+    ageYears: 12,
+    cleanHistory: true,
+    verifiedOwnership: true,
+    instantTransfer: true,
+    description: 'Aged real estate data & analytics domain with strong link equity from Zillow, Realtor.com, and Forbes Real Estate counsel.',
+    status: 'available',
+    featured: false,
+    createdAt: '2026-09-10T11:00:00Z',
+  },
+  {
+    id: 'mkt-10',
+    domain: 'legaladvise.net',
+    tld: '.net',
+    dr: 73,
+    da: 59,
+    tf: 34,
+    price: 1100,
+    originalPrice: 1450,
+    category: 'Legal & Law',
+    topAuthorityLinks: [
+      { name: 'Harvard.edu', dr: 98, badgeColor: 'bg-red-50 text-red-800 border-red-200' },
+      { name: 'Cornell.edu', dr: 96, badgeColor: 'bg-red-50 text-red-700 border-red-200' },
+      { name: 'Law.com', dr: 89, badgeColor: 'bg-blue-50 text-blue-700 border-blue-200' },
+      { name: 'Wikipedia', dr: 98, badgeColor: 'bg-gray-100 text-gray-800 border-gray-300' },
+    ],
+    referringDomains: 890,
+    backlinks: 22400,
+    ageYears: 15,
+    cleanHistory: true,
+    verifiedOwnership: true,
+    instantTransfer: true,
+    description: 'Premium legal authority asset boasting permanent .EDU backlinks from Harvard Law and Cornell University citations. Perfect for legal lead-gen or high-ticket law firm portal.',
+    status: 'available',
+    featured: true,
+    createdAt: '2026-09-11T16:20:00Z',
   },
 ];
 
