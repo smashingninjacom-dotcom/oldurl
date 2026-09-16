@@ -446,11 +446,45 @@ export default function DomainMarketplaceInventoryPage() {
     }
   };
 
-  const handleAddEditAuthorityLink = () => {
+  const [isFetchingMentionDr, setIsFetchingMentionDr] = useState(false);
+
+  const handleLookupMentionDr = async (rawDomain: string) => {
+    const clean = rawDomain.trim().toLowerCase().replace(/^https?:\/\//i, '').replace(/\/.*$/, '').replace(/[^a-z0-9.-]/g, '');
+    if (!clean || !clean.includes('.')) return;
+    setIsFetchingMentionDr(true);
+    try {
+      const res = await fetch(`/api/ahrefs-dr?domain=${encodeURIComponent(clean)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.dr === 'number') {
+          setNewAuthorityDrInput(String(data.dr));
+        }
+      }
+    } catch (e) {}
+    setIsFetchingMentionDr(false);
+  };
+
+  const handleAddEditAuthorityLink = async () => {
     if (!newAuthorityNameInput.trim()) return;
+    const cleanName = newAuthorityNameInput.trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '').toLowerCase();
+    
+    setIsFetchingMentionDr(true);
+    let resolvedDr = parseInt(newAuthorityDrInput, 10);
+
+    try {
+      const res = await fetch(`/api/ahrefs-dr?domain=${encodeURIComponent(cleanName)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.dr === 'number') {
+          resolvedDr = data.dr;
+        }
+      }
+    } catch (e) {}
+    setIsFetchingMentionDr(false);
+
     const item: AuthorityLink = {
-      name: newAuthorityNameInput.trim().replace(/^https?:\/\//i, ''),
-      dr: parseInt(newAuthorityDrInput, 10) || 90,
+      name: cleanName,
+      dr: resolvedDr >= 0 ? resolvedDr : 50,
       badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
     };
     setEditAuthorityLinks((prev) => [...prev, item]);
@@ -462,13 +496,26 @@ export default function DomainMarketplaceInventoryPage() {
     setEditAuthorityLinks((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const handleQuickAddAuthority = (name: string, dr: number) => {
+  const handleQuickAddAuthority = async (name: string, defaultDr: number) => {
     if (editAuthorityLinks.some((l) => l.name.toLowerCase() === name.toLowerCase())) return;
+    
+    let dr = defaultDr;
+    try {
+      const res = await fetch(`/api/ahrefs-dr?domain=${encodeURIComponent(name)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.dr === 'number') {
+          dr = data.dr;
+        }
+      }
+    } catch (e) {}
+
     setEditAuthorityLinks((prev) => [
       ...prev,
       { name, dr, badgeColor: 'bg-blue-50 text-blue-700 border-blue-200' },
     ]);
   };
+
 
   const handleSaveEditListing = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1964,43 +2011,63 @@ export default function DomainMarketplaceInventoryPage() {
 
                 {/* Add Custom Referring Domain Mention */}
                 <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={newAuthorityNameInput}
-                    onChange={(e) => setNewAuthorityNameInput(e.target.value)}
-                    placeholder="Mention website (e.g. zeit.de, scoop.it, forbes.com)..."
-                    className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17]"
-                  />
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={newAuthorityNameInput}
+                      onChange={(e) => {
+                        setNewAuthorityNameInput(e.target.value);
+                      }}
+                      onBlur={(e) => {
+                        if (e.target.value.trim()) {
+                          handleLookupMentionDr(e.target.value);
+                        }
+                      }}
+                      placeholder="Mention website (e.g. deeranddeerhunting.com, zeit.de)..."
+                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17]"
+                    />
+                    {isFetchingMentionDr && (
+                      <div className="absolute right-2.5 top-2.5">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#FC6B17]" />
+                      </div>
+                    )}
+                  </div>
                   <div className="w-24">
                     <input
                       type="number"
                       value={newAuthorityDrInput}
                       onChange={(e) => setNewAuthorityDrInput(e.target.value)}
-                      placeholder="DR (e.g. 90)"
+                      placeholder="DR"
                       className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#FC6B17] font-black text-[#FC6B17] text-center"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={handleAddEditAuthorityLink}
-                    disabled={!newAuthorityNameInput.trim()}
+                    disabled={!newAuthorityNameInput.trim() || isFetchingMentionDr}
                     className="px-3.5 py-2 bg-[#0d1b3e] hover:bg-[#152a5c] text-white rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center gap-1 shrink-0"
                   >
-                    <Plus className="w-3.5 h-3.5" />
+                    {isFetchingMentionDr ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Plus className="w-3.5 h-3.5" />
+                    )}
                     <span>Add</span>
                   </button>
                 </div>
 
-                {/* Quick Add Authority Suggestions */}
+                {/* Quick Add Authority Suggestions with Verified Ahrefs DR */}
                 <div className="pt-1">
                   <span className="text-[10px] font-bold text-gray-400 uppercase block mb-1.5">
-                    Quick Add Top Authority Sources:
+                    Quick Add Top Authority Sources (Verified Ahrefs DR):
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {[
                       { name: 'zeit.de', dr: 90 },
-                      { name: 'scoop.it', dr: 90 },
-                      { name: 'metafilter.com', dr: 90 },
+                      { name: 'scoop.it', dr: 82 },
+                      { name: 'metafilter.com', dr: 77 },
+                      { name: 'deeranddeerhunting.com', dr: 56 },
+                      { name: 'apartmenttherapy.com', dr: 85 },
                       { name: 'forbes.com', dr: 94 },
                       { name: 'techcrunch.com', dr: 92 },
                       { name: 'wikipedia.org', dr: 98 },
@@ -2023,6 +2090,7 @@ export default function DomainMarketplaceInventoryPage() {
                   </div>
                 </div>
               </div>
+
 
               {/* Description */}
               <div>

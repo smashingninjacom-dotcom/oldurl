@@ -46,9 +46,9 @@ export const DEFAULT_MARKETPLACE_DOMAINS: MarketplaceDomain[] = [
     category: 'Lifestyle & Home',
     topAuthorityLinks: [
       { name: 'zeit.de', dr: 90, badgeColor: 'bg-blue-50 text-blue-700 border-blue-200' },
-      { name: 'scoop.it', dr: 90, badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-      { name: 'metafilter.com', dr: 90, badgeColor: 'bg-purple-50 text-purple-700 border-purple-200' },
-      { name: 'apartmenttherapy.com', dr: 88, badgeColor: 'bg-rose-50 text-rose-700 border-rose-200' },
+      { name: 'scoop.it', dr: 82, badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+      { name: 'metafilter.com', dr: 77, badgeColor: 'bg-purple-50 text-purple-700 border-purple-200' },
+      { name: 'deeranddeerhunting.com', dr: 56, badgeColor: 'bg-amber-50 text-amber-800 border-amber-200' },
     ],
     referringDomains: 226,
     backlinks: 1420,
@@ -334,6 +334,43 @@ export const DEFAULT_MARKETPLACE_DOMAINS: MarketplaceDomain[] = [
 
 const STORAGE_KEY = 'oldurl_marketplace_listings';
 
+const KNOWN_VERIFIED_DR_MAP: Record<string, number> = {
+  'deeranddeerhunting.com': 56,
+  'scoop.it': 82,
+  'metafilter.com': 77,
+  'apartmenttherapy.com': 85,
+  'thekitchn.com': 86,
+  'goodhousekeeping.com': 88,
+  'zeit.de': 90,
+  'foodnwhine.com': 7,
+  'techcrunch.com': 92,
+  'forbes.com': 94,
+  'wired.com': 93,
+  'theverge.com': 92,
+  'github.com': 96,
+  'wikipedia.org': 98,
+  'bloomberg.com': 94,
+  'reuters.com': 95,
+  'coindesk.com': 89,
+  'marketwatch.com': 92,
+  'healthline.com': 91,
+  'webmd.com': 93,
+  'nih.gov': 96,
+  'bbc.co.uk': 95,
+  'mayoclinic.org': 93,
+  'hubspot.com': 93,
+  'searchenginejournal.com': 88,
+  'neilpatel.com': 89,
+  'entrepreneur.com': 91,
+  'moz.com': 91,
+  'harvard.edu': 98,
+  'cornell.edu': 96,
+  'law.com': 89,
+  'nytimes.com': 95,
+  'theguardian.com': 95,
+  'medium.com': 95,
+};
+
 export function getMarketplaceDomains(): MarketplaceDomain[] {
   if (typeof window === 'undefined') return DEFAULT_MARKETPLACE_DOMAINS;
   try {
@@ -341,6 +378,17 @@ export function getMarketplaceDomains(): MarketplaceDomain[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
+        // Ensure verified DR accuracy on all stored listings
+        parsed.forEach((item: MarketplaceDomain) => {
+          if (item.topAuthorityLinks && Array.isArray(item.topAuthorityLinks)) {
+            item.topAuthorityLinks.forEach((link) => {
+              const clean = link.name.toLowerCase().trim().replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
+              if (KNOWN_VERIFIED_DR_MAP[clean] !== undefined) {
+                link.dr = KNOWN_VERIFIED_DR_MAP[clean];
+              }
+            });
+          }
+        });
         return parsed;
       }
     }
@@ -353,6 +401,7 @@ export function getMarketplaceDomains(): MarketplaceDomain[] {
   } catch (e) {}
   return DEFAULT_MARKETPLACE_DOMAINS;
 }
+
 
 export function saveMarketplaceDomains(items: MarketplaceDomain[]): void {
   if (typeof window === 'undefined') return;
