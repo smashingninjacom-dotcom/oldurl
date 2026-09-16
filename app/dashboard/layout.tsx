@@ -26,7 +26,6 @@ import {
   ShoppingBag,
   Package,
   ArrowRightLeft,
-  CreditCard,
 } from 'lucide-react';
 import { getUserQuotaData } from '../../lib/plans';
 import { resetMemoryCacheForUser } from '../../lib/searchHistory';
@@ -392,8 +391,7 @@ export default function DashboardLayout({
     );
   }
 
-  // 1. EXPIRED DOMAIN FINDER (Scanner / Audit / Research Suite)
-  const finderNav = [
+  const mainNav = [
     {
       name: 'Dashboard',
       href: '/dashboard',
@@ -407,16 +405,10 @@ export default function DashboardLayout({
       badge: null,
     },
     {
-      name: 'Scan Results',
+      name: 'Results',
       href: '/dashboard/results',
       icon: BarChart2,
       badge: 'Live',
-    },
-    {
-      name: 'Bulk Scanner',
-      href: '/dashboard/bulk-scanner',
-      icon: FileCheck2,
-      badge: null,
     },
     {
       name: 'Previous Searches',
@@ -425,15 +417,11 @@ export default function DashboardLayout({
       badge: null,
     },
     {
-      name: 'Domain Analytics',
-      href: '/dashboard/domain-analytics',
-      icon: Activity,
-      badge: null,
+      name: 'Wishlist & Favourites',
+      href: '/dashboard/watchlist',
+      icon: Bookmark,
+      badge: wishlistCount > 0 ? String(wishlistCount) : null,
     },
-  ];
-
-  // 2. DOMAIN MARKETPLACE (Buy Curated Authority Inventory)
-  const marketplaceNav = [
     {
       name: 'Marketplace',
       href: '/dashboard/marketplace',
@@ -452,32 +440,31 @@ export default function DashboardLayout({
       icon: ArrowRightLeft,
       badge: null,
     },
-    {
-      name: 'Wishlist & Favourites',
-      href: '/dashboard/watchlist',
-      icon: Bookmark,
-      badge: wishlistCount > 0 ? String(wishlistCount) : null,
-    },
   ];
 
-  // 3. MY ACCOUNT & SETTINGS
-  const accountNav = [
+  const analyticsNav = [
     {
-      name: 'Profile & Plan',
+      name: 'Domain Analytics',
+      href: '/dashboard/domain-analytics',
+      icon: Activity,
+      badge: null,
+    },
+    {
+      name: 'Domain A. Result',
+      href: '/dashboard/domain-analytics-result',
+      icon: FileCheck2,
+      badge: null,
+    },
+    {
+      name: 'Domain A. Scanned',
+      href: '/dashboard/domain-analytics-scanned',
+      icon: Layers,
+      badge: null,
+    },
+    {
+      name: 'Profile',
       href: '/dashboard/profile',
       icon: User,
-      badge: null,
-    },
-    {
-      name: 'Billing & Invoices',
-      href: '/dashboard/billing',
-      icon: CreditCard,
-      badge: null,
-    },
-    {
-      name: 'API & Developer',
-      href: '/dashboard/api',
-      icon: Layers,
       badge: null,
     },
   ];
@@ -542,37 +529,21 @@ export default function DashboardLayout({
         </div>
 
         {/* Nav Items Container */}
-        <div className="flex-1 py-4 px-3 space-y-4 overflow-y-auto">
-          {/* SECTION 1: EXPIRED DOMAIN FINDER */}
+        <div className="flex-1 py-5 px-3.5 space-y-5 overflow-y-auto">
+          {/* Main Section */}
           <div className="space-y-1">
-            <div className="px-3 text-[11px] font-black text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-              <Search className="w-3.5 h-3.5 text-gray-400" />
-              <span>Domain Finder &amp; Audit</span>
+            <div className="px-3 text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+              Domain Audit
             </div>
-            {finderNav.map(renderNavLink)}
+            {mainNav.map(renderNavLink)}
           </div>
 
-          {/* SECTION 2: DOMAIN MARKETPLACE */}
+          {/* Analytics Section */}
           <div className="space-y-1 pt-3 border-t border-gray-100">
-            <div className="px-3 text-[11px] font-black text-[#FC6B17] uppercase tracking-wider mb-1 flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <ShoppingBag className="w-3.5 h-3.5 text-[#FC6B17]" />
-                <span>Domain Marketplace</span>
-              </div>
-              <span className="text-[9px] font-extrabold bg-orange-100 text-[#FC6B17] px-1.5 py-0.5 rounded-md">
-                BUY
-              </span>
+            <div className="px-3 text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+              Analytics &amp; Data
             </div>
-            {marketplaceNav.map(renderNavLink)}
-          </div>
-
-          {/* SECTION 3: MY ACCOUNT & SETTINGS */}
-          <div className="space-y-1 pt-3 border-t border-gray-100">
-            <div className="px-3 text-[11px] font-black text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5 text-gray-400" />
-              <span>My Account</span>
-            </div>
-            {accountNav.map(renderNavLink)}
+            {analyticsNav.map(renderNavLink)}
           </div>
         </div>
 
@@ -630,26 +601,8 @@ export default function DashboardLayout({
               </button>
             </div>
             <div className="flex-1 py-4 space-y-4 overflow-y-auto">
-              <div className="space-y-1">
-                <div className="px-3 text-[11px] font-black text-gray-400 uppercase tracking-wider mb-1">
-                  Domain Finder &amp; Audit
-                </div>
-                {finderNav.map(renderNavLink)}
-              </div>
-
-              <div className="space-y-1 pt-2 border-t border-gray-100">
-                <div className="px-3 text-[11px] font-black text-[#FC6B17] uppercase tracking-wider mb-1">
-                  Domain Marketplace
-                </div>
-                {marketplaceNav.map(renderNavLink)}
-              </div>
-
-              <div className="space-y-1 pt-2 border-t border-gray-100">
-                <div className="px-3 text-[11px] font-black text-gray-400 uppercase tracking-wider mb-1">
-                  My Account
-                </div>
-                {accountNav.map(renderNavLink)}
-              </div>
+              <div className="space-y-1">{mainNav.map(renderNavLink)}</div>
+              <div className="space-y-1 pt-2 border-t border-gray-100">{analyticsNav.map(renderNavLink)}</div>
             </div>
           </div>
         </div>
