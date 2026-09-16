@@ -1706,14 +1706,19 @@ export default function DomainMarketplaceInventoryPage() {
                     </div>
                   </div>
                   <div className="flex items-center justify-between pb-2 border-b border-gray-200/60">
-                    <span className="text-gray-500">Top Authority Backlinks</span>
-                    <div className="flex gap-1 flex-wrap justify-end">
-                      {selectedDomainForBuy.topAuthorityLinks.map((l, i) => (
-                        <span key={i} className="font-bold text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
-                          {l.name}
-                        </span>
-                      ))}
-                    </div>
+                    <span className="text-gray-500">Backlinks &amp; Proof</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = selectedDomainForBuy;
+                        setSelectedDomainForBuy(null);
+                        setSelectedDomainForLinks(target);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#eef2ff] hover:bg-[#e0e7ff] text-[#3b5bf6] text-[11px] font-bold border border-[#c7d2fe]/70 transition-colors cursor-pointer"
+                    >
+                      <Link2 className="w-3 h-3 text-[#3b5bf6]" />
+                      <span>View Proof &amp; Screenshots</span>
+                    </button>
                   </div>
                   <div className="flex items-center justify-between pb-2 border-b border-gray-200/60">
                     <span className="text-gray-500">Referring Domains / Backlinks</span>
@@ -2632,14 +2637,14 @@ export default function DomainMarketplaceInventoryPage() {
                 </div>
               </div>
 
-              {/* OldURL / Domain Coasters style Brand Badge */}
+              {/* OldURL Brand Badge */}
               <div className="flex items-center gap-2 select-none">
                 <div className="w-9 h-9 rounded-xl bg-[#3b5bf6] text-white flex items-center justify-center font-black shadow-sm">
                   <Globe className="w-5 h-5" />
                 </div>
                 <div className="leading-tight text-right">
                   <div className="text-base font-black text-[#1e3a8a] tracking-tight">OldURL</div>
-                  <div className="text-[10px] font-bold text-[#3b5bf6] tracking-wide uppercase">Domain Coasters</div>
+                  <div className="text-[10px] font-bold text-[#3b5bf6] tracking-wide uppercase">Verified Inventory</div>
                 </div>
               </div>
             </div>
