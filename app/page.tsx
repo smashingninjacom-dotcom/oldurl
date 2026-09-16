@@ -412,13 +412,18 @@ export default function HomePage() {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-orange-50 text-[#FC6B17] flex items-center justify-center shrink-0">
-                      <Globe className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-orange-50 text-[#FC6B17] flex items-center justify-center shrink-0 border border-orange-200/80 shadow-2xs">
+                      <Lock className="w-4 h-4 text-[#FC6B17]" />
                     </div>
-                    <h3 className="font-extrabold text-gray-900 text-base truncate tracking-tight">
-                      {item.domain}
-                    </h3>
+                    <div className="overflow-hidden flex-1">
+                      <h3 className="font-mono font-black text-gray-900 text-sm tracking-wider truncate select-none">
+                        {item.domain.slice(0, 2)}••••••••{item.tld}
+                      </h3>
+                      <span className="text-[10px] font-bold text-[#FC6B17] flex items-center gap-1 mt-0.5">
+                        <span>Sign in to reveal full domain</span>
+                      </span>
+                    </div>
                   </div>
 
                   {/* Metrics */}
@@ -478,10 +483,10 @@ export default function HomePage() {
                   <button
                     type="button"
                     onClick={openAuthModal}
-                    className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1 transition-all hover:scale-102"
+                    className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1 transition-all hover:scale-102 cursor-pointer"
                   >
-                    <span>Buy</span>
-                    <ArrowRight className="w-3 h-3" />
+                    <Lock className="w-3 h-3" />
+                    <span>Unlock &amp; Buy</span>
                   </button>
                 </div>
               </div>
