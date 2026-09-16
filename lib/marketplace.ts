@@ -15,6 +15,7 @@ export interface MarketplaceDomain {
   originalPrice?: number;
   category: string;
   topAuthorityLinks: AuthorityLink[];
+  screenshots?: string[]; // Backlink proof screenshots (base64 or URLs)
   referringDomains: number;
   backlinks: number;
   ageYears: number;

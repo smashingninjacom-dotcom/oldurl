@@ -43,6 +43,9 @@ import {
   CheckSquare,
   Sliders,
   Edit3,
+  Image as ImageIcon,
+  Upload,
+  Maximize2,
 } from 'lucide-react';
 import {
   MarketplaceDomain,
@@ -91,8 +94,10 @@ export default function DomainMarketplaceInventoryPage() {
   const [wishlistSet, setWishlistSet] = useState<Set<string>>(new Set());
   const [copiedDomain, setCopiedDomain] = useState<string | null>(null);
 
-  // Modals
+  // Modals & Links / Screenshots Viewer
   const [selectedDomainForBuy, setSelectedDomainForBuy] = useState<MarketplaceDomain | null>(null);
+  const [selectedDomainForLinks, setSelectedDomainForLinks] = useState<MarketplaceDomain | null>(null);
+  const [selectedPreviewImage, setSelectedPreviewImage] = useState<string | null>(null);
   const [isListModalOpen, setIsListModalOpen] = useState(false);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
 
@@ -115,6 +120,8 @@ export default function DomainMarketplaceInventoryPage() {
   const [editBuyUrl, setEditBuyUrl] = useState('');
   const [editContactEmail, setEditContactEmail] = useState('');
   const [editAuthorityLinks, setEditAuthorityLinks] = useState<AuthorityLink[]>([]);
+  const [editScreenshots, setEditScreenshots] = useState<string[]>([]);
+  const [editScreenshotUrlInput, setEditScreenshotUrlInput] = useState('');
   const [newAuthorityNameInput, setNewAuthorityNameInput] = useState('');
   const [newAuthorityDrInput, setNewAuthorityDrInput] = useState('');
 
@@ -127,6 +134,8 @@ export default function DomainMarketplaceInventoryPage() {
   const [newTf, setNewTf] = useState('30');
   const [newCategory, setNewCategory] = useState('Technology & AI');
   const [newTopLinks, setNewTopLinks] = useState('Forbes (DR 94), TechCrunch (DR 92), Wikipedia (DR 98)');
+  const [newScreenshots, setNewScreenshots] = useState<string[]>([]);
+  const [newScreenshotUrlInput, setNewScreenshotUrlInput] = useState('');
   const [newReferringDomains, setNewReferringDomains] = useState('650');
   const [newBacklinks, setNewBacklinks] = useState('15000');
   const [newAgeYears, setNewAgeYears] = useState('10');
@@ -437,7 +446,52 @@ export default function DomainMarketplaceInventoryPage() {
     setEditBuyUrl(item.buyUrl || '');
     setEditContactEmail(item.sellerContact?.email || '');
     setEditAuthorityLinks(item.topAuthorityLinks ? [...item.topAuthorityLinks] : []);
+    setEditScreenshots(item.screenshots ? [...item.screenshots] : []);
+    setEditScreenshotUrlInput('');
     setIsEditModalOpen(true);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = event.target?.result as string;
+        if (base64) {
+          if (isEdit) {
+            setEditScreenshots((prev) => [...prev, base64]);
+          } else {
+            setNewScreenshots((prev) => [...prev, base64]);
+          }
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const handleAddScreenshotUrl = (isEdit: boolean) => {
+    if (isEdit) {
+      if (editScreenshotUrlInput.trim()) {
+        setEditScreenshots((prev) => [...prev, editScreenshotUrlInput.trim()]);
+        setEditScreenshotUrlInput('');
+      }
+    } else {
+      if (newScreenshotUrlInput.trim()) {
+        setNewScreenshots((prev) => [...prev, newScreenshotUrlInput.trim()]);
+        setNewScreenshotUrlInput('');
+      }
+    }
+  };
+
+  const handleRemoveScreenshot = (idx: number, isEdit: boolean) => {
+    if (isEdit) {
+      setEditScreenshots((prev) => prev.filter((_, i) => i !== idx));
+    } else {
+      setNewScreenshots((prev) => prev.filter((_, i) => i !== idx));
+    }
   };
 
   const handleAutoFetchEditDomain = async () => {
@@ -618,6 +672,7 @@ export default function DomainMarketplaceInventoryPage() {
       status: editStatus,
       featured: editFeatured,
       topAuthorityLinks: editAuthorityLinks.length > 0 ? editAuthorityLinks : [{ name: 'Forbes', dr: 94 }],
+      screenshots: editScreenshots,
       buyUrl: editBuyUrl.trim() || undefined,
       sellerContact: editContactEmail.trim() ? { email: editContactEmail.trim() } : undefined,
     };
@@ -658,6 +713,7 @@ export default function DomainMarketplaceInventoryPage() {
       originalPrice: newOriginalPrice ? parseFloat(newOriginalPrice) : undefined,
       category: newCategory || 'General Authority',
       topAuthorityLinks: parsedLinks.length > 0 ? parsedLinks : [{ name: 'Forbes', dr: 94 }],
+      screenshots: newScreenshots,
       referringDomains: parseInt(newReferringDomains, 10) || 100,
       backlinks: parseInt(newBacklinks, 10) || 2000,
       ageYears: parseInt(newAgeYears, 10) || 5,
@@ -679,6 +735,8 @@ export default function DomainMarketplaceInventoryPage() {
     setNewDescription('');
     setNewBuyUrl('');
     setNewContactEmail('');
+    setNewScreenshots([]);
+    setNewScreenshotUrlInput('');
   };
 
   const handleDeleteListing = (id: string, domainName: string) => {
@@ -1070,13 +1128,13 @@ export default function DomainMarketplaceInventoryPage() {
               <thead>
                 <tr className="bg-[#f8fafc] border-b border-gray-200 text-gray-500 font-bold uppercase tracking-wider text-[11px]">
                   <th className="py-3.5 px-3 w-10 text-center">#</th>
-                  <th className="py-3.5 px-4 w-[24%] min-w-[200px]">Domain Name</th>
+                  <th className="py-3.5 px-4 w-[28%] min-w-[200px]">Domain Name</th>
                   <th className="py-3.5 px-2.5 w-[8%] text-center">Ahrefs DR</th>
                   <th className="py-3.5 px-2.5 w-[7%] text-center">Moz DA</th>
                   <th className="py-3.5 px-2.5 w-[7%] text-center">TF</th>
                   <th className="py-3.5 px-3 w-[8%] text-center">RD</th>
                   <th className="py-3.5 px-2.5 w-[7%] text-center">Age</th>
-                  <th className="py-3.5 px-4 w-[25%] min-w-[200px]">Top Authority Links</th>
+                  <th className="py-3.5 px-3 w-[9%] text-center font-black text-blue-600">Links</th>
                   <th className="py-3.5 px-4 w-[11%] min-w-[100px]">Price (USD)</th>
                   <th className="py-3.5 px-4 w-[11%] min-w-[110px] text-right">Action</th>
                 </tr>
@@ -1099,7 +1157,7 @@ export default function DomainMarketplaceInventoryPage() {
                           <button
                             type="button"
                             onClick={() => handleToggleWishlist(item)}
-                            className="p-1 rounded-md text-gray-300 hover:text-[#FC6B17] transition-colors mt-0.5"
+                            className="p-1 rounded-md text-gray-300 hover:text-[#FC6B17] transition-colors mt-0.5 cursor-pointer"
                             title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist & Favourites'}
                           >
                             <Bookmark
@@ -1115,7 +1173,7 @@ export default function DomainMarketplaceInventoryPage() {
                               <button
                                 type="button"
                                 onClick={() => handleCopy(item.domain)}
-                                className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                                 title="Copy domain"
                               >
                                 {copiedDomain === item.domain ? (
@@ -1180,25 +1238,16 @@ export default function DomainMarketplaceInventoryPage() {
                         {item.ageYears}y
                       </td>
 
-                      {/* Top Authority Links */}
-                      <td className="py-3.5 px-4">
-                        <div className="flex flex-wrap gap-1">
-                          {item.topAuthorityLinks.slice(0, 3).map((link, lIdx) => (
-                            <span
-                              key={lIdx}
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
-                                link.badgeColor || 'bg-blue-50 text-blue-700 border-blue-200'
-                              }`}
-                            >
-                              {link.name} (DR {link.dr})
-                            </span>
-                          ))}
-                          {item.topAuthorityLinks.length > 3 && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-600">
-                              +{item.topAuthorityLinks.length - 3}
-                            </span>
-                          )}
-                        </div>
+                      {/* Links Button Column (Domain Coasters Style) */}
+                      <td className="py-3.5 px-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDomainForLinks(item)}
+                          className="w-10 h-10 rounded-2xl bg-[#eef2ff] hover:bg-[#e0e7ff] text-[#4f46e5] border border-[#c7d2fe]/70 flex items-center justify-center mx-auto transition-all duration-200 hover:scale-110 active:scale-95 shadow-xs cursor-pointer group"
+                          title={`View Verified Links & Proof Screenshots for ${item.domain}`}
+                        >
+                          <Link2 className="w-5 h-5 text-[#4f46e5] group-hover:rotate-[-10deg] transition-transform" />
+                        </button>
                       </td>
 
                       {/* Price */}
@@ -1386,15 +1435,25 @@ export default function DomainMarketplaceInventoryPage() {
                   </div>
                 </div>
 
-                {/* Top Authority Links */}
+                {/* Links & Backlink Proof Action */}
                 <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">
-                  <div className="space-y-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1">
-                      <Link2 className="w-3 h-3 text-[#FC6B17]" /> Top High-DR Authority Links
-                    </span>
+                  <div className="space-y-3">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDomainForLinks(item)}
+                      className="w-full py-2.5 px-3.5 rounded-xl bg-[#eef2ff] hover:bg-[#e0e7ff] text-[#4f46e5] border border-[#c7d2fe]/70 flex items-center justify-center gap-2 font-bold text-xs transition-all hover:scale-[1.01] active:scale-98 shadow-xs group cursor-pointer"
+                    >
+                      <Link2 className="w-4 h-4 text-[#4f46e5] group-hover:rotate-[-10deg] transition-transform" />
+                      <span>View Backlinks &amp; Screenshots</span>
+                      {(item.screenshots?.length || 0) > 0 && (
+                        <span className="bg-[#4f46e5] text-white text-[10px] font-black px-1.5 py-0.2 rounded-md">
+                          {item.screenshots?.length}
+                        </span>
+                      )}
+                    </button>
 
                     <div className="flex flex-wrap gap-1.5">
-                      {item.topAuthorityLinks.map((link, lIdx) => (
+                      {item.topAuthorityLinks.slice(0, 3).map((link, lIdx) => (
                         <div
                           key={lIdx}
                           className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-bold border ${
@@ -1405,9 +1464,14 @@ export default function DomainMarketplaceInventoryPage() {
                           <span className="text-[10px] font-black opacity-80">DR {link.dr}</span>
                         </div>
                       ))}
+                      {item.topAuthorityLinks.length > 3 && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-600">
+                          +{item.topAuthorityLinks.length - 3}
+                        </span>
+                      )}
                     </div>
 
-                    <p className="text-xs text-gray-500 line-clamp-2 mt-2 leading-relaxed">
+                    <p className="text-xs text-gray-500 line-clamp-2 mt-1 leading-relaxed">
                       {item.description}
                     </p>
                   </div>
@@ -1803,6 +1867,88 @@ export default function DomainMarketplaceInventoryPage() {
                 </span>
               </div>
 
+              {/* SCREENSHOTS UPLOAD & PROOF SECTION */}
+              <div className="p-4 bg-gray-50/90 rounded-2xl border border-gray-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-gray-800 flex items-center gap-1.5">
+                    <ImageIcon className="w-4 h-4 text-[#4f46e5]" />
+                    <span>Ahrefs / Backlink Proof Screenshots</span>
+                  </span>
+                  <span className="text-[11px] font-bold text-gray-500">
+                    {newScreenshots.length} Uploaded
+                  </span>
+                </div>
+
+                {/* Thumbnail Previews */}
+                {newScreenshots.length > 0 && (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5 p-2.5 bg-white rounded-xl border border-gray-200">
+                    {newScreenshots.map((src, idx) => (
+                      <div key={idx} className="relative group rounded-lg overflow-hidden border border-gray-200 aspect-video bg-gray-100">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={src} alt={`Screenshot ${idx + 1}`} className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveScreenshot(idx, false)}
+                          className="absolute top-1 right-1 p-1 bg-red-600/90 hover:bg-red-700 text-white rounded-md shadow-xs opacity-90 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          title="Delete screenshot"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPreviewImage(src)}
+                          className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white"
+                        >
+                          <Maximize2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Upload & URL Input Controls */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white hover:bg-indigo-50/50 border border-dashed border-indigo-200 rounded-xl cursor-pointer transition-colors text-indigo-700 font-bold text-xs">
+                      <Upload className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Upload Screenshot Images</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => handleFileUpload(e, false)}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="url"
+                      value={newScreenshotUrlInput}
+                      onChange={(e) => setNewScreenshotUrlInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddScreenshotUrl(false);
+                        }
+                      }}
+                      placeholder="Or paste screenshot image URL (https://...)"
+                      className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#4f46e5] text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleAddScreenshotUrl(false)}
+                      disabled={!newScreenshotUrlInput.trim()}
+                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition-colors disabled:opacity-50 cursor-pointer shrink-0 flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add URL</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <label className="block font-bold text-gray-700 mb-1">Domain Description &amp; Pitch</label>
                 <textarea
@@ -2184,6 +2330,88 @@ export default function DomainMarketplaceInventoryPage() {
                 </div>
               </div>
 
+              {/* SCREENSHOTS UPLOAD & PROOF SECTION (EDIT MODAL) */}
+              <div className="p-4 bg-gray-50/90 rounded-2xl border border-gray-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-gray-800 flex items-center gap-1.5">
+                    <ImageIcon className="w-4 h-4 text-[#4f46e5]" />
+                    <span>Ahrefs / Backlink Proof Screenshots</span>
+                  </span>
+                  <span className="text-[11px] font-bold text-gray-500">
+                    {editScreenshots.length} Attached
+                  </span>
+                </div>
+
+                {/* Thumbnail Previews */}
+                {editScreenshots.length > 0 && (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5 p-2.5 bg-white rounded-xl border border-gray-200">
+                    {editScreenshots.map((src, idx) => (
+                      <div key={idx} className="relative group rounded-lg overflow-hidden border border-gray-200 aspect-video bg-gray-100">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={src} alt={`Screenshot ${idx + 1}`} className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveScreenshot(idx, true)}
+                          className="absolute top-1 right-1 p-1 bg-red-600/90 hover:bg-red-700 text-white rounded-md shadow-xs opacity-90 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          title="Delete screenshot"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPreviewImage(src)}
+                          className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white"
+                        >
+                          <Maximize2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Upload & URL Input Controls */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white hover:bg-indigo-50/50 border border-dashed border-indigo-200 rounded-xl cursor-pointer transition-colors text-indigo-700 font-bold text-xs">
+                      <Upload className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Upload Screenshot Images</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => handleFileUpload(e, true)}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="url"
+                      value={editScreenshotUrlInput}
+                      onChange={(e) => setEditScreenshotUrlInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddScreenshotUrl(true);
+                        }
+                      }}
+                      placeholder="Or paste screenshot image URL (https://...)"
+                      className="flex-1 px-3 py-2 bg-white border border-gray-200 rounded-xl outline-none focus:border-[#4f46e5] text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleAddScreenshotUrl(true)}
+                      disabled={!editScreenshotUrlInput.trim()}
+                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition-colors disabled:opacity-50 cursor-pointer shrink-0 flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add URL</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
 
               {/* Description */}
               <div>
@@ -2285,6 +2513,227 @@ export default function DomainMarketplaceInventoryPage() {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
       />
+
+      {/* VERIFIED LINKS & BACKLINK PROOF MODAL (DOMAIN COASTERS STYLE) */}
+      {selectedDomainForLinks && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in overflow-y-auto">
+          <div className="relative w-full max-w-2xl bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-gray-100 space-y-6 my-8 animate-in zoom-in-95">
+            <button
+              type="button"
+              onClick={() => setSelectedDomainForLinks(null)}
+              className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Header */}
+            <div>
+              <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#4f46e5] bg-[#eef2ff] px-3 py-1 rounded-full mb-2 border border-[#c7d2fe]/70">
+                <Link2 className="w-3.5 h-3.5" />
+                <span>Verified Authority Proof &amp; Backlinks</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-[#0d1b3e] tracking-tight flex items-center gap-2 flex-wrap">
+                <span>{selectedDomainForLinks.domain}</span>
+                <span className="text-xs font-bold px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg">
+                  ${selectedDomainForLinks.price.toLocaleString()} USD
+                </span>
+              </h2>
+
+              {/* Metric Highlights */}
+              <div className="flex flex-wrap items-center gap-2 mt-3 text-xs">
+                <span className="font-extrabold text-[#FC6B17] bg-orange-50 px-2.5 py-1 rounded-lg border border-orange-200">
+                  Ahrefs DR {selectedDomainForLinks.dr}
+                </span>
+                <span className="font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
+                  Moz DA {selectedDomainForLinks.da}
+                </span>
+                <span className="font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-200">
+                  Majestic TF {selectedDomainForLinks.tf || 28}
+                </span>
+                <span className="font-bold text-gray-700 bg-gray-100 px-2.5 py-1 rounded-lg">
+                  {selectedDomainForLinks.referringDomains.toLocaleString()} Referring Domains
+                </span>
+                <span className="font-bold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-lg">
+                  {selectedDomainForLinks.ageYears}y Archive Age
+                </span>
+              </div>
+            </div>
+
+            {/* SECTION 1: TOP AUTHORITY REFERRING DOMAIN MENTIONS */}
+            <div className="space-y-2.5">
+              <h3 className="text-xs font-black uppercase text-gray-500 tracking-wider flex items-center gap-1.5">
+                <Award className="w-4 h-4 text-indigo-600" />
+                <span>Top High-DR Referring Domains &amp; Backlink Mentions</span>
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {selectedDomainForLinks.topAuthorityLinks && selectedDomainForLinks.topAuthorityLinks.length > 0 ? (
+                  selectedDomainForLinks.topAuthorityLinks.map((link, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between px-3.5 py-2.5 bg-[#f8fafc] hover:bg-[#eef2ff]/50 rounded-xl border border-gray-200/80 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                        <span className="font-bold text-gray-800 text-xs truncate">
+                          {link.name}
+                        </span>
+                      </div>
+                      <span className="font-black text-[11px] text-[#4f46e5] bg-[#eef2ff] px-2 py-0.5 rounded-md border border-[#c7d2fe]/60 shrink-0">
+                        DR {link.dr}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-2 text-xs text-gray-400 italic p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    No individual referring domain mentions specified.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* SECTION 2: AHREFS & BACKLINK PROOF SCREENSHOTS */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-black uppercase text-gray-500 tracking-wider flex items-center gap-1.5">
+                  <ImageIcon className="w-4 h-4 text-[#FC6B17]" />
+                  <span>Ahrefs / Backlink Proof Screenshots</span>
+                </h3>
+                {selectedDomainForLinks.screenshots && selectedDomainForLinks.screenshots.length > 0 && (
+                  <span className="text-[11px] text-gray-400 font-semibold">
+                    Click image to expand in full-res
+                  </span>
+                )}
+              </div>
+
+              {selectedDomainForLinks.screenshots && selectedDomainForLinks.screenshots.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {selectedDomainForLinks.screenshots.map((src, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => setSelectedPreviewImage(src)}
+                      className="group relative rounded-xl overflow-hidden border border-gray-200 bg-gray-100 aspect-video cursor-pointer hover:border-[#4f46e5] hover:shadow-md transition-all"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={src}
+                        alt={`Proof screenshot ${idx + 1}`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                        <div className="flex items-center gap-1.5 text-xs font-bold bg-black/60 px-3 py-1.5 rounded-lg backdrop-blur-xs">
+                          <Maximize2 className="w-3.5 h-3.5" />
+                          <span>View Full-Res</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 bg-gray-50 rounded-2xl border border-dashed border-gray-200 text-center space-y-1">
+                  <p className="text-xs font-bold text-gray-600">
+                    No attached screenshots for this domain listing yet.
+                  </p>
+                  <p className="text-[11px] text-gray-400">
+                    All metrics and backlink profiles are verified live against our SEO database intelligence.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Description & pitch if present */}
+            {selectedDomainForLinks.description && (
+              <div className="p-3.5 bg-gray-50 rounded-xl text-xs text-gray-600 border border-gray-100">
+                <span className="font-bold text-gray-800">Domain Notes: </span>
+                {selectedDomainForLinks.description}
+              </div>
+            )}
+
+            {/* Footer Action Strip */}
+            <div className="pt-2 flex items-center justify-between gap-3 border-t border-gray-100 flex-wrap">
+              <div className="flex items-center gap-2">
+                <a
+                  href={`https://web.archive.org/web/*/${selectedDomainForLinks.domain}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors"
+                >
+                  <History className="w-3.5 h-3.5" />
+                  <span>Wayback Archive</span>
+                </a>
+                <Link
+                  href={`/dashboard/domain-analytics-result?domain=${encodeURIComponent(selectedDomainForLinks.domain)}`}
+                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors"
+                >
+                  <BarChart2 className="w-3.5 h-3.5" />
+                  <span>Analytics</span>
+                </Link>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDomainForLinks(null)}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = selectedDomainForLinks;
+                    setSelectedDomainForLinks(null);
+                    setSelectedDomainForBuy(d);
+                  }}
+                  className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-xs flex items-center gap-1.5 transition-all hover:scale-102 cursor-pointer"
+                >
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                  <span>Buy Domain (${selectedDomainForLinks.price.toLocaleString()})</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FULLSCREEN LIGHTBOX PREVIEW MODAL */}
+      {selectedPreviewImage && (
+        <div
+          onClick={() => setSelectedPreviewImage(null)}
+          className="fixed inset-0 z-60 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in cursor-zoom-out"
+        >
+          <div className="relative max-w-[94vw] max-h-[92vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+            <div className="absolute -top-12 right-0 flex items-center gap-3">
+              <a
+                href={selectedPreviewImage}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors flex items-center gap-1.5 text-xs font-bold"
+                title="Open in new window"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>Open Original</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => setSelectedPreviewImage(null)}
+                className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
+                title="Close Lightbox"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={selectedPreviewImage}
+              alt="Proof screenshot enlarged"
+              className="max-w-[94vw] max-h-[88vh] object-contain rounded-2xl shadow-2xl border border-white/20"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
