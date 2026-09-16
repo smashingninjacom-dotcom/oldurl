@@ -27,6 +27,7 @@ import {
   Key,
   Info,
   CheckCheck,
+  Zap,
 } from 'lucide-react';
 import {
   MarketplaceOrder,
@@ -319,7 +320,7 @@ export default function DashboardOrdersPage() {
         </div>
       </div>
 
-      {/* -------------------- ORDERS LIST / TABLE -------------------- */}
+      {/* -------------------- ORDERS TABLE -------------------- */}
       {filteredOrders.length === 0 ? (
         <div className="bg-white rounded-3xl p-10 sm:p-14 text-center border border-gray-100 shadow-xs space-y-4">
           <div className="w-16 h-16 rounded-2xl bg-orange-50 text-[#FC6B17] flex items-center justify-center mx-auto shadow-xs">
@@ -332,7 +333,7 @@ export default function DashboardOrdersPage() {
             <p className="text-xs text-gray-500 mt-1.5 max-w-md mx-auto leading-relaxed">
               {searchQuery || statusFilter !== 'All'
                 ? 'Try adjusting your search criteria or resetting filters.'
-                : 'Browse our curated marketplace to discover high-DR expired domains with verified editorial backlinks and instant transfer.'}
+                : 'Browse our curated marketplace to discover high-DR expired domains with verified editorial backlinks and instant Namebright transfer.'}
             </p>
           </div>
           <div className="pt-2">
@@ -346,160 +347,124 @@ export default function DashboardOrdersPage() {
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
-          {filteredOrders.map((order) => {
-            const purchaseFormatted = new Date(order.purchaseDate).toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-            });
+        <div className="bg-white rounded-3xl border border-gray-200/80 shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-gray-50/90 border-b border-gray-200 text-gray-500 font-extrabold uppercase text-[11px] tracking-wider">
+                  <th className="py-4 px-5">Order ID</th>
+                  <th className="py-4 px-5">Domain</th>
+                  <th className="py-4 px-4 text-center">Metrics</th>
+                  <th className="py-4 px-4 text-center">Transfer Type</th>
+                  <th className="py-4 px-4 text-center">Status</th>
+                  <th className="py-4 px-5 text-right">Paid Amount</th>
+                  <th className="py-4 px-5 text-center">Invoice</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredOrders.map((order) => {
+                  const purchaseFormatted = new Date(order.purchaseDate).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                  });
 
-            return (
-              <div
-                key={order.id}
-                className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-100 shadow-xs hover:shadow-md transition-all space-y-4"
-              >
-                {/* Header Strip */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className="text-xs font-mono font-bold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-lg">
-                      {order.id}
-                    </span>
-                    <span className="text-xs text-gray-400">Ordered on {purchaseFormatted}</span>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-full">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-600" /> {order.status}
-                    </span>
-                  </div>
+                  return (
+                    <tr key={order.id} className="hover:bg-orange-50/30 transition-colors">
+                      {/* Order ID & Date */}
+                      <td className="py-4 px-5 align-middle">
+                        <div className="font-mono font-bold text-gray-900">{order.id}</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">{purchaseFormatted}</div>
+                      </td>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedOrderForReceipt(order)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-700 hover:text-[#FC6B17] bg-gray-50 hover:bg-orange-50 rounded-xl border border-gray-200 transition-colors cursor-pointer"
-                    >
-                      <FileText className="w-3.5 h-3.5" />
-                      <span>Receipt / Invoice</span>
-                    </button>
-                  </div>
-                </div>
+                      {/* Domain Name */}
+                      <td className="py-4 px-5 align-middle">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-extrabold text-[#0d1b3e] text-sm sm:text-base">
+                            {order.domain}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(order.domain, `domain-${order.id}`)}
+                            className="p-1 text-gray-400 hover:text-[#FC6B17] hover:bg-orange-50 rounded transition-colors cursor-pointer"
+                            title="Copy domain name"
+                          >
+                            {copiedText === `domain-${order.id}` ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                          <a
+                            href={`https://web.archive.org/web/*/${order.domain}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors cursor-pointer"
+                            title="Wayback History"
+                          >
+                            <Globe className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
+                      </td>
 
-                {/* Main Domain Body */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
-                  {/* Left Domain Details */}
-                  <div className="lg:col-span-6 space-y-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-xl sm:text-2xl font-black text-[#0d1b3e] tracking-tight font-mono">
-                        {order.domain}
-                      </h3>
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(order.domain, `domain-${order.id}`)}
-                        className="p-1.5 text-gray-400 hover:text-[#FC6B17] hover:bg-orange-50 rounded-lg transition-colors cursor-pointer"
-                        title="Copy domain name"
-                      >
-                        {copiedText === `domain-${order.id}` ? (
-                          <Check className="w-4 h-4 text-emerald-600" />
-                        ) : (
-                          <Copy className="w-4 h-4" />
-                        )}
-                      </button>
-                      <a
-                        href={`https://web.archive.org/web/*/${order.domain}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
-                        title="Check Wayback History"
-                      >
-                        <Globe className="w-4 h-4" />
-                      </a>
-                    </div>
+                      {/* SEO Metrics */}
+                      <td className="py-4 px-4 text-center align-middle">
+                        <div className="inline-flex items-center gap-1.5 font-bold">
+                          <span className="bg-orange-50 text-[#FC6B17] px-2 py-0.5 rounded border border-orange-200 text-[11px]">
+                            DR {order.dr}
+                          </span>
+                          <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200 text-[11px]">
+                            DA {order.da}
+                          </span>
+                        </div>
+                        <div className="text-[10px] text-gray-400 mt-1">
+                          {order.referringDomains.toLocaleString()} RD
+                        </div>
+                      </td>
 
-                    {/* SEO Metrics Pill Badges */}
-                    <div className="flex items-center gap-2 flex-wrap text-xs font-bold">
-                      <span className="bg-orange-50 text-[#FC6B17] border border-orange-200 px-2.5 py-1 rounded-lg">
-                        Ahrefs DR {order.dr}
-                      </span>
-                      <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-1 rounded-lg">
-                        Moz DA {order.da}
-                      </span>
-                      {order.tf && (
-                        <span className="bg-purple-50 text-purple-700 border border-purple-200 px-2.5 py-1 rounded-lg">
-                          TF {order.tf}
+                      {/* Transfer Type */}
+                      <td className="py-4 px-4 text-center align-middle">
+                        <div className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-full">
+                          <Zap className="w-3 h-3 text-indigo-600 fill-indigo-600" />
+                          <span>Namebright Push</span>
+                        </div>
+                        <div className="text-[10px] text-gray-400 mt-1">3–5 min delivery</div>
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-4 px-4 text-center align-middle">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>{order.status || 'Completed'}</span>
                         </span>
-                      )}
-                      <span className="bg-gray-50 text-gray-700 border border-gray-200 px-2.5 py-1 rounded-lg">
-                        {order.referringDomains.toLocaleString()} RD
-                      </span>
-                      <span className="bg-gray-50 text-gray-600 border border-gray-200 px-2.5 py-1 rounded-lg">
-                        {order.backlinks.toLocaleString()} Links
-                      </span>
-                    </div>
-                  </div>
+                      </td>
 
-                  {/* Right: EPP Transfer Code Box */}
-                  <div className="lg:col-span-6 bg-gray-50/90 rounded-2xl p-4 border border-gray-200/80 space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-gray-700 flex items-center gap-1.5">
-                        <Key className="w-3.5 h-3.5 text-[#FC6B17]" />
-                        EPP Authorization / Auth-Code:
-                      </span>
-                      <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        Transfer Ready
-                      </span>
-                    </div>
+                      {/* Price */}
+                      <td className="py-4 px-5 text-right align-middle">
+                        <div className="font-black text-[#0d1b3e] text-sm">
+                          ${order.price.toLocaleString()}
+                        </div>
+                        <div className="text-[10px] text-emerald-600 font-semibold">100% Escrow</div>
+                      </td>
 
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 bg-white px-3.5 py-2 rounded-xl border border-gray-200 font-mono text-xs sm:text-sm font-bold text-gray-900 tracking-wider select-all shadow-2xs">
-                        {order.authCode}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(order.authCode, `code-${order.id}`)}
-                        className="bg-[#FC6B17] hover:bg-[#e05607] text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs shrink-0"
-                      >
-                        {copiedText === `code-${order.id}` ? (
-                          <>
-                            <CheckCheck className="w-4 h-4" />
-                            <span>Copied!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-4 h-4" />
-                            <span>Copy Auth-Code</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-
-                    <p className="text-[11px] text-gray-500 leading-normal">
-                      Use this auth code at <strong className="text-gray-700">Namecheap, GoDaddy, Porkbun, Cloudflare</strong>, or any ICANN registrar to initiate transfer.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Footer Strip with Price & Support */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-3 border-t border-gray-100 text-xs text-gray-500">
-                  <div>
-                    Transfer Method: <strong className="text-gray-800">{order.transferMethod}</strong>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span>
-                      Paid Amount:{' '}
-                      <strong className="text-gray-900 font-black text-sm">
-                        ${order.price.toLocaleString()} USD
-                      </strong>
-                    </span>
-                    <a
-                      href={`mailto:support@oldurl.domains?subject=Transfer Assistance for ${order.domain} (Order ${order.id})`}
-                      className="text-[#FC6B17] hover:underline font-bold"
-                    >
-                      Need Transfer Help? →
-                    </a>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                      {/* Invoice & Actions */}
+                      <td className="py-4 px-5 text-center align-middle">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedOrderForReceipt(order)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-gray-700 hover:text-white bg-gray-100 hover:bg-[#FC6B17] rounded-xl transition-all cursor-pointer shadow-2xs"
+                          title="View & print invoice receipt"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>Invoice</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -592,15 +557,21 @@ export default function DashboardOrdersPage() {
 
               {/* Transfer Details Card */}
               <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 space-y-1.5 text-xs">
-                <div className="font-bold text-gray-800 flex items-center gap-1.5">
-                  <Key className="w-3.5 h-3.5 text-[#FC6B17]" /> EPP Transfer Authorization Code
+                <div className="font-bold text-gray-800 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-[#FC6B17] fill-[#FC6B17]" />
+                    <span>Delivery Method: Namebright Account Push</span>
+                  </span>
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    Dispatched (3–5 min)
+                  </span>
                 </div>
-                <div className="font-mono bg-white p-2.5 rounded-xl border border-gray-200 text-gray-900 font-bold select-all">
-                  {selectedOrderForReceipt.authCode}
+                <div className="bg-white p-3 rounded-xl border border-gray-200 text-gray-700 text-xs font-medium space-y-1">
+                  <div>Direct push to buyer&apos;s registered Namebright username with $0 transfer fee.</div>
+                  <div className="text-[11px] text-gray-400">
+                    Guaranteed clean ownership &amp; 100% verified backlink integrity.
+                  </div>
                 </div>
-                <p className="text-[10px] text-gray-500 mt-1">
-                  Guaranteed clean ownership push. For registrar push assistance, contact support@oldurl.domains.
-                </p>
               </div>
             </div>
 
