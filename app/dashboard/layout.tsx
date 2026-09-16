@@ -474,6 +474,50 @@ export default function DashboardLayout({
       pathname === item.href ||
       (item.href === '/dashboard' && pathname === '/dashboard');
     const Icon = item.icon;
+    const isMarketplace = item.href === '/dashboard/marketplace';
+
+    // Highlight Marketplace uniquely in the list without altering the tab structure
+    if (isMarketplace) {
+      return (
+        <Link
+          key={item.name}
+          href={item.href}
+          prefetch={true}
+          onClick={() => setIsMobileMenuOpen(false)}
+          className={`group relative flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs sm:text-[13px] font-bold transition-all duration-200 my-1 ${
+            isActive
+              ? 'bg-gradient-to-r from-[#FC6B17] to-[#ea580c] text-white shadow-md shadow-orange-500/25 scale-[1.01]'
+              : 'bg-gradient-to-r from-orange-50/90 via-amber-50/60 to-orange-50/40 text-[#FC6B17] border border-orange-200/90 hover:border-[#FC6B17] hover:shadow-xs'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className={`w-7.5 h-7.5 rounded-lg flex items-center justify-center transition-all ${
+                isActive
+                  ? 'bg-white text-[#FC6B17] shadow-xs'
+                  : 'bg-[#FC6B17] text-white shadow-2xs group-hover:scale-105'
+              }`}
+            >
+              <ShoppingBag className="w-4 h-4 fill-current" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-black">{item.name}</span>
+              <Sparkles className={`w-3 h-3 ${isActive ? 'text-amber-200' : 'text-[#FC6B17] animate-pulse'}`} />
+            </div>
+          </div>
+
+          <span
+            className={`text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider ${
+              isActive
+                ? 'bg-white/25 text-white border border-white/30'
+                : 'bg-[#FC6B17] text-white shadow-2xs'
+            }`}
+          >
+            HOT
+          </span>
+        </Link>
+      );
+    }
 
     return (
       <Link
