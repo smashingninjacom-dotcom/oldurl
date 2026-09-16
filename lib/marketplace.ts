@@ -1,6 +1,7 @@
 export interface AuthorityLink {
   name: string;
   dr: number;
+  backlinksCount?: number;
   badgeColor?: string;
 }
 
