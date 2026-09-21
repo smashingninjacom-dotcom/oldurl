@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { getLocalWishlist, toggleDomainWishlist } from '../../../lib/watchlist';
+import { detectDomainCategory } from '../../../lib/ahrefs';
 
 function getPaginationRange(currentPage: number, totalPages: number): (number | string)[] {
   if (totalPages <= 7) {
@@ -961,6 +962,9 @@ export default function PreviousSearchesPage() {
                             <Globe className="w-3.5 h-3.5" />
                           </div>
                           <span className="text-[#0d1b3e] font-semibold text-xs sm:text-sm">{row.domain}</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-orange-50 text-[#FC6B17] border border-orange-100 whitespace-nowrap">
+                            {detectDomainCategory(row.domain)}
+                          </span>
                         </div>
                       </td>
                       <td className="py-3.5 px-4">

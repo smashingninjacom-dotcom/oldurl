@@ -35,6 +35,7 @@ import {
   deleteMarketplaceOrder,
 } from '../../../lib/orders';
 import { CartItem, getCart } from '../../../lib/cart';
+import { detectDomainCategory } from '../../../lib/ahrefs';
 import { supabase } from '../../../lib/supabaseClient';
 import CartDrawer from '../../../components/CartDrawer';
 import AuthModal from '../../../components/AuthModal';
@@ -382,6 +383,9 @@ export default function DashboardOrdersPage() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-mono font-extrabold text-[#0d1b3e] text-sm sm:text-base">
                             {order.domain}
+                          </span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-orange-50 text-[#FC6B17] border border-orange-100 whitespace-nowrap">
+                            {order.category || detectDomainCategory(order.domain)}
                           </span>
                           <button
                             type="button"

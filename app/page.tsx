@@ -48,6 +48,7 @@ import {
   DEFAULT_MARKETPLACE_DOMAINS,
   getDomainProofScreenshot,
 } from '../lib/marketplace';
+import { detectDomainCategory } from '../lib/ahrefs';
 
 interface DomainItem {
   domain: string;
@@ -669,6 +670,9 @@ export default function HomePage() {
                                 <span className="font-mono font-bold text-gray-900 text-sm tracking-wide">
                                   {maskedName}
                                 </span>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-orange-50 text-[#FC6B17] border border-orange-100 whitespace-nowrap">
+                                  {item.category || 'Technology & AI'}
+                                </span>
                                 <button
                                   type="button"
                                   onClick={openAuthModal}
@@ -1002,6 +1006,10 @@ export default function HomePage() {
                             )}
                             <span className="text-gray-500 font-semibold">{item.tld}</span>
                           </div>
+
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-orange-50 text-[#FC6B17] border border-orange-100 whitespace-nowrap">
+                            {detectDomainCategory(item.domain)}
+                          </span>
 
                           {item.isHot && (
                             <span className="inline-flex items-center gap-0.5 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-xs whitespace-nowrap">

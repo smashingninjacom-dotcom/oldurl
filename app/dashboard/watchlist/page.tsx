@@ -14,6 +14,7 @@ import {
 } from '../../../lib/watchlist';
 import { addMarketplaceDomain } from '../../../lib/marketplace';
 import { formatCheckDate, setPendingDomainsToScan } from '../../../lib/searchHistory';
+import { detectDomainCategory } from '../../../lib/ahrefs';
 import AccountNavTabs from '../../../components/AccountNavTabs';
 import {
   Bookmark,
@@ -568,8 +569,11 @@ export default function WatchlistPage() {
                           <Bookmark className="w-4 h-4 fill-current" />
                         </button>
                         <div>
-                          <div className="font-mono font-bold text-gray-900 text-xs flex items-center gap-1.5">
+                          <div className="font-mono font-bold text-gray-900 text-xs flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
                             <span>{item.domain}</span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-orange-50 text-[#FC6B17] border border-orange-100 whitespace-nowrap">
+                              {detectDomainCategory(item.domain)}
+                            </span>
                             <button
                               onClick={() => handleCopy(item.domain)}
                               className="text-gray-300 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"

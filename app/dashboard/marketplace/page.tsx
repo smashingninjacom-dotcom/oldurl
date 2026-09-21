@@ -1551,10 +1551,13 @@ export default function DomainMarketplaceInventoryPage() {
                           </button>
 
                           <div>
-                            <div className="font-extrabold text-[#0d1b3e] text-xs sm:text-[13px] flex items-center gap-1.5 flex-wrap sm:flex-nowrap">
+                            <div className="font-extrabold text-[#0d1b3e] text-xs sm:text-[13px] flex items-center gap-2 flex-wrap sm:flex-nowrap">
                               {isAdmin || revealedDomainIds.has(item.id) ? (
                                 <>
                                   <span className="font-mono font-bold text-gray-900">{item.domain}</span>
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-orange-50 text-[#FC6B17] border border-orange-100 whitespace-nowrap">
+                                    {item.category}
+                                  </span>
                                   {!isAdmin && (
                                     <button
                                       type="button"
@@ -1588,9 +1591,12 @@ export default function DomainMarketplaceInventoryPage() {
                                   </a>
                                 </>
                               ) : (
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                                   <span className="font-mono font-bold text-gray-800 tracking-wide select-none">
                                     {maskDomainName(item.domain)}
+                                  </span>
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-orange-50 text-[#FC6B17] border border-orange-100 whitespace-nowrap">
+                                    {item.category}
                                   </span>
                                   <button
                                     type="button"
@@ -1603,14 +1609,8 @@ export default function DomainMarketplaceInventoryPage() {
                                   </button>
                                 </div>
                               )}
-                            </div>
-
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                              <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.2 rounded">
-                                {item.category}
-                              </span>
                               {item.featured && (
-                                <span className="text-[9px] font-extrabold px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded">
+                                <span className="text-[9px] font-extrabold px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded whitespace-nowrap">
                                   HOT
                                 </span>
                               )}

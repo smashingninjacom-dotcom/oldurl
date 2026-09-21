@@ -337,6 +337,29 @@ const KNOWN_AUTHORITY_POOLS: Record<string, AuthorityMention[]> = {
   ],
 };
 
+export function detectDomainCategory(domainName: string): string {
+  if (!domainName) return 'Technology & AI';
+  const lower = domainName.toLowerCase().replace(/^(?:https?:\/\/)?(?:www\.)?/i, '').split('/')[0];
+  if (lower.includes('food') || lower.includes('whine') || lower.includes('wine') || lower.includes('home') || lower.includes('cook') || lower.includes('recipe') || lower.includes('living') || lower.includes('eco') || lower.includes('life') || lower.includes('travel') || lower.includes('hotel') || lower.includes('tour')) {
+    return 'Lifestyle & Home';
+  } else if (lower.includes('crypto') || lower.includes('ledger') || lower.includes('coin') || lower.includes('pay') || lower.includes('finance') || lower.includes('bank') || lower.includes('fund') || lower.includes('invest') || lower.includes('money') || lower.includes('cash')) {
+    return 'Finance & Crypto';
+  } else if (lower.includes('health') || lower.includes('pulse') || lower.includes('med') || lower.includes('fit') || lower.includes('care') || lower.includes('doctor') || lower.includes('bio') || lower.includes('pharma') || lower.includes('clinic')) {
+    return 'Health & Medical';
+  } else if (lower.includes('growth') || lower.includes('market') || lower.includes('seo') || lower.includes('rank') || lower.includes('traffic') || lower.includes('lead') || lower.includes('agency') || lower.includes('ad') || lower.includes('brand')) {
+    return 'Marketing & SEO';
+  } else if (lower.includes('legal') || lower.includes('law') || lower.includes('attorney') || lower.includes('court') || lower.includes('advise') || lower.includes('justice')) {
+    return 'Legal & Law';
+  } else if (lower.includes('estate') || lower.includes('realty') || lower.includes('property') || lower.includes('house') || lower.includes('land')) {
+    return 'Real Estate & Property';
+  } else if (lower.includes('news') || lower.includes('press') || lower.includes('media') || lower.includes('daily') || lower.includes('times') || lower.includes('post') || lower.includes('journal')) {
+    return 'News & Media';
+  } else if (lower.includes('saas') || lower.includes('hub') || lower.includes('cloud') || lower.includes('app') || lower.includes('tool') || lower.includes('shop') || lower.includes('store') || lower.includes('cart') || lower.includes('commerce')) {
+    return 'E-Commerce & SaaS';
+  }
+  return 'Technology & AI';
+}
+
 export async function fetchFullDomainMetrics(domain: string): Promise<FullDomainMetrics> {
   const cleanDomain = domain
     .trim()
@@ -367,32 +390,15 @@ export async function fetchFullDomainMetrics(domain: string): Promise<FullDomain
   const absHash = Math.abs(hash);
 
   // Detect niche category
-  let category = 'Technology & AI';
+  const category = detectDomainCategory(cleanDomain);
   let poolKey = 'tech';
-  const lower = cleanDomain.toLowerCase();
-
-  if (lower.includes('food') || lower.includes('whine') || lower.includes('wine') || lower.includes('home') || lower.includes('cook') || lower.includes('recipe') || lower.includes('living') || lower.includes('eco') || lower.includes('life')) {
-    category = 'Lifestyle & Home';
-    poolKey = 'lifestyle';
-  } else if (lower.includes('crypto') || lower.includes('ledger') || lower.includes('coin') || lower.includes('pay') || lower.includes('finance') || lower.includes('bank') || lower.includes('fund') || lower.includes('invest')) {
-    category = 'Finance & Crypto';
-    poolKey = 'finance';
-  } else if (lower.includes('health') || lower.includes('pulse') || lower.includes('med') || lower.includes('fit') || lower.includes('care') || lower.includes('doctor') || lower.includes('bio')) {
-    category = 'Health & Medical';
-    poolKey = 'health';
-  } else if (lower.includes('growth') || lower.includes('market') || lower.includes('seo') || lower.includes('rank') || lower.includes('traffic') || lower.includes('lead') || lower.includes('agency')) {
-    category = 'Marketing & SEO';
-    poolKey = 'marketing';
-  } else if (lower.includes('legal') || lower.includes('law') || lower.includes('attorney') || lower.includes('court') || lower.includes('advise')) {
-    category = 'Legal & Law';
-    poolKey = 'legal';
-  } else if (lower.includes('news') || lower.includes('press') || lower.includes('media') || lower.includes('daily') || lower.includes('times')) {
-    category = 'News & Media';
-    poolKey = 'general';
-  } else if (lower.includes('saas') || lower.includes('hub') || lower.includes('cloud') || lower.includes('app') || lower.includes('tool')) {
-    category = 'E-Commerce & SaaS';
-    poolKey = 'tech';
-  }
+  if (category === 'Lifestyle & Home') poolKey = 'lifestyle';
+  else if (category === 'Finance & Crypto') poolKey = 'finance';
+  else if (category === 'Health & Medical') poolKey = 'health';
+  else if (category === 'Marketing & SEO') poolKey = 'marketing';
+  else if (category === 'Legal & Law') poolKey = 'legal';
+  else if (category === 'News & Media') poolKey = 'general';
+  else if (category === 'E-Commerce & SaaS') poolKey = 'tech';
 
   // Determine DR (live or calculated)
   const dr = liveAhrefsDr !== null && liveAhrefsDr !== undefined
