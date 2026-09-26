@@ -281,41 +281,50 @@ export async function fetchAhrefsDomainRating(domain: string): Promise<AhrefsDrR
     process.env.NEXT_PUBLIC_AHREFS_API_KEY;
 
   if (apiKey) {
-    try {
-      const url = `https://api.ahrefs.com/v3/public/domain-rating-free?target=${encodeURIComponent(cleanDomain)}`;
-      const res = await fetch(url, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${apiKey.trim()}`,
-          Accept: 'application/json',
-        },
-        signal: AbortSignal.timeout(4000),
-      });
+    // Try Ahrefs API endpoints (Free Domain Rating and Site Explorer)
+    const endpoints = [
+      `https://api.ahrefs.com/v3/public/domain-rating-free?target=${encodeURIComponent(cleanDomain)}`,
+      `https://api.ahrefs.com/v3/site-explorer/domain-rating?target=${encodeURIComponent(cleanDomain)}&date=${new Date().toISOString().slice(0, 10)}`,
+    ];
 
-      if (res.ok) {
-        const data = await res.json();
-        const rawDr =
-          typeof data?.domain_rating?.domain_rating === 'number'
-            ? data.domain_rating.domain_rating
-            : typeof data?.domain_rating === 'number'
-            ? data.domain_rating
-            : typeof data?.dr === 'number'
-            ? data.dr
-            : null;
+    for (const url of endpoints) {
+      try {
+        const res = await fetch(url, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${apiKey.trim()}`,
+            Accept: 'application/json',
+          },
+          signal: AbortSignal.timeout(4000),
+        });
 
-        if (rawDr !== null && !isNaN(rawDr)) {
-          const roundedDr = Math.min(100, Math.max(0, Math.round(rawDr)));
-          ahrefsDrCache.set(cleanDomain, { dr: roundedDr, timestamp: Date.now() });
-          return {
-            dr: roundedDr,
-            domain: cleanDomain,
-            source: 'ahrefs',
-            license: data?.domain_rating?.license || data?.license || 'https://ahrefs.com/legal/domain-rating-license',
-          };
+        if (res.ok) {
+          const data = await res.json();
+          const rawDr =
+            typeof data?.domain_rating?.domain_rating === 'number'
+              ? data.domain_rating.domain_rating
+              : typeof data?.domain_rating === 'number'
+              ? data.domain_rating
+              : typeof data?.dr === 'number'
+              ? data.dr
+              : typeof data?.domain_rating?.dr === 'number'
+              ? data.domain_rating.dr
+              : null;
+
+          if (rawDr !== null && !isNaN(rawDr)) {
+            const roundedDr = Math.min(100, Math.max(0, Math.round(rawDr)));
+            ahrefsDrCache.set(cleanDomain, { dr: roundedDr, timestamp: Date.now() });
+            return {
+              dr: roundedDr,
+              domain: cleanDomain,
+              source: 'ahrefs',
+              license: data?.domain_rating?.license || data?.license || 'https://ahrefs.com/legal/domain-rating-license',
+            };
+          }
         }
+      } catch (error) {
+        console.warn('Ahrefs Domain Rating API notice:', error);
       }
-    } catch (error) {
-      console.warn('Ahrefs Domain Rating API notice:', error);
     }
   }
 
