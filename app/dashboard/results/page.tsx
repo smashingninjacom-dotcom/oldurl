@@ -44,7 +44,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { getLocalWishlist, toggleDomainWishlist } from '../../../lib/watchlist';
-import { detectDomainCategory } from '../../../lib/ahrefs';
+import { detectDomainCategory, calculateDomainAuthorityEstimate } from '../../../lib/ahrefs';
 
 interface ResultItem {
   id: string;
@@ -218,16 +218,17 @@ function ResultsContent() {
         'stripe.com', 'openai.com', 'spotify.com', 'walmart.com', 'ebay.com'
       ];
       const isKnownActive = knownActive.some((k) => lower === k || lower.endsWith('.' + k));
+      const est = calculateDomainAuthorityEstimate(domain);
 
       return {
         id: String(idx + 1).padStart(2, '0'),
         domain,
         status: isKnownActive ? 'Registered' : 'Registered',
         daysLeft: isKnownActive ? '730d' : 'Verifying...',
-        dr: isKnownActive ? 92 + (absHash % 7) : 0,
+        dr: isKnownActive ? 92 + (absHash % 7) : est.dr,
         registrar: isKnownActive ? 'MarkMonitor Inc.' : 'Verifying...',
-        refDomains: isKnownActive ? 120000 : 0,
-        backlinks: isKnownActive ? 960000 : 0,
+        refDomains: isKnownActive ? 120000 : est.referringDomains,
+        backlinks: isKnownActive ? 960000 : est.backlinks,
         createdAt: new Date().toISOString(),
       };
     }
