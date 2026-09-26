@@ -193,45 +193,29 @@ export function calculateDomainAuthorityEstimate(domain: string): {
   }
   const absHash = Math.abs(hash);
 
-  const namePart = parts[0] || '';
-  const ext = parts.slice(1).join('.');
+  // Calculate realistic referring domains count for typical dropped/audited domains
+  const referringDomains = (absHash % 110) + 12; // Typical 12-120 RD
+  const backlinks = Math.max(referringDomains + 8, Math.round(referringDomains * 1.2 + (absHash % 25)));
 
-  // Keyword authority boost for premium expired / aged niche keywords
-  const highKeywords = [
-    'tech', 'ai', 'cloud', 'news', 'media', 'journal', 'daily', 'times', 'post', 'press',
-    'health', 'med', 'care', 'fitness', 'finance', 'fund', 'capital', 'invest', 'ledger',
-    'coin', 'pay', 'market', 'seo', 'growth', 'law', 'legal', 'advise', 'estate', 'property',
-    'living', 'home', 'guide', 'review', 'hub', 'saas', 'app', 'lab', 'eco', 'green',
-    'venture', 'studio', 'agency'
-  ];
-  const hasKeyword = highKeywords.some((kw) => namePart.includes(kw));
-
-  let baseDr = 25;
-
-  if (ext === 'edu' || ext === 'gov') {
-    baseDr = 85 + (absHash % 12);
-  } else if (ext === 'org' || ext === 'ac.uk') {
-    baseDr = hasKeyword ? 52 + (absHash % 28) : 40 + (absHash % 25);
-  } else if (ext === 'io' || ext === 'ai' || ext === 'co') {
-    baseDr = hasKeyword ? 48 + (absHash % 30) : 35 + (absHash % 25);
-  } else if (ext === 'com' || ext === 'net') {
-    baseDr = hasKeyword ? 42 + (absHash % 34) : 28 + (absHash % 28);
-  } else if (ext === 'in' || ext === 'de' || ext === 'co.uk' || ext === 'ca' || ext === 'au') {
-    baseDr = hasKeyword ? 38 + (absHash % 30) : 24 + (absHash % 26);
+  // Ahrefs logarithmic Domain Rating curve:
+  // Domains with < 120 referring domains have DR 0 (e.g. fastliving.org with 82 RD has DR 0)
+  let dr = 0;
+  if (referringDomains >= 3000) {
+    dr = 65 + (absHash % 20);
+  } else if (referringDomains >= 1200) {
+    dr = 40 + (absHash % 25);
+  } else if (referringDomains >= 600) {
+    dr = 25 + (absHash % 15);
+  } else if (referringDomains >= 300) {
+    dr = 10 + (absHash % 15);
+  } else if (referringDomains >= 120) {
+    dr = 2 + (absHash % 6);
   } else {
-    baseDr = hasKeyword ? 25 + (absHash % 25) : 15 + (absHash % 22);
+    dr = 0;
   }
 
-  // Clean, short brandable domain bonus (e.g. 5-10 chars without hyphens/numbers)
-  if (!namePart.includes('-') && !/\d/.test(namePart) && namePart.length >= 4 && namePart.length <= 12) {
-    baseDr += 4;
-  }
-
-  const dr = Math.min(94, Math.max(8, baseDr));
-  const da = Math.max(5, Math.min(95, Math.round(dr * 0.82) + (absHash % 4)));
-  const tf = Math.max(3, Math.min(80, Math.round(da * 0.55) + (absHash % 4)));
-  const referringDomains = Math.max(12, Math.round(dr * 14 + (absHash % 300)));
-  const backlinks = Math.max(referringDomains * 3, Math.round(referringDomains * 16 + (absHash % 2000)));
+  const da = dr > 0 ? Math.max(1, Math.min(95, Math.round(dr * 0.82))) : 0;
+  const tf = dr > 0 ? Math.max(1, Math.min(80, Math.round(da * 0.55))) : 0;
 
   return { dr, da, tf, referringDomains, backlinks };
 }
